@@ -5,7 +5,7 @@
   "ModVersion": "1.0.0",
   "ModDescription": "Lights up the battlefield tiles that hide Move-Find treasure so you never walk past a hidden item. In-process runtime; toggle on/off in the mod config.",
   "ModDll": "FFTTreasureMaster.dll",
-  "ModIcon": "",
+  "ModIcon": "preview.png",
   "ModR2RManagedDll32": "",
   "ModR2RManagedDll64": "",
   "ModNativeDll32": "",
