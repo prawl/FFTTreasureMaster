@@ -61,6 +61,15 @@ internal static class Mem
         WriteProcessMemory(Self, (nint)a, s, 1, out _);
     }
 
+    /// <summary>Best-effort little-endian 4-byte write; a failed write (freed page) is a safe
+    /// no-op, never a fault. Used by the EnhancedMarker write path (int-typed marker fields).</summary>
+    public static void W32(long a, uint v)
+    {
+        var s = _scratch ??= new byte[8];
+        s[0] = (byte)v; s[1] = (byte)(v >> 8); s[2] = (byte)(v >> 16); s[3] = (byte)(v >> 24);
+        WriteProcessMemory(Self, (nint)a, s, 4, out _);
+    }
+
     // scalar reads reuse a per-thread buffer (the engine loop is single-threaded);
     // a failed/freed read returns 0 rather than faulting.
     private static bool ReadScalar(long a, int n)
@@ -73,6 +82,13 @@ internal static class Mem
     public static ushort U16(long a) => ReadScalar(a, 2) ? (ushort)(_scratch![0] | (_scratch[1] << 8)) : (ushort)0;
     public static uint U32(long a) => ReadScalar(a, 4)
         ? (uint)(_scratch![0] | (_scratch[1] << 8) | (_scratch[2] << 16) | (_scratch[3] << 24)) : 0u;
+    public static ulong U64(long a)
+    {
+        if (!ReadScalar(a, 8)) return 0UL;
+        var s = _scratch!;
+        return (ulong)s[0]        | ((ulong)s[1] << 8)  | ((ulong)s[2] << 16) | ((ulong)s[3] << 24)
+             | ((ulong)s[4] << 32) | ((ulong)s[5] << 40) | ((ulong)s[6] << 48) | ((ulong)s[7] << 56);
+    }
 
     // little-endian parsers over a byte[] buffer (used by the region scan)
     public static ushort U16(byte[] b, int o) => (ushort)(b[o] | (b[o + 1] << 8));

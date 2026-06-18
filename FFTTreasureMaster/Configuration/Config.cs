@@ -9,7 +9,7 @@ namespace FFTTreasureMaster.Configuration;
 public class Config : Configurable<Config>
 {
     [DisplayName("Enable Treasure Master")]
-    [Description("Highlight the battle tiles that hide Move-Find treasure (the 0x80 mark bit is " +
+    [Description("Highlight the battle tiles that hide Move-Find treasure (a yellow-fill mark is " +
                  "held on each treasure tile's render flag so it stays lit on the battlefield). " +
                  "Turn this off to disable the mod without uninstalling it. Default: on.")]
     [DefaultValue(true)]

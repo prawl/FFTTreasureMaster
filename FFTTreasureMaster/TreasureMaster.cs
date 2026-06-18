@@ -3,8 +3,9 @@ using System;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Treasure Master: auto-holds bit 0x80 on each treasure tile's render-flag bytes,
-/// keeping treasure tiles lit on the battlefield map. Gated by a single config toggle
+/// Treasure Master: auto-holds the highlight value (0xCC -- cyan border, yellow fill) on each
+/// treasure tile's render-flag bytes, keeping treasure tiles marked on the battlefield map.
+/// Gated by a single config toggle
 /// (Config.Enabled, default on); when disabled the module is permanently idle and reads
 /// no game memory.
 ///
@@ -18,9 +19,9 @@ namespace FFTTreasureMaster;
 ///                  time, a quorum of TreasureMinPlausibleAddrs ok addrs is required; below
 ///                  quorum the module polls indefinitely rather than disarming permanently.
 ///
-/// OR-only by construction: the module has no Clear path. Release = stop writing; the
+/// Set-only by construction: the module has no Clear path. Release = stop writing; the
 /// engine clears marks itself (LIVE_LEDGER). Writes are CharmLock.Force-idiom: Writable
-/// guard -> U8 read -> write cur|0x80 only on difference.
+/// guard -> U8 read -> write MarkValue (0xCC) only on difference.
 ///
 /// The stateless gate evaluations (PE key, fingerprint, per-addr audit) live in ArmAudit.cs
 /// (a separate class -- a partial would be same-state-machine evasion per the house rules).
@@ -40,6 +41,7 @@ internal sealed partial class TreasureMaster : ISignature
     private readonly IGameMemory  _mem;
     private readonly ArmAudit     _audit;
     private readonly TileHolder   _holder;
+    private readonly MarkerWriter _markers;   // native yellow-diamond path (dark until verified)
 
     private readonly bool _enabled;
     private readonly FastHold _fastHold;
@@ -56,6 +58,8 @@ internal sealed partial class TreasureMaster : ISignature
     private bool      _naggedThisBattle  = false; // stub/missing nag once per battle
     private bool      _capLoggedThisBattle = false;
     private bool      _foreignLoggedThisBattle = false; // armed off-screen log once per battle
+    private bool      _markersLoggedThisBattle = false; // enhanced-marker first-write log once per battle
+    private string?   _lastMarkerProbe = null;           // last logged marker failure-probe (dedupe)
     private bool      _flapLoggedThisBattle = false;    // fingerprint-mismatch log once per battle (arm or mid-battle)
 
     private int       _stampCheckCountdown = 0;   // ticks until the next stamp comparison
@@ -85,6 +89,7 @@ internal sealed partial class TreasureMaster : ISignature
         _mem          = mem ?? new LiveMemory();
         _audit        = new ArmAudit(_mem);
         _holder       = new TileHolder(_mem);
+        _markers      = new MarkerWriter(_mem);   // Tuning.EnhancedMarkersEnabled gates it (off)
         _enabled     = enabled ?? Tuning.TreasureEnabled;
         _fastHold     = new FastHold(_holder, Tuning.TreasureFastHoldMs);
         // Thread not started here -- tests must not spawn OS threads; Engine calls StartFastHold().
@@ -110,6 +115,8 @@ internal sealed partial class TreasureMaster : ISignature
         _naggedThisBattle           = false;
         _capLoggedThisBattle        = false;
         _foreignLoggedThisBattle    = false;
+        _markersLoggedThisBattle    = false;
+        _lastMarkerProbe            = null;
         _flapLoggedThisBattle       = false;
         // _globalIdle and _globalIdleChecked persist -- the L0 check is startup-once.
         _fastHold.Publish(null);    // immediacy on battle-exit: stop holding before Tick runs again
@@ -295,6 +302,7 @@ internal sealed partial class TreasureMaster : ISignature
                          $"{map.Tiles.Count} tile(s)" +
                          (map.IsMapIdOnly ? " (map-id-only)" : ""));
                 _holder.Hold(map);
+                WriteMarkers(map);   // no-op while dark; native yellow diamonds once enabled
                 break;
 
             case ArmVerdict.Retry:
@@ -358,11 +366,43 @@ internal sealed partial class TreasureMaster : ISignature
         // Foreign bytes (off-screen tiles: camera pan, action camera) are skipped by the
         // per-addr ClassifyAddr check inside TileHolder.Hold -- no separate veto needed.
         var (_, foreign) = _holder.Hold(map);
+        WriteMarkers(map);
         if (foreign > 0 && !_foreignLoggedThisBattle)
         {
             _foreignLoggedThisBattle = true;
             Log.Info($"treasure: map {map.MapId} {foreign} byte(s) off-flag (tiles off-screen?) " +
                      $"-- skipping those, holding the rest");
+        }
+    }
+
+    // ── enhanced-marker write (native yellow diamonds) ─────────────────────────────
+
+    /// <summary>
+    /// Drives the EnhancedMarker write path and logs the first successful write per battle so a
+    /// live test isn't blind: the "active" line means the utility pointer resolved and markers
+    /// were written; its ABSENCE (no diamonds + no line) means the pointer never resolved
+    /// (Offsets.EnhancedMarkingUtilityPtr wrong/null). No-op + silent while the path is gated off.
+    /// </summary>
+    private void WriteMarkers(TreasureMap map)
+    {
+        int wrote = _markers.Write(map);
+        if (wrote > 0)
+        {
+            if (!_markersLoggedThisBattle)
+            {
+                _markersLoggedThisBattle = true;
+                Log.Info($"treasure: enhanced markers active -- wrote {wrote} slot(s) for map {map.MapId} {map.Name}");
+            }
+            return;
+        }
+
+        // Wrote nothing: log WHY (which guard failed), de-duped so a stable state logs once.
+        var (readable, basePtr, writable) = _markers.Resolve();
+        string probe = $"readable={readable} base=0x{basePtr:X} writable={writable}";
+        if (probe != _lastMarkerProbe)
+        {
+            _lastMarkerProbe = probe;
+            Log.Info($"treasure: enhanced markers NOT written -- ptr@0x{Offsets.EnhancedMarkingUtilityPtr:X} {probe}");
         }
     }
 }

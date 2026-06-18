@@ -30,6 +30,11 @@ internal sealed class FakeSparseMemory : IGameMemory
     public readonly Dictionary<long, uint>    U32s           = new();
     public readonly Dictionary<long, int>     ReadCount      = new();
 
+    // MarkerWriter extensions: U64s seeds the dereferenced utility pointer; WrittenU32
+    // records 4-byte marker-field writes (mirrors Written for the 0x80 path).
+    public readonly Dictionary<long, ulong>   U64s           = new();
+    public readonly Dictionary<long, uint>    WrittenU32     = new();
+
     public byte U8(long a)
     {
         ReadCount[a] = ReadCount.TryGetValue(a, out int c) ? c + 1 : 1;
@@ -37,10 +42,12 @@ internal sealed class FakeSparseMemory : IGameMemory
     }
 
     public ushort U16(long a) => U16s.TryGetValue(a, out var v) ? v : (ushort)0;
+    public ulong U64(long a) => U64s.TryGetValue(a, out var v) ? v : 0UL;
 
     public bool Readable(long a, int n) => ReadableAddrs.Contains(a);
     public bool Writable(long a, int n) => WritableAddrs.Contains(a);
     public void W8(long a, byte v) { Written[a] = v; U8s[a] = v; }
+    public void W32(long a, uint v) { WrittenU32[a] = v; }
 
     // U32 support: ArmAudit reads 4-byte PE fields as two U16 reads, or via U8x4.
     // We override TryReadBytes so the fingerprint path works, and expose U8 for U32

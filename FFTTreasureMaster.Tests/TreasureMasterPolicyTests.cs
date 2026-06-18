@@ -15,12 +15,11 @@ namespace FFTTreasureMaster.Tests;
 ///     the two implementations can never silently drift. Three pinned vectors: empty, "a", "foobar".
 ///
 /// (3) AddrState / ClassifyAddr -- per-byte safety contract over the only legitimate values
-///     {0x00, 0x01, 0x80, 0x81}. Bit 0x80 set with no other high bits -> Held; 0x00/0x01 ->
-///     Resting; anything else -> Foreign (never written). Full truth table over representative
-///     bytes.
+///     {0x00, 0x01, MarkValue (0xCC)}. 0xCC -> Held; 0x00/0x01 -> Resting; anything else ->
+///     Foreign (never written). Full truth table over representative bytes.
 ///
-/// (4) WantWrite -- OR-only invariant: cur | 0x80 always has bit 0x80 set; no other bits are
-///     ever cleared.
+/// (4) WantWrite / MarkValue -- flat write of MarkValue (0xCC, the cyan-border/yellow-fill
+///     highlight) regardless of cur; set-only (the engine clears marks, the module never does).
 ///
 /// (5) DecideArm -- two-outcome arm gate: okCount >= minPlausible -> Arm; otherwise -> Retry.
 ///     Foreign bytes are NOT a disarm at arm time (they are off-screen render bytes and will
@@ -74,13 +73,14 @@ public class TreasureMasterPolicyTests
     [Theory]
     [InlineData(0x00, 0)]   // Resting
     [InlineData(0x01, 0)]   // Resting
-    [InlineData(0x02, 2)]   // Foreign -- low-bit noise but high byte clear
+    [InlineData(0x02, 2)]   // Foreign -- low-bit noise but not a resting value
     [InlineData(0x40, 2)]   // Foreign
     [InlineData(0x7F, 2)]   // Foreign
-    [InlineData(0x80, 1)]   // Held
-    [InlineData(0x81, 1)]   // Held
-    [InlineData(0x82, 2)]   // Foreign -- 0x80 set but extra bits present
-    [InlineData(0xC1, 2)]   // Foreign
+    [InlineData(0x80, 2)]   // Foreign -- the OLD mark bit is no longer our mark
+    [InlineData(0x81, 2)]   // Foreign
+    [InlineData(0xCB, 2)]   // Foreign -- adjacent colour, not our mark
+    [InlineData(0xCC, 1)]   // Held -- MarkValue (the flat yellow-fill mark)
+    [InlineData(0xCD, 2)]   // Foreign -- low-bit variant is a different colour, not Held
     [InlineData(0xFF, 2)]   // Foreign
     public void ClassifyAddr_full_truth_table(byte cur, int expectedOrdinal)
     {
@@ -88,15 +88,7 @@ public class TreasureMasterPolicyTests
         Assert.Equal((TreasureMaster.AddrState)expectedOrdinal, TreasureMaster.ClassifyAddr(cur));
     }
 
-    // ---- (4) WantWrite -- OR-only invariant ----
-
-    [Theory]
-    [InlineData(0x00, 0x80)]
-    [InlineData(0x01, 0x81)]
-    public void WantWrite_sets_0x80_on_resting_bytes(byte cur, byte expected)
-    {
-        Assert.Equal(expected, TreasureMaster.WantWrite(cur));
-    }
+    // ---- (4) WantWrite / MarkValue -- flat write of the mark value ----
 
     [Theory]
     [InlineData(0x00)]
@@ -105,23 +97,17 @@ public class TreasureMasterPolicyTests
     [InlineData(0x81)]
     [InlineData(0x40)]
     [InlineData(0xFF)]
-    public void WantWrite_never_produces_a_value_without_0x80(byte input)
+    public void WantWrite_always_returns_MarkValue_regardless_of_cur(byte input)
     {
-        Assert.NotEqual(0, TreasureMaster.WantWrite(input) & 0x80);
+        // Flat write: the byte value IS the highlight colour, so the resting byte never
+        // influences the result (unlike the old cur | 0x80 scheme).
+        Assert.Equal(TreasureMaster.MarkValue, TreasureMaster.WantWrite(input));
     }
 
-    [Theory]
-    [InlineData(0x00)]
-    [InlineData(0x01)]
-    [InlineData(0x80)]
-    [InlineData(0x81)]
-    [InlineData(0xAB)]
-    [InlineData(0xFF)]
-    public void WantWrite_never_clears_any_bit_that_was_already_set(byte input)
+    [Fact]
+    public void MarkValue_is_the_yellow_fill_highlight()
     {
-        byte result = TreasureMaster.WantWrite(input);
-        // OR-only: every bit set in input must still be set in result
-        Assert.Equal(input & result, input);
+        Assert.Equal(0xCC, TreasureMaster.MarkValue);
     }
 
     // ---- (5) DecideArm -- matrix ----

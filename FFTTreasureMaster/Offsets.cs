@@ -36,4 +36,13 @@ internal static class Offsets
     // Static per-map terrain records, 7 bytes/tile; used read-only as the map-identity
     // fingerprint source (FNV-1a64 over a fixed-length prefix).
     public const long TerrainGrid = 0x140C6B440;   // 1.5 re-found 2026-06-17 +0x6440 (was 0x140C65000)
+
+    // --- EnhancedMarker (native yellow move-find diamonds) -- UNVERIFIED for our 1.5 build ---
+    // Static slot holding a pointer to the game's EnhancedMarkingUtility heap object. The marker
+    // array begins at +0x8 (stride 0x18); MarkerWriter sets Enabled=2 + grid (X,Y) per treasure
+    // tile and the game renders a yellow diamond. The value below is dicene's
+    // FFT-MoveFind_Markers address and is NOT yet confirmed against our build key, so the write
+    // path stays gated off (Tuning.EnhancedMarkersEnabled) until a live probe matches it. The
+    // build-key L0 gate (TreasureMaster) is the global safety net if the game is ever patched.
+    public const long EnhancedMarkingUtilityPtr = 0x143CD3AA0;
 }

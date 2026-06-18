@@ -15,11 +15,11 @@ namespace FFTTreasureMaster.Tests;
 ///
 /// House invariant matrix:
 ///   (1)  !inLive ticks issue ZERO writes (Written empty throughout).
-///   (2)  Arms after stable map id + fingerprint + audit, then writes cur|0x80 to each
-///        Resting addr.
+///   (2)  Arms after stable map id + fingerprint + audit, then writes MarkValue (0xCC) to
+///        each Resting addr.
 ///   (3)  Re-stamps after a simulated engine clear (reset byte to off -> next tick re-writes).
-///   (4)  Pre-marked 0x81 byte (Held): never written at all.
-///   (5)  OR-only structural assert: every value in Written has bit 0x80 set.
+///   (4)  Pre-marked 0xCC byte (Held): never written at all.
+///   (5)  Mark-value structural assert: every value in Written equals MarkValue (0xCC).
 ///   (6)  Fingerprint mismatch at arm: zero writes ever + once log.
 ///   (7)  Fingerprint drift mid-battle (mutate terrain bytes, advance past the revalidate
 ///        tick): writes CONTINUE -- identity is proven at ARM time, so a mid-battle drift is
@@ -37,7 +37,7 @@ namespace FFTTreasureMaster.Tests;
 ///        to Resting (camera-pan round-trip).
 ///
 /// Plus one PinnedBuf fact through LiveMemory: hold a 6-byte tile against pinned
-/// process memory, assert 0x80 lands at the target offset and neighbors are untouched.
+/// process memory, assert MarkValue (0xCC) lands at the target offset and neighbors are untouched.
 /// </summary>
 public class TreasureMasterTests
 {
@@ -214,10 +214,10 @@ public class TreasureMasterTests
         Assert.Empty(mem.Written);
     }
 
-    // ── (2) Arms and writes cur|0x80 to each Resting addr ────────────────────────
+    // ── (2) Arms and writes MarkValue (0xCC) to each Resting addr ─────────────────
 
     [Fact]
-    public void Armed_writes_OR_0x80_to_each_resting_addr()
+    public void Armed_writes_mark_value_to_each_resting_addr()
     {
         var dir  = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
@@ -231,13 +231,14 @@ public class TreasureMasterTests
 
         Assert.True(mem.Written.ContainsKey(addrs[0]));
         Assert.True(mem.Written.ContainsKey(addrs[1]));
-        Assert.Equal(0x80, mem.Written[addrs[0]]);
-        Assert.Equal(0x80, mem.Written[addrs[1]]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[0]]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[1]]);
     }
 
-    // addr with low bit set (0x01) should write 0x81
+    // addr with low bit set (0x01): flat mark, NOT 0x80|0x01 -- the byte value is the colour,
+    // so a low-bit-resting tile gets exactly MarkValue (0xCC), same as a 0x00-resting tile.
     [Fact]
-    public void Armed_writes_0x81_to_resting_addr_with_low_bit()
+    public void Armed_writes_flat_mark_value_on_low_bit_resting_addr()
     {
         var dir  = TempDir();
         var terrain = new byte[] { 0xAA, 0xBB, 0x11, 0x22, 0x33, 0x44, 0x55 };
@@ -249,7 +250,7 @@ public class TreasureMasterTests
         var tm = Make(db, mem);
         StabilizeAndArm(tm);
 
-        Assert.Equal(0x81, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     // ── (3) Re-stamps after a simulated engine clear ──────────────────────────────
@@ -274,7 +275,7 @@ public class TreasureMasterTests
 
         // Next tick should re-write
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     // ── (4) Pre-marked 0x81 byte (Held): never written ───────────────────────────
@@ -287,8 +288,8 @@ public class TreasureMasterTests
         var addr = TileAddr(4);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
             addrs: new[] { (addr, (byte)0x00) });
-        // 0x81 = Held (bit 0x80 + engine don't-care low bit)
-        var mem = BuildMem(74, terrain, new[] { addr }, initialByte: 0x81);
+        // MarkValue (0xCC) = Held -- the flat mark already present on the tile
+        var mem = BuildMem(74, terrain, new[] { addr }, initialByte: TreasureMaster.MarkValue);
 
         var tm = Make(db, mem);
         StabilizeAndArm(tm);
@@ -298,10 +299,10 @@ public class TreasureMasterTests
         Assert.False(mem.Written.ContainsKey(addr));
     }
 
-    // ── (5) OR-only structural assert ────────────────────────────────────────────
+    // ── (5) mark-value structural assert: every write is exactly MarkValue ────────
 
     [Fact]
-    public void OR_only_structural_every_Written_value_has_0x80_set()
+    public void Every_Written_value_equals_mark_value()
     {
         var dir  = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
@@ -316,7 +317,7 @@ public class TreasureMasterTests
 
         Assert.NotEmpty(mem.Written);
         foreach (var kv in mem.Written)
-            Assert.NotEqual(0, kv.Value & 0x80);
+            Assert.Equal(TreasureMaster.MarkValue, kv.Value);
     }
 
     // ── (6) Fingerprint mismatch at arm: ARMS ANYWAY (advisory fingerprint) ────────
@@ -344,7 +345,7 @@ public class TreasureMasterTests
         // The resting tile addr meets quorum, so the module arms and holds despite the
         // fingerprint mismatch.
         Assert.True(mem.Written.ContainsKey(addr));
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     // ── (7) Fingerprint drift mid-battle: KEEP HOLDING (no disarm) ────────────────
@@ -387,7 +388,7 @@ public class TreasureMasterTests
 
         Assert.True(mem.Written.ContainsKey(addr),
             "mid-battle fingerprint drift must keep holding, not disarm");
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     // ── (8) Map-id flip mid-ARMED ─────────────────────────────────────────────────
@@ -461,7 +462,7 @@ public class TreasureMasterTests
         var addr = TileAddr(8);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
             addrs: new[] { (addr, (byte)0x00) });
-        // 0x42 is Foreign (not in {0x00, 0x01, 0x80, 0x81})
+        // 0x42 is Foreign (not in {0x00, 0x01, 0xCC})
         var mem = BuildMem(74, terrain, new[] { addr }, initialByte: 0x42);
 
         var tm = Make(db, mem);
@@ -491,7 +492,7 @@ public class TreasureMasterTests
 
         Assert.False(mem.Written.ContainsKey(addrA));
         Assert.True(mem.Written.ContainsKey(addrB));
-        Assert.Equal(0x80, mem.Written[addrB]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrB]);
     }
 
     // ── (11) ResetBattle clears state, writes nothing, fresh battle re-arms ───────
@@ -541,7 +542,7 @@ public class TreasureMasterTests
         TickN(tm, Tuning.TreasureArmStableTicks + 5);
 
         Assert.NotEmpty(mem.Written);
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     // ── (12) Stub map: no writes, zero tile-addr writes ───────────────────────────
@@ -644,7 +645,7 @@ public class TreasureMasterTests
         TickN(tm, Tuning.TreasureArmStableTicks + 10);
 
         Assert.True(mem.Written.ContainsKey(addr));
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     // ── (14) Foreign bytes while ARMED: stay armed, skip foreign, resume on return ──
@@ -712,7 +713,7 @@ public class TreasureMasterTests
         TickN(tm, 5);
         Assert.Empty(mem.Written);  // all foreign, all skipped; module still ARMED
 
-        // Phase 2: camera pans back, bytes return to Resting (engine cleared 0x80 too)
+        // Phase 2: camera pans back, bytes return to Resting (engine cleared the mark too)
         foreach (var a in addrs) mem.U8s[a] = 0x00;
         mem.Written.Clear();
         tm.Tick(DateTime.Now, inLive: true);
@@ -959,7 +960,7 @@ public class TreasureMasterTests
 
         Assert.True(mem.Written.ContainsKey(addr),
             "v3 static-field drift mid-battle must keep holding (LIVE INCIDENT #4)");
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     /// <summary>
@@ -1028,21 +1029,21 @@ public class TreasureMasterTests
         StabilizeAndArm(tm);
 
         Assert.True(mem.Written.ContainsKey(addr));
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
-    // ── PinnedBuf fact: 0x80 lands at target, neighbors untouched ─────────────────
+    // ── PinnedBuf fact: MarkValue lands at target, neighbors untouched ────────────
 
     /// <summary>
     /// Drive a 6-byte pinned buffer through LiveMemory (RPM/WPM on our own process),
-    /// asserting the mark bit lands at offset 0 and bytes 1-5 are untouched.
+    /// asserting the mark value lands at offset 0 and bytes 1-5 are untouched.
     /// Mirrors MemBitsTests and BarrageTests pattern.
     /// </summary>
     [Fact]
-    public void PinnedBuf_hold_0x80_lands_and_neighbors_untouched()
+    public void PinnedBuf_hold_mark_value_lands_and_neighbors_untouched()
     {
         using var pin = PinnedBuf.Of(6);
-        pin.Bytes[0] = 0x00;   // target -- should become 0x80
+        pin.Bytes[0] = 0x00;   // target -- should become MarkValue (0xCC)
         pin.Bytes[1] = 0x42;   // neighbor
         pin.Bytes[2] = 0x11;
         pin.Bytes[3] = 0xFE;
@@ -1056,7 +1057,7 @@ public class TreasureMasterTests
         byte want = TreasureMaster.WantWrite((byte)cur);
         live.W8(pin.Addr, want);
 
-        Assert.Equal(0x80, pin.Bytes[0]);
+        Assert.Equal(TreasureMaster.MarkValue, pin.Bytes[0]);
         Assert.Equal(0x42, pin.Bytes[1]);
         Assert.Equal(0x11, pin.Bytes[2]);
         Assert.Equal(0xFE, pin.Bytes[3]);
@@ -1283,7 +1284,7 @@ public class TreasureMasterTests
         {
             Assert.True(mem.Written.ContainsKey(a),
                 $"map-id-only: addr {a:x} should be written even with garbage terrain");
-            Assert.Equal(0x80, mem.Written[a]);
+            Assert.Equal(TreasureMaster.MarkValue, mem.Written[a]);
         }
     }
 
@@ -1397,16 +1398,17 @@ public class TreasureMasterTests
         StabilizeAndArm(tm);
 
         Assert.True(mem.Written.ContainsKey(addr));
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     // ── FastHold tests ────────────────────────────────────────────────────────────
     // No real threads are spawned (Start/StartFastHold never called).
     // All tests drive HoldOnce() directly -- the thread-safe property is argued by
-    // construction: TileHolder is stateless and OR-only, so concurrent callers are safe.
+    // construction: TileHolder is stateless and set-only (writes the same MarkValue), so
+    // concurrent callers are idempotent and safe.
 
     /// <summary>
-    /// FastHold.HoldOnce with a published map writes 0x80 to the tile addresses via
+    /// FastHold.HoldOnce with a published map writes MarkValue to the tile addresses via
     /// the underlying TileHolder (same fake-memory path as the normal tick).
     /// </summary>
     [Fact]
@@ -1426,15 +1428,15 @@ public class TreasureMasterTests
         fh.HoldOnce();
         Assert.Empty(mem.Written);
 
-        // Publish a map: HoldOnce writes 0x80 to each resting addr.
+        // Publish a map: HoldOnce writes MarkValue to each resting addr.
         var map = db.Maps[0];
         fh.Publish(map);
         fh.HoldOnce();
 
         Assert.True(mem.Written.ContainsKey(addrs[0]));
         Assert.True(mem.Written.ContainsKey(addrs[1]));
-        Assert.Equal(0x80, mem.Written[addrs[0]]);
-        Assert.Equal(0x80, mem.Written[addrs[1]]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[0]]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[1]]);
     }
 
     /// <summary>
@@ -1580,7 +1582,7 @@ public class TreasureMasterTests
         // One more tick tips past the threshold -- now armed + write.
         TickN(tm, 6, inLive: true);
         Assert.NotEmpty(mem.Written);
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     /// <summary>
@@ -1647,7 +1649,7 @@ public class TreasureMasterTests
         // Full stability window passes -> arms and writes again.
         TickN(tm, Tuning.TreasureArmStableTicks + 5, inLive: true);
         Assert.NotEmpty(mem.Written);
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
     /// <summary>
@@ -1676,7 +1678,7 @@ public class TreasureMasterTests
         TickN(tm, Tuning.TreasureArmStableTicks + 10, inLive: true);
 
         Assert.NotEmpty(mem.Written);
-        Assert.Equal(0x80, mem.Written[addr]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
 }

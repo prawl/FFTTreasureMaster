@@ -42,4 +42,15 @@ internal static class Tuning
     /// <summary>FastHold re-stamp interval in ms (~2x per 60 fps animation frame ~= 16 ms).
     /// Out-paces the running-water wipe that clears 0x80 between 33 ms loop re-stamps.</summary>
     public const int TreasureFastHoldMs = 8;
+
+    /// <summary>Master gate for the experimental EnhancedMarker write path (native yellow
+    /// move-find diamonds via the game's EnhancedMarkingUtility -- see MarkerWriter.cs).
+    /// While false, MarkerWriter.Write is a guaranteed no-op that reads no game memory.
+    ///
+    /// DARK. The EnhancedMarker (floating-diamond) path was abandoned: dicene's build differs
+    /// from our 1.5 (both code and the utility pointer shifted non-uniformly; his
+    /// EnhancedMarkingUtilityPtr reads null here), and an idle marker array can't be fingerprinted.
+    /// We get yellow tiles instead via the flat MarkValue (0xCC) write -- see TreasureMaster.Policy.
+    /// Left wired (no-op) in case the utility pointer is ever found by disassembly.</summary>
+    public const bool EnhancedMarkersEnabled = false;
 }

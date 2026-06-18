@@ -15,10 +15,11 @@ namespace FFTTreasureMaster;
 ///                         compile-time fact, not a runtime surprise.
 ///   3. AddrState /
 ///      ClassifyAddr    -- per-byte safety contract over the only legitimate values
-///                         {0x00, 0x01, 0x80, 0x81}; anything else is Foreign and is never
-///                         written.
-///   4. WantWrite       -- OR-only by construction: cur | 0x80. No Clear path exists in this
-///                         module.
+///                         {0x00, 0x01, MarkValue (0xCC)}; anything else is Foreign and is
+///                         never written.
+///   4. WantWrite /
+///      MarkValue       -- flat write of MarkValue (0xCC = cyan border, yellow fill). Set-only:
+///                         no Clear path exists; the engine clears marks itself.
 ///   5. ArmVerdict /
 ///      DecideArm       -- two-outcome arm gate: okCount >= minPlausible -> Arm;
 ///                         otherwise -> Retry (infinite patience). Foreign bytes are NOT a
@@ -86,32 +87,37 @@ internal sealed partial class TreasureMaster
 
     /// <summary>
     /// Maps a raw byte from the tile's render-flag address to its <see cref="AddrState"/>.
-    /// Legitimate values are exactly {0x00, 0x01, 0x80, 0x81}:
-    ///   bit 0x80 set, no other high bits (i.e. byte masked to 0xFE == 0x80) -> Held.
-    ///   0x00 or 0x01 (bit 0x80 clear, no stray high bits)                   -> Resting.
-    ///   anything else                                                         -> Foreign.
-    /// The low bit is engine-driven don't-care; the runtime audits with it elsewhere.
+    /// Legitimate values are exactly {0x00, 0x01, <see cref="MarkValue"/>}:
+    ///   <see cref="MarkValue"/> (0xCC, the cyan-border/yellow-fill highlight) -> Held.
+    ///   0x00 or 0x01 (the per-tile resting value; low bit is engine-driven)   -> Resting.
+    ///   anything else                                                          -> Foreign.
+    /// The mark is a FLAT value (not OR 0x80): the whole byte value selects the highlight colour,
+    /// so the held byte is exactly MarkValue -- there is no low-bit variant (ORing a resting
+    /// 0x01 would shift 0xCC -> 0xCD, a different colour).
     /// </summary>
     internal static AddrState ClassifyAddr(byte cur)
     {
-        // Mask off the engine don't-care low bit; then test the high byte.
-        byte masked = (byte)(cur & 0xFE);
-        return masked switch
-        {
-            0x80 => AddrState.Held,
-            0x00 => AddrState.Resting,
-            _    => AddrState.Foreign,
-        };
+        if (cur == MarkValue)           return AddrState.Held;
+        if (cur == 0x00 || cur == 0x01) return AddrState.Resting;
+        return AddrState.Foreign;
     }
 
-    // ---- #4 WantWrite ----
+    // ---- #4 MarkValue / WantWrite ----
 
     /// <summary>
-    /// The value to write for this byte: <paramref name="cur"/> OR 0x80.
-    /// OR-only by construction -- no Clear path exists in this module; the engine clears
-    /// marks itself (ledger-proven).
+    /// The render-flag byte value that paints a treasure tile: a cyan border with a yellow
+    /// interior fill. The byte value IS the highlight colour (live-tuned 2026-06-18 by cycling
+    /// values on map 74 -- 0x80 was the original dim mark, 0xCC the yellow-fill variant).
     /// </summary>
-    internal static byte WantWrite(byte cur) => (byte)(cur | 0x80);
+    internal const byte MarkValue = 0xCC;
+
+    /// <summary>
+    /// The value to write for this byte: always <see cref="MarkValue"/>, regardless of
+    /// <paramref name="cur"/>. Written FLAT (not cur | mark): the colour is the whole byte, so
+    /// ORing a resting 0x01 would yield 0xCD (a different colour). Still set-only -- the module
+    /// never writes a resting value to un-mark; the engine clears marks itself (ledger-proven).
+    /// </summary>
+    internal static byte WantWrite(byte cur) => MarkValue;
 
     // ---- #5 DecideArm ----
 
