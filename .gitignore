@@ -1,0 +1,38 @@
+# .gitignore for prawl.fft.treasuremaster
+#
+# Self-contained: this repo does NOT rely on ~/.gitignore_global. Every rule the
+# project needs lives here.
+
+# --- Python (tools/) ---
+__pycache__/
+*.pyc
+*.pyo
+
+# --- .NET build artifacts ---
+bin/
+obj/
+*.pdb
+
+# --- Generated runtime dataset (baked from data/treasure_addrs.json by gen_treasure_db.py) ---
+# The bake runs on every BuildLinked / Publish / CI run, so the generated copy is never source.
+FFTTreasureMaster/treasure.json
+
+# --- Release / packaging artifacts ---
+Publish/
+dist/
+*.zip
+
+# --- OS / editor cruft ---
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+.vs/
+.vscode/
+*.user
+
+# --- Local-only: third-party Move-Find FAQ (copyright; referenced by docs) ---
+treasure.txt
+
+# --- Local-only: rolling session handoff doc (not part of the repo) ---
+docs/HANDOFF.md
