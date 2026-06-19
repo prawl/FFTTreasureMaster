@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace FFTTreasureMaster;
 
@@ -42,12 +43,23 @@ internal sealed partial class TreasureMaster : ISignature
     private readonly ArmAudit     _audit;
     private readonly TileHolder   _holder;
     private readonly MarkerWriter _markers;   // native yellow-diamond path (dark until verified)
+    private readonly ClaimAudit   _claims;
+    private readonly bool         _claimDetection;
 
     private readonly bool _enabled;
     private readonly FastHold _fastHold;
 
+    private readonly HashSet<(int, int)> _claimed = new();
+    private readonly Dictionary<int, int> _lastCount = new();   // itemId -> inventory count last tick
+    private readonly Dictionary<int, int> _armCount  = new();   // itemId -> count at arm (immutable refund baseline)
+    private readonly Dictionary<(int, int), int> _claimItem = new();   // claimed tile -> item id that triggered the claim
+    private string?   _lastClaimDiag   = null;    // last logged scan diagnostic (log on change)
+    private string?   _lastStateDiag   = null;    // TEMP (RetryDiagnostics): dedupe inLive/phase logs
+    private string?   _lastHoldDiag    = null;    // TEMP (RetryDiagnostics): dedupe hold-breakdown logs
+
     private Phase     _phase          = Phase.Disarmed;
-    private TreasureMap? _map         = null;    // the active map, null when none found
+    private TreasureMap? _map         = null;    // the full map (identity/audit/fingerprint)
+    private TreasureMap? _activeMap   = null;    // the hold/publish view (claimed tiles excluded)
     private int       _stableTicks    = 0;       // consecutive ticks with the same valid map id
     private byte      _stableMapId    = 0;
     private int       _armAttempts    = 0;
@@ -68,8 +80,11 @@ internal sealed partial class TreasureMaster : ISignature
 
     /// <param name="enabled">Master on/off gate; null = use Tuning.TreasureEnabled (the documented
     /// default). When false the module is permanently idle and never reads game memory.</param>
-    public TreasureMaster(TreasureDb db, IGameMemory? mem = null, bool? enabled = null)
-        : this(load: () => db, datasetStamp: () => null, mem: mem, enabled: enabled) { }
+    /// <param name="claimDetection">Claim detection gate; null = use Tuning.ClaimDetectionEnabled.
+    /// When true, an eligible player unit standing on a tile claims it for the battle.</param>
+    public TreasureMaster(TreasureDb db, IGameMemory? mem = null, bool? enabled = null, bool? claimDetection = null)
+        : this(load: () => db, datasetStamp: () => null, mem: mem, enabled: enabled,
+               claimDetection: claimDetection) { }
 
     /// <summary>
     /// Injectable seam ctor used by tests and Engine alike.
@@ -81,17 +96,20 @@ internal sealed partial class TreasureMaster : ISignature
         Func<TreasureDb> load,
         Func<DateTime?> datasetStamp,
         IGameMemory? mem = null,
-        bool? enabled = null)
+        bool? enabled = null,
+        bool? claimDetection = null)
     {
-        _load         = load;
-        _datasetStamp = datasetStamp;
-        _db           = TreasureDb.MakeEmpty();   // placeholder; replaced on first Tick
-        _mem          = mem ?? new LiveMemory();
-        _audit        = new ArmAudit(_mem);
-        _holder       = new TileHolder(_mem);
-        _markers      = new MarkerWriter(_mem);   // Tuning.EnhancedMarkersEnabled gates it (off)
-        _enabled     = enabled ?? Tuning.TreasureEnabled;
-        _fastHold     = new FastHold(_holder, Tuning.TreasureFastHoldMs);
+        _load           = load;
+        _datasetStamp   = datasetStamp;
+        _db             = TreasureDb.MakeEmpty();   // placeholder; replaced on first Tick
+        _mem            = mem ?? new LiveMemory();
+        _audit          = new ArmAudit(_mem);
+        _holder         = new TileHolder(_mem);
+        _markers        = new MarkerWriter(_mem);   // Tuning.EnhancedMarkersEnabled gates it (off)
+        _claims         = new ClaimAudit(_mem);
+        _enabled        = enabled ?? Tuning.TreasureEnabled;
+        _claimDetection = claimDetection ?? Tuning.ClaimDetectionEnabled;
+        _fastHold       = new FastHold(_holder, Tuning.TreasureFastHoldMs);
         // Thread not started here -- tests must not spawn OS threads; Engine calls StartFastHold().
     }
 
@@ -107,6 +125,7 @@ internal sealed partial class TreasureMaster : ISignature
     {
         _phase           = Phase.Disarmed;
         _map             = null;
+        _activeMap       = null;
         _stableTicks     = 0;
         _stableMapId     = 0;
         _armAttempts     = 0;
@@ -118,6 +137,13 @@ internal sealed partial class TreasureMaster : ISignature
         _markersLoggedThisBattle    = false;
         _lastMarkerProbe            = null;
         _flapLoggedThisBattle       = false;
+        _claimed.Clear();
+        _lastCount.Clear();
+        _armCount.Clear();
+        _claimItem.Clear();
+        _lastClaimDiag              = null;
+        _lastStateDiag              = null;
+        _lastHoldDiag               = null;
         // _globalIdle and _globalIdleChecked persist -- the L0 check is startup-once.
         _fastHold.Publish(null);    // immediacy on battle-exit: stop holding before Tick runs again
     }
@@ -166,6 +192,14 @@ internal sealed partial class TreasureMaster : ISignature
         }
         if (_globalIdle) { _fastHold.Publish(null); return; }
 
+        // TEMP (RetryDiagnostics): log inLive/phase transitions so a Retry that drops the battle-map
+        // gate (inLive=false) or fails to re-arm (phase stuck) is visible in the log.
+        if (Tuning.RetryDiagnostics)
+        {
+            string sd = $"inLive={inLive} phase={_phase}";
+            if (sd != _lastStateDiag) { _lastStateDiag = sd; Log.Info($"diag/state: {sd}"); }
+        }
+
         if (!inLive)
         {
             _stableTicks = 0;   // stability counter resets when not in live battle
@@ -181,7 +215,7 @@ internal sealed partial class TreasureMaster : ISignature
         }
 
         // Single publish point: hold exactly when phase==Armed AND inLive.
-        _fastHold.Publish(_phase == Phase.Armed ? _map : null);
+        _fastHold.Publish(_phase == Phase.Armed ? (_activeMap ?? _map) : null);
     }
 
     // ── L0 global-idle check (once at first tick) ─────────────────────────────────
@@ -298,6 +332,8 @@ internal sealed partial class TreasureMaster : ISignature
             case ArmVerdict.Arm:
                 _phase          = Phase.Armed;
                 _revalidateTick = 0;
+                _activeMap      = map;   // start with the full map; claim detection narrows it
+                if (_claimDetection) InitClaimBaseline(map);
                 Log.Info($"treasure: map {map.MapId} {map.Name} armed -- " +
                          $"{map.Tiles.Count} tile(s)" +
                          (map.IsMapIdOnly ? " (map-id-only)" : ""));
@@ -362,17 +398,262 @@ internal sealed partial class TreasureMaster : ISignature
             }
         }
 
-        // Hold loop: per addr, OR in 0x80 only on a Resting byte.
+        // Claim detection: a tile is claimed when a unit stands on it AND its item count has risen
+        // (the count rises only on a real claim by an eligible unit; the occupancy pins the exact
+        // tile). Un-light every claimed tile every tick (survives a stale ~8ms FastHold pass).
+        if (_claimDetection)
+        {
+            bool grew   = DetectClaims(map);
+            bool shrank = DetectRefunds(map);
+            RefreshClaimCounts(map);   // refresh per-tick baselines AFTER both decisions read them
+            if (grew || shrank)
+            {
+                Log.Info($"claim: {_claimed.Count} tile(s) active" +
+                         (shrank ? " (refund re-lit tiles)" : "") +
+                         $": [{string.Join(", ", _claimed)}]");
+                RebuildActiveMap();
+            }
+            foreach (var tile in map.Tiles)
+            {
+                if (_claimed.Contains((tile.X, tile.Y))) _holder.Unlight(tile);
+            }
+        }
+
+        // Hold loop: per addr, OR in MarkValue only on a Resting byte.
         // Foreign bytes (off-screen tiles: camera pan, action camera) are skipped by the
         // per-addr ClassifyAddr check inside TileHolder.Hold -- no separate veto needed.
-        var (_, foreign) = _holder.Hold(map);
-        WriteMarkers(map);
+        var holdMap = _activeMap ?? map;
+        var (wrote, foreign) = _holder.Hold(holdMap);
+        WriteMarkers(holdMap);
         if (foreign > 0 && !_foreignLoggedThisBattle)
         {
             _foreignLoggedThisBattle = true;
             Log.Info($"treasure: map {map.MapId} {foreign} byte(s) off-flag (tiles off-screen?) " +
                      $"-- skipping those, holding the rest");
         }
+        if (Tuning.RetryDiagnostics) LogHoldDiag(holdMap, wrote, foreign);
+    }
+
+    /// <summary>TEMP (RetryDiagnostics): logs a per-armed-tick breakdown of the held map's render
+    /// bytes -- write count this tick, and resting/held/foreign/unreadable totals across all addrs,
+    /// with each tile's first-addr byte value sampled. Deduped on change. Shows, after a Retry,
+    /// whether the bytes are Foreign (skipped -> no marks) vs Resting (would paint) vs Held (already
+    /// lit). All reads guarded.</summary>
+    private void LogHoldDiag(TreasureMap map, int wrote, int foreign)
+    {
+        int rest = 0, held = 0, frgn = 0, unread = 0;
+        var samples = new System.Collections.Generic.List<string>();
+        foreach (var tile in map.Tiles)
+        {
+            foreach (var (addr, _) in tile.Addrs)
+            {
+                if (!_mem.Readable(addr, 1)) { unread++; continue; }
+                switch (ClassifyAddr(_mem.U8(addr)))
+                {
+                    case AddrState.Resting: rest++; break;
+                    case AddrState.Held:    held++; break;
+                    case AddrState.Foreign: frgn++; break;
+                }
+            }
+            if (tile.Addrs.Count > 0)
+            {
+                long a0 = tile.Addrs[0].Addr;
+                string vv = _mem.Readable(a0, 1) ? _mem.U8(a0).ToString("X2") : "??";
+                samples.Add($"({tile.X},{tile.Y}):{vv}");
+            }
+        }
+        string diag = $"hold: tiles={map.Tiles.Count} wrote={wrote} rest={rest} held={held} " +
+                      $"foreign={frgn} unread={unread} [{string.Join(" ", samples)}]";
+        if (diag != _lastHoldDiag) { _lastHoldDiag = diag; Log.Info("diag/" + diag); }
+    }
+
+    // ── claim map rebuild ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Rebuilds <see cref="_activeMap"/> excluding any tiles whose (X,Y) is in
+    /// <see cref="_claimed"/>. If no tiles are claimed, <see cref="_activeMap"/> equals
+    /// <see cref="_map"/> (the full map). The full map is never modified.
+    /// </summary>
+    private void RebuildActiveMap()
+    {
+        if (_map is not { } fullMap) return;
+        if (_claimed.Count == 0) { _activeMap = fullMap; return; }
+
+        var filteredTiles = new System.Collections.Generic.List<TreasureTile>(fullMap.Tiles.Count);
+        foreach (var t in fullMap.Tiles)
+        {
+            if (!_claimed.Contains((t.X, t.Y))) filteredTiles.Add(t);
+        }
+        _activeMap = new TreasureMap
+        {
+            MapId     = fullMap.MapId,
+            Name      = fullMap.Name,
+            TileCount = fullMap.TileCount,
+            FpVer     = fullMap.FpVer,
+            FpLen     = fullMap.FpLen,
+            FpHashHex = fullMap.FpHashHex,
+            Tiles     = filteredTiles,
+        };
+    }
+
+    // ── claim detection: occupancy + inventory-count rise ──────────────────────────
+
+    /// <summary>Snapshots the inventory counts of every tile's items at arm. The per-tick baseline
+    /// (<see cref="_lastCount"/>) drives claim detection (a later rise marks a claim); the immutable
+    /// arm baseline (<see cref="_armCount"/>) drives refund detection (a later return to it marks a
+    /// reset refund). Called once when the map arms.</summary>
+    private void InitClaimBaseline(TreasureMap map)
+    {
+        _lastCount.Clear();
+        _armCount.Clear();
+        _claimItem.Clear();
+        foreach (var tile in map.Tiles)
+        {
+            TrackCount(tile.RareItemId);
+            TrackCount(tile.CommonItemId);
+            TrackArmCount(tile.RareItemId);
+            TrackArmCount(tile.CommonItemId);
+        }
+    }
+
+    /// <summary>Captures <paramref name="itemId"/>'s count into the immutable arm baseline, once.
+    /// Self-guards on ContainsKey, so it is cheap to call every tick: if the count was unreadable at
+    /// arm it is captured lazily on the first tick it becomes readable (before any claim, since a
+    /// claim also needs a readable count to be detected). Never overwritten once set.</summary>
+    private void TrackArmCount(int itemId)
+    {
+        if (itemId <= 0 || _armCount.ContainsKey(itemId)) return;
+        int cur = _claims.ReadCount(itemId);
+        if (cur >= 0) _armCount[itemId] = cur;
+    }
+
+    /// <summary>Refreshes the per-tick baseline (<see cref="_lastCount"/>) for every tile item and
+    /// lazily fills any missing arm baseline. Called once per armed tick AFTER both DetectClaims and
+    /// DetectRefunds have read the prior values, so a rise (claim) and a fall (refund) are both
+    /// measured against the same prior tick.</summary>
+    private void RefreshClaimCounts(TreasureMap map)
+    {
+        foreach (var tile in map.Tiles)
+        {
+            TrackCount(tile.RareItemId);
+            TrackCount(tile.CommonItemId);
+            TrackArmCount(tile.RareItemId);
+            TrackArmCount(tile.CommonItemId);
+        }
+    }
+
+    /// <summary>
+    /// Latches each unclaimed tile that (a) has a unit standing on it AND (b) had one of its item
+    /// counts rise since last tick, recording WHICH item id rose (preferring the rare item) so a
+    /// later refund can be classified. The count rises only on a real claim by an eligible unit, so
+    /// this needs no per-unit eligibility byte; occupancy pins the exact tile (so maps that reuse an
+    /// item id across tiles do not over-latch). Logs the occupied-treasure-tile set on change for a
+    /// live test. Returns true if any new tile latched. The caller refreshes the tracked counts
+    /// (RefreshClaimCounts) after this AND DetectRefunds have read the prior values.
+    /// </summary>
+    private bool DetectClaims(TreasureMap map)
+    {
+        var occupied = new HashSet<(int, int)>();
+        _claims.CollectOccupied(occupied);
+
+        bool grew = false;
+        var occDiag = new System.Collections.Generic.List<string>();
+        foreach (var tile in map.Tiles)
+        {
+            var key = (tile.X, tile.Y);
+            if (!occupied.Contains(key)) continue;
+            occDiag.Add($"({tile.X},{tile.Y}) r{tile.RareItemId}={_claims.ReadCount(tile.RareItemId)} " +
+                        $"c{tile.CommonItemId}={_claims.ReadCount(tile.CommonItemId)}");
+            if (_claimed.Contains(key)) continue;
+
+            bool rareRose = ItemCountRose(tile.RareItemId);
+            bool commonRose = !rareRose && ItemCountRose(tile.CommonItemId);
+            if (rareRose || commonRose)
+            {
+                _claimed.Add(key);
+                _claimItem[key] = rareRose ? tile.RareItemId : tile.CommonItemId;
+                grew = true;
+            }
+        }
+
+        string diag = string.Join("  ", occDiag);
+        if (diag != _lastClaimDiag)
+        {
+            _lastClaimDiag = diag;
+            if (diag.Length > 0)
+                Log.Info($"claim: map {map.MapId} unit(s) on treasure tile(s) -- {diag}");
+        }
+        return grew;
+    }
+
+    /// <summary>
+    /// Detects a battle RESET from the inventory refund it produces, and on detection clears EVERY
+    /// claim so all tiles re-light. This is the fix for the in-battle "restart from the start" path,
+    /// which produces no sustained out-of-live window, so the battle-exit edge never fires and
+    /// ResetBattle never runs -- yet the restart refunds claimed items (their inventory counts drop
+    /// back to the arm baseline). Returns true if any claim was cleared.
+    ///
+    /// A reset refunds ALL claims together, so detection keys off signals a single legitimate action
+    /// cannot fake:
+    ///   * a RARE-claimed tile back at its arm baseline. A rare count cannot drop mid-battle (FFT
+    ///     has no in-battle equip, and rare Move-Find items are not consumables), so a rare refund
+    ///     is an unambiguous reset. Clearing ALL claims on it also re-lights common-claimed tiles
+    ///     whose refunds straggle across ticks.
+    ///   * >= 2 DISTINCT item ids dropping to baseline in the SAME tick (edge-triggered). A lone
+    ///     consumable use drops one item count; two unrelated uses never land on one 33ms tick.
+    /// Counting DISTINCT item ids (not tiles) is load-bearing: maps reuse a single item id across
+    /// several tiles (see ClaimAudit), so a single use of a shared id edge-trips every tile claimed
+    /// via it -- counting tiles would fake a reset, counting item ids correctly sees one drop.
+    /// Edge-triggering (the drop happened THIS tick) is equally load-bearing: a level check would let
+    /// two staggered consumable uses -- each leaving a different count sitting at baseline -- co-occur
+    /// and fake a reset. Counts keyed by global item id mean we cannot do better per-tile; an
+    /// ALL-common claim set whose refunds straggle across ticks (or a single common claim) is a
+    /// documented limitation -- still strictly better than the pre-fix dark-after-restart.
+    /// </summary>
+    private bool DetectRefunds(TreasureMap map)
+    {
+        if (_claimed.Count == 0) return false;
+
+        bool rareRefund = false;                 // a rare-claimed tile back at baseline: definitive reset
+        var  edgeDropItems = new HashSet<int>(); // DISTINCT item ids that fell to <= baseline THIS tick
+        foreach (var tile in map.Tiles)
+        {
+            var key = (tile.X, tile.Y);
+            if (!_claimed.Contains(key)) continue;
+            if (!_claimItem.TryGetValue(key, out int item)) continue;
+            if (!_armCount.TryGetValue(item, out int baseCount)) continue;
+            int cur = _claims.ReadCount(item);
+            if (cur < 0 || cur > baseCount) continue;   // not at or below the arm baseline
+
+            // Rare slot only: when a tile's rare and common ids coincide we cannot tell which slot
+            // dropped, so treat it as common (conservative -- a lone drop must not fake a reset).
+            if (item == tile.RareItemId && tile.RareItemId != tile.CommonItemId) rareRefund = true;
+            if (_lastCount.TryGetValue(item, out int prev) && prev > baseCount) edgeDropItems.Add(item);
+        }
+
+        if (!rareRefund && edgeDropItems.Count < 2) return false;   // not a reset: leave claims latched
+
+        _claimed.Clear();
+        _claimItem.Clear();
+        return true;
+    }
+
+    /// <summary>True when <paramref name="itemId"/>'s current inventory count exceeds the value
+    /// tracked last tick (a fresh increment). False for non-items or unreadable counts.</summary>
+    private bool ItemCountRose(int itemId)
+    {
+        if (itemId <= 0) return false;
+        int cur = _claims.ReadCount(itemId);
+        return cur >= 0 && _lastCount.TryGetValue(itemId, out int prev) && cur > prev;
+    }
+
+    /// <summary>Refreshes the tracked count for <paramref name="itemId"/> (no-op for non-items or
+    /// unreadable reads, so a count that only becomes readable mid-battle never reads as a rise).</summary>
+    private void TrackCount(int itemId)
+    {
+        if (itemId <= 0) return;
+        int cur = _claims.ReadCount(itemId);
+        if (cur >= 0) _lastCount[itemId] = cur;
     }
 
     // ── enhanced-marker write (native yellow diamonds) ─────────────────────────────

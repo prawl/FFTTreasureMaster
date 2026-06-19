@@ -1681,4 +1681,661 @@ public class TreasureMasterTests
         Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
     }
 
+    // ── Claim detection integration tests ────────────────────────────────────────
+
+    /// <summary>Grid-X address of claim-scan unit slot <paramref name="slot"/>.</summary>
+    private static long ClaimSlotX(int slot)
+        => Offsets.UnitArrayBaseX + (long)slot * Offsets.UnitRecordStride;
+
+    /// <summary>Seeds one battle-unit slot's grid (x,y) in the occupancy-scan array.</summary>
+    private static void SeedClaimUnit(FakeSparseMemory mem, int x, int y, int slot = 0)
+    {
+        long xAddr = ClaimSlotX(slot);
+        mem.U8s[xAddr]     = (byte)x;
+        mem.U8s[xAddr + 1] = (byte)y;
+        mem.ReadableAddrs.Add(xAddr);
+    }
+
+    /// <summary>Moves a previously-seeded unit to a new tile (updates grid x,y).</summary>
+    private static void MoveClaimUnit(FakeSparseMemory mem, int x, int y, int slot = 0)
+    {
+        long xAddr = ClaimSlotX(slot);
+        mem.U8s[xAddr]     = (byte)x;
+        mem.U8s[xAddr + 1] = (byte)y;
+    }
+
+    /// <summary>Seeds an item's inventory count at InventoryCountBase + itemId.</summary>
+    private static void SeedItemCount(FakeSparseMemory mem, int itemId, byte count)
+    {
+        long addr = Offsets.InventoryCountBase + itemId;
+        mem.U8s[addr] = count;
+        mem.ReadableAddrs.Add(addr);
+    }
+
+    /// <summary>Increments an item's inventory count by one (simulates a claim adding the item).</summary>
+    private static void BumpItemCount(FakeSparseMemory mem, int itemId)
+    {
+        long addr = Offsets.InventoryCountBase + itemId;
+        mem.U8s[addr] = (byte)(mem.U8s.GetValueOrDefault(addr) + 1);
+    }
+
+    /// <summary>
+    /// LOAD-BEARING: Two tiles C (claimed) and S (sibling, unclaimed), each with a rare item id.
+    /// A unit stands on C; C's item count ticks up (the claim). After the detect tick:
+    ///   - addrC byte is reverted (mem.U8s[addrC] != MarkValue) AND a write is recorded.
+    ///   - After FastHold.HoldOnce + 5 more ticks, addrC stays unlit; addrS stays held.
+    /// Non-vacuous: byte-state assertion (not just Written log) + HoldOnce exercised.
+    /// Red-trigger: publishing _map instead of _activeMap would re-stamp addrC -> MarkValue.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_claimed_tile_unlit_and_stays_unlit_through_FastHold()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+
+        long addrC = TileAddr(300);
+        long addrS = TileAddr(301);
+        byte offC  = 0x00;
+        byte offS  = 0x00;
+        int tileX  = 5, tileY  = 7;   // C tile coords ; rare item 200
+        int sibX   = 6, sibY   = 8;   // S tile coords ; rare item 201
+
+        string json = $@"{{
+            ""buildKey"": null,
+            ""maps"": [{{
+                ""mapId"": 74, ""name"": ""Test"", ""tileCount"": 2,
+                ""fpVer"": 1,
+                ""fpLen"": {terrain.Length},
+                ""fpHash"": ""{TreasureMaster.Fnv1a64(terrain):x}"",
+                ""tiles"": [
+                    {{ ""x"": {tileX}, ""y"": {tileY}, ""rareItemId"": 200, ""addrs"": [[""{addrC:x}"", ""{offC:x2}""]] }},
+                    {{ ""x"": {sibX},  ""y"": {sibY},  ""rareItemId"": 201, ""addrs"": [[""{addrS:x}"", ""{offS:x2}""]] }}
+                ]
+            }}]
+        }}";
+        System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "treasure.json"), json);
+        var db = TreasureDb.Load(dir);
+
+        var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
+
+        // A unit stands on C the whole time; counts are stable through arm (so no claim fires while
+        // stabilizing -- the baseline is captured at arm). The claim is the count tick below.
+        SeedClaimUnit(mem, x: tileX, y: tileY);
+        SeedItemCount(mem, 200, 1);   // C's rare item
+        SeedItemCount(mem, 201, 1);   // S's rare item
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+
+        StabilizeAndArm(tm);
+        Assert.True(mem.Written.ContainsKey(addrC), "C should be marked after arm");
+        Assert.True(mem.Written.ContainsKey(addrS), "S should be marked after arm");
+
+        // Claim C: its rare item count ticks up while the unit stands on C.
+        mem.U8s[addrC] = TreasureMaster.MarkValue;   // Held so Unlight can revert it
+        BumpItemCount(mem, 200);
+        mem.Written.Clear();
+        tm.Tick(DateTime.Now, inLive: true);
+
+        // Assert: C reverted (byte state AND write log)
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.True(mem.Written.ContainsKey(addrC), "Unlight must record a write for addrC");
+        Assert.Equal(offC, mem.Written[addrC]);
+
+        // Now clear write log, HoldOnce, then 5 more armed ticks -- C must NOT come back
+        mem.Written.Clear();
+        tm.FastHold.HoldOnce();
+        TickN(tm, 5);
+
+        Assert.False(mem.Written.ContainsKey(addrC),
+            "FastHold must not re-stamp claimed addrC");
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        // Sibling S is still held (no unit on it, its count never rose)
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+    }
+
+    /// <summary>
+    /// Idempotency / stale-FastHold-pass guard: the un-light runs EVERY armed tick over the
+    /// latched claimed set, not only the tick a claim is first detected. Simulates the ~8ms race
+    /// the filtered publish alone cannot close -- a stale FastHold pass re-stamps a claimed tile
+    /// after the unit has already moved off -- and proves a later armed tick re-reverts it.
+    /// Red-trigger: gating the Unlight loop behind "_claimed grew" (one-shot) leaves the
+    /// re-stamped byte at MarkValue, since this tick adds no new claim.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_unlight_reasserted_every_tick_after_stale_restamp()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC = TileAddr(330);
+        byte offC  = 0x00;
+        int tileX = 5, tileY = 7;
+
+        string json = $@"{{
+            ""buildKey"": null,
+            ""maps"": [{{
+                ""mapId"": 74, ""name"": ""Test"", ""tileCount"": 1,
+                ""fpVer"": 1,
+                ""fpLen"": {terrain.Length},
+                ""fpHash"": ""{TreasureMaster.Fnv1a64(terrain):x}"",
+                ""tiles"": [
+                    {{ ""x"": {tileX}, ""y"": {tileY}, ""rareItemId"": 200, ""addrs"": [[""{addrC:x}"", ""{offC:x2}""]] }}
+                ]
+            }}]
+        }}";
+        System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "treasure.json"), json);
+        var db = TreasureDb.Load(dir);
+
+        var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: tileX, y: tileY);   // unit on C
+        SeedItemCount(mem, 200, 1);
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+
+        // Claim C: its item count ticks up while the unit stands on C.
+        mem.U8s[addrC] = TreasureMaster.MarkValue;   // Held so Unlight can revert it
+        BumpItemCount(mem, 200);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed + unlit
+
+        // Move the unit OFF C (latch must hold, no new claim this tick) and simulate a stale
+        // FastHold pass re-stamping C to MarkValue.
+        MoveClaimUnit(mem, 1, 1);
+        mem.U8s[addrC] = TreasureMaster.MarkValue;   // stale re-stamp
+        mem.Written.Clear();
+
+        // One more armed tick: the every-tick un-light must re-revert the latched claimed tile,
+        // even though _claimed did not grow this tick.
+        tm.Tick(DateTime.Now, inLive: true);
+
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.True(mem.Written.ContainsKey(addrC),
+            "every-tick un-light must re-revert a stale re-stamp of a latched claimed tile");
+        Assert.Equal(offC, mem.Written[addrC]);
+    }
+
+    /// <summary>
+    /// After ResetBattle, _claimed is cleared so the fresh battle re-lights the previously
+    /// claimed tile (C is armed and marked again after reset + re-arm).
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_ResetBattle_clears_claimed_fresh_battle_relights()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC = TileAddr(310);
+        byte offC  = 0x00;
+        int tileX = 5, tileY = 7;
+
+        string json = $@"{{
+            ""buildKey"": null,
+            ""maps"": [{{
+                ""mapId"": 74, ""name"": ""Test"", ""tileCount"": 1,
+                ""fpVer"": 1,
+                ""fpLen"": {terrain.Length},
+                ""fpHash"": ""{TreasureMaster.Fnv1a64(terrain):x}"",
+                ""tiles"": [
+                    {{ ""x"": {tileX}, ""y"": {tileY}, ""rareItemId"": 200, ""addrs"": [[""{addrC:x}"", ""{offC:x2}""]] }}
+                ]
+            }}]
+        }}";
+        System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "treasure.json"), json);
+        var db = TreasureDb.Load(dir);
+
+        var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: tileX, y: tileY);   // unit on C
+        SeedItemCount(mem, 200, 1);
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+
+        StabilizeAndArm(tm);
+        Assert.True(mem.Written.ContainsKey(addrC), "C should be marked after arm");
+
+        // Claim C: count ticks up while the unit stands on it.
+        mem.U8s[addrC] = TreasureMaster.MarkValue;   // ensure Held so Unlight fires
+        BumpItemCount(mem, 200);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+
+        // Reset battle: _claimed and the count baseline must be cleared.
+        tm.ResetBattle();
+        mem.Written.Clear();
+        mem.U8s[addrC] = 0x00;   // engine cleared the mark
+        // Unit still on C, but the count is stable now (no fresh claim), so re-arm just re-lights.
+
+        // Fresh battle: re-arm should light addrC again (claim cleared by reset)
+        TickN(tm, Tuning.TreasureArmStableTicks + 5);
+
+        Assert.True(mem.Written.ContainsKey(addrC), "Fresh battle must re-light C after reset");
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrC]);
+    }
+
+    /// <summary>
+    /// Zero claim reads when claimDetection:false (the default). The unit-array scan must never
+    /// touch the move-ability byte (slot 0) when claim detection is gated off.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_disabled_zero_reads_in_unit_array()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addr = TileAddr(320);
+        var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
+            addrs: new[] { (addr, (byte)0x00) });
+        var mem = BuildMem(74, terrain, new[] { addr });
+        SeedClaimUnit(mem, x: 5, y: 7);   // slot-0 move byte is Readable: detection WOULD read it
+
+        // Explicitly disable claim detection (the Tuning/Config default is now ON) to prove the
+        // gated-off path reads no unit-array memory.
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false);
+        StabilizeAndArm(tm);
+        TickN(tm, 10);
+
+        long claimMoveAddr = Offsets.UnitArrayBaseX;   // occupancy scan reads the grid-X byte here
+        Assert.False(mem.ReadCount.TryGetValue(claimMoveAddr, out _),
+            "unit-array position byte must never be read when claimDetection is off");
+    }
+
+    /// <summary>
+    /// Zero claim reads when inLive is false -- claim detection must not run outside a battle.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_not_inLive_zero_reads_in_unit_array()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addr = TileAddr(321);
+        var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
+            addrs: new[] { (addr, (byte)0x00) });
+        var mem = BuildMem(74, terrain, new[] { addr });
+        SeedClaimUnit(mem, x: 5, y: 7);
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        TickN(tm, Tuning.TreasureArmStableTicks + 20, inLive: false);
+
+        long claimMoveAddr = Offsets.UnitArrayBaseX;   // occupancy scan reads the grid-X byte here
+        Assert.False(mem.ReadCount.TryGetValue(claimMoveAddr, out _),
+            "unit-array position byte must not be read when !inLive");
+    }
+
+    /// <summary>
+    /// Zero claim reads on build-key mismatch -- _globalIdle prevents TickArmed from running.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_build_key_mismatch_zero_reads_in_unit_array()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addr = TileAddr(322);
+        var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
+            addrs: new[] { (addr, (byte)0x00) },
+            buildKey: new TreasureBuildKey { TimeDateStamp = 0x1111, SizeOfImage = 0x2222 });
+        var mem = BuildMem(74, terrain, new[] { addr });
+        SeedPeHeader(mem, timeDateStamp: 0xAAAA, sizeOfImage: 0xBBBB);
+        SeedClaimUnit(mem, x: 5, y: 7);
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        TickN(tm, Tuning.TreasureArmStableTicks + 20);
+
+        long claimMoveAddr = Offsets.UnitArrayBaseX;   // occupancy scan reads the grid-X byte here
+        Assert.False(mem.ReadCount.TryGetValue(claimMoveAddr, out _),
+            "unit-array position byte must not be read on build-key mismatch");
+    }
+
+    // ── Refund un-latch (OPEN-BUG fix: in-battle restart re-lights claimed tiles) ──
+    //
+    // An in-battle "restart from the start" produces no sustained out-of-live window, so the
+    // BattleState exit debounce never fires -> ResetBattle never runs -> _claimed persists ->
+    // already-claimed tiles stay excluded from the publish view ("no tiles" after a restart).
+    // The restart REFUNDS claimed items (their inventory count drops back to the arm baseline),
+    // which IS observable, so un-latching on a refund re-lights the tiles without a battle edge.
+    //
+    // A rare item's count never drops mid-battle except on a reset, so a rare-claimed tile
+    // un-latches on any refund to <= the arm baseline. A common item can also drop when the
+    // player USES a found consumable, so a common-claimed tile un-latches only when >= 2 claimed
+    // tiles refund at once (a reset refunds all claims together; one consumable use drops one).
+
+    /// <summary>Builds a one-tile-per-coord claim map (each tile gets an explicit rare+common id)
+    /// and loads it. Tiles param: (x, y, addrHex, rareId, commonId).</summary>
+    private static TreasureDb BuildClaimDb(string dir, byte[] terrain,
+        params (int x, int y, long addr, int rare, int common)[] tiles)
+    {
+        var tileJson = string.Join(",", tiles.Select(t =>
+            $@"{{ ""x"": {t.x}, ""y"": {t.y}, ""rareItemId"": {t.rare}, ""commonItemId"": {t.common}, ""addrs"": [[""{t.addr:x}"", ""00""]] }}"));
+        string json = $@"{{
+            ""buildKey"": null,
+            ""maps"": [{{
+                ""mapId"": 74, ""name"": ""Test"", ""tileCount"": {tiles.Length},
+                ""fpVer"": 1, ""fpLen"": {terrain.Length}, ""fpHash"": ""{TreasureMaster.Fnv1a64(terrain):x}"",
+                ""tiles"": [{tileJson}]
+            }}]
+        }}";
+        System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "treasure.json"), json);
+        return TreasureDb.Load(dir);
+    }
+
+    /// <summary>
+    /// CORE FIX: a rare-claimed tile whose rare item count refunds back to the arm baseline is
+    /// un-latched and re-lit, WITHOUT any ResetBattle call (the in-battle-restart path). Red on
+    /// the pre-fix code: claimed tiles never un-latch, so addrC stays at the resting off value.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_rare_item_refund_relights_tile_without_reset()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC = TileAddr(340);
+        int tileX = 5, tileY = 7;
+        var db = BuildClaimDb(dir, terrain, (tileX, tileY, addrC, rare: 200, common: 0));
+
+        var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: tileX, y: tileY);   // unit on C
+        SeedItemCount(mem, 200, 1);               // arm baseline = 1
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+
+        // Claim C: rare count 1 -> 2 while the unit stands on it.
+        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        BumpItemCount(mem, 200);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed + unlit
+
+        // In-battle restart REFUNDS the rare item: count 2 -> 1 (== arm baseline). No ResetBattle.
+        SeedItemCount(mem, 200, 1);
+        tm.Tick(DateTime.Now, inLive: true);
+
+        // C is un-latched and re-lit (Hold re-stamps MarkValue the same tick).
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);
+    }
+
+    /// <summary>
+    /// FALSE-POSITIVE GUARD: a tile claimed via its COMMON item must NOT re-light when that
+    /// single common count drops back to baseline (the player used a found consumable). Only
+    /// a multi-tile simultaneous refund (a reset) re-lights common-claimed tiles.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_single_common_use_does_not_relight()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC = TileAddr(341);
+        int tileX = 5, tileY = 7;
+        // Tile has both ids; the claim will be via the COMMON item (50), rare (200) stays put.
+        var db = BuildClaimDb(dir, terrain, (tileX, tileY, addrC, rare: 200, common: 50));
+
+        var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: tileX, y: tileY);
+        SeedItemCount(mem, 200, 1);   // rare baseline (never changes here)
+        SeedItemCount(mem, 50, 5);    // common arm baseline = 5
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+
+        // Claim C via the common item: count 5 -> 6.
+        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        BumpItemCount(mem, 50);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed + unlit
+
+        // Player USES the found consumable: count 6 -> 5 (== baseline). Single drop, common item.
+        SeedItemCount(mem, 50, 5);
+        TickN(tm, 3);
+
+        // Must STAY dark -- the treasure is still gone; a lone common-count dip is not a reset.
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+    }
+
+    /// <summary>
+    /// RESET via simultaneous common refunds: two common-claimed tiles whose counts both refund
+    /// to baseline in the same tick is a battle restart -> both re-light. Red on the pre-fix code.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_simultaneous_common_refunds_relight_all()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC1 = TileAddr(342);
+        long addrC2 = TileAddr(343);
+        var db = BuildClaimDb(dir, terrain,
+            (5, 7, addrC1, rare: 200, common: 50),
+            (6, 8, addrC2, rare: 201, common: 51));
+
+        var mem = BuildMem(74, terrain, new[] { addrC1, addrC2 }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: 5, y: 7, slot: 0);   // unit on C1
+        SeedClaimUnit(mem, x: 6, y: 8, slot: 1);   // unit on C2
+        SeedItemCount(mem, 50, 5);   // C1 common baseline
+        SeedItemCount(mem, 51, 3);   // C2 common baseline
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+
+        // Claim both via their common items in one tick.
+        mem.U8s[addrC1] = TreasureMaster.MarkValue;
+        mem.U8s[addrC2] = TreasureMaster.MarkValue;
+        BumpItemCount(mem, 50);
+        BumpItemCount(mem, 51);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC1]);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+
+        // Battle restart refunds BOTH: counts drop to baseline together. No ResetBattle.
+        SeedItemCount(mem, 50, 5);
+        SeedItemCount(mem, 51, 3);
+        tm.Tick(DateTime.Now, inLive: true);
+
+        // Both un-latched and re-lit.
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC1]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+    }
+
+    /// <summary>
+    /// REGRESSION GUARD for the edge-trigger: two DIFFERENT common-claimed tiles whose counts drop
+    /// back to baseline on DIFFERENT ticks (the player uses two found consumables seconds apart) must
+    /// NOT be read as a reset -- both stay dark (claimed). A level-triggered >=2 rule would pair the
+    /// two lingering at-baseline counts on the second use and falsely re-light both.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_staggered_common_uses_do_not_relight()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC1 = TileAddr(344);
+        long addrC2 = TileAddr(345);
+        var db = BuildClaimDb(dir, terrain,
+            (5, 7, addrC1, rare: 200, common: 50),
+            (6, 8, addrC2, rare: 201, common: 51));
+
+        var mem = BuildMem(74, terrain, new[] { addrC1, addrC2 }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: 5, y: 7, slot: 0);
+        SeedClaimUnit(mem, x: 6, y: 8, slot: 1);
+        SeedItemCount(mem, 50, 5);
+        SeedItemCount(mem, 51, 3);
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+
+        // Claim both via their common items in one tick.
+        mem.U8s[addrC1] = TreasureMaster.MarkValue;
+        mem.U8s[addrC2] = TreasureMaster.MarkValue;
+        BumpItemCount(mem, 50);
+        BumpItemCount(mem, 51);
+        tm.Tick(DateTime.Now, inLive: true);
+
+        // Use the first found consumable (count 50: 6 -> 5). A few ticks pass.
+        SeedItemCount(mem, 50, 5);
+        TickN(tm, 3);
+        // Use the second found consumable (count 51: 4 -> 3), on a LATER tick.
+        SeedItemCount(mem, 51, 3);
+        TickN(tm, 3);
+
+        // Neither re-lights -- both treasures were genuinely consumed; this is not a reset.
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC1]);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+    }
+
+    /// <summary>
+    /// BOUNDARY + arm-baseline immutability: a rare-claimed tile whose count climbs above the claim
+    /// value (another copy found elsewhere) and then PARTIALLY drops -- but stays above the arm
+    /// baseline -- must STAY dark. Only a drop to &lt;= the ORIGINAL arm baseline re-lights it,
+    /// proving _armCount stays pinned and is not refreshed toward the elevated count.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_partial_rare_drop_above_baseline_stays_dark_until_full_refund()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC = TileAddr(346);
+        int tileX = 5, tileY = 7;
+        var db = BuildClaimDb(dir, terrain, (tileX, tileY, addrC, rare: 200, common: 0));
+
+        var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: tileX, y: tileY);
+        SeedItemCount(mem, 200, 1);   // arm baseline = 1
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+
+        // Claim C (1 -> 2), then a second copy of the same rare turns up over later ticks (2 -> 3).
+        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        SeedItemCount(mem, 200, 2);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed + unlit
+        SeedItemCount(mem, 200, 3);
+        TickN(tm, 2);
+
+        // Partial drop 3 -> 2: still ABOVE the arm baseline of 1 -> must stay dark.
+        SeedItemCount(mem, 200, 2);
+        TickN(tm, 2);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+
+        // Full refund 2 -> 1 (== arm baseline) -> re-lights, proving baseline stayed pinned at 1.
+        SeedItemCount(mem, 200, 1);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);
+    }
+
+    /// <summary>
+    /// REPLAY loop: after a refund re-lights a tile, the player plays on and RE-CLAIMS the same
+    /// treasure -- the tile must un-light again. Proves the claim/refund cycle is replayable, not
+    /// one-shot (the un-latch must leave the per-tick/arm baselines in a state that allows the next
+    /// rise to re-latch).
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_relit_tile_can_be_reclaimed()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC = TileAddr(347);
+        int tileX = 5, tileY = 7;
+        var db = BuildClaimDb(dir, terrain, (tileX, tileY, addrC, rare: 200, common: 0));
+
+        var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: tileX, y: tileY);
+        SeedItemCount(mem, 200, 1);
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+
+        // Claim, then refund (restart) -> re-lit.
+        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        SeedItemCount(mem, 200, 2);
+        tm.Tick(DateTime.Now, inLive: true);
+        SeedItemCount(mem, 200, 1);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);   // re-lit
+
+        // Re-claim the same treasure post-restart: count rises again with the unit on the tile.
+        mem.U8s[addrC] = TreasureMaster.MarkValue;   // currently lit/Held
+        SeedItemCount(mem, 200, 2);
+        tm.Tick(DateTime.Now, inLive: true);
+
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // re-claimed + unlit again
+    }
+
+    /// <summary>
+    /// CROSS-BATTLE no-leak: ResetBattle must clear the refund-tracking state (_armCount/_claimItem),
+    /// so a second battle works off its OWN fresh arm baseline. Here battle 2's baseline is higher
+    /// than battle 1's; a leaked stale baseline of 1 would break refund detection at the new baseline.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_refund_state_does_not_leak_across_reset()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC = TileAddr(348);
+        int tileX = 5, tileY = 7;
+        var db = BuildClaimDb(dir, terrain, (tileX, tileY, addrC, rare: 200, common: 0));
+
+        var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: tileX, y: tileY);
+        SeedItemCount(mem, 200, 1);   // battle 1 baseline = 1
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        SeedItemCount(mem, 200, 2);
+        tm.Tick(DateTime.Now, inLive: true);   // claim in battle 1
+
+        // End battle 1; battle 2 starts with a DIFFERENT live count for the same item.
+        tm.ResetBattle();
+        mem.U8s[addrC] = 0x00;
+        SeedItemCount(mem, 200, 5);   // battle 2 baseline = 5
+        TickN(tm, Tuning.TreasureArmStableTicks + 5);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrC]);   // re-armed + lit in battle 2
+
+        // Claim in battle 2 (5 -> 6), then refund to the FRESH baseline 5 -> must re-light.
+        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        SeedItemCount(mem, 200, 6);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed in battle 2
+        SeedItemCount(mem, 200, 5);
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);      // refund at fresh baseline re-lights
+    }
+
+    /// <summary>
+    /// SHARED COMMON ID: two tiles whose treasures share ONE common item id (maps reuse item ids
+    /// across tiles -- see ClaimAudit) are both claimed via that id. Using a SINGLE consumable of
+    /// that id drops the one shared count to baseline, which edge-trips BOTH tiles -- but that is one
+    /// item being used, not a reset, so neither tile re-lights. Guards that reset detection counts
+    /// DISTINCT item ids that dropped, not tiles.
+    /// </summary>
+    [Fact]
+    public void ClaimDetection_shared_common_id_single_use_does_not_relight()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC1 = TileAddr(349);
+        long addrC2 = TileAddr(350);
+        // Both tiles share common id 50 (distinct rare ids, unseeded so they never trigger).
+        var db = BuildClaimDb(dir, terrain,
+            (5, 7, addrC1, rare: 200, common: 50),
+            (6, 8, addrC2, rare: 201, common: 50));
+
+        var mem = BuildMem(74, terrain, new[] { addrC1, addrC2 }, initialByte: 0x00);
+        SeedClaimUnit(mem, x: 5, y: 7, slot: 0);
+        SeedClaimUnit(mem, x: 6, y: 8, slot: 1);
+        SeedItemCount(mem, 50, 5);   // shared common baseline
+
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
+        StabilizeAndArm(tm);
+
+        // One pickup of the shared item latches both occupied tiles (same-tick double-latch).
+        mem.U8s[addrC1] = TreasureMaster.MarkValue;
+        mem.U8s[addrC2] = TreasureMaster.MarkValue;
+        BumpItemCount(mem, 50);   // 5 -> 6
+        tm.Tick(DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC1]);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+
+        // Use ONE of the found consumables: the single shared count drops to baseline (6 -> 5).
+        SeedItemCount(mem, 50, 5);
+        TickN(tm, 3);
+
+        // Not a reset (one distinct item id dropped) -- both stay dark.
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC1]);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+    }
+
 }

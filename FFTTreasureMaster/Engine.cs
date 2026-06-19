@@ -21,19 +21,23 @@ internal sealed class Engine
     private readonly TreasureMaster _treasure;
     private readonly BattleState _battle = new();   // debounced in/out edges (slot9 sticks; mode flickers)
     private CancellationTokenSource? _cts;
+    private string? _lastDispKey;   // TEMP (RetryDiagnostics): dedupe sentinel-transition logs
 
     /// <param name="modDir">Mod deployment directory (treasure.json + Config.json live here).</param>
     /// <param name="enabled">Master on/off gate, read from Config.Enabled at startup.
     /// Null falls back to Tuning.TreasureEnabled.</param>
-    public Engine(string modDir, bool? enabled = null)
+    /// <param name="claimDetection">Claim-detection gate, read from Config.HideClaimedTiles at
+    /// startup. Null falls back to Tuning.ClaimDetectionEnabled.</param>
+    public Engine(string modDir, bool? enabled = null, bool? claimDetection = null)
     {
         var treasureJson = Path.Combine(modDir, "treasure.json");
         _treasure = new TreasureMaster(
-            load:         () => TreasureDb.Load(modDir),
-            datasetStamp: () => { try { return File.GetLastWriteTimeUtc(treasureJson); }
-                                  catch { return null; } },
-            mem:      new LiveMemory(),
-            enabled:  enabled);
+            load:           () => TreasureDb.Load(modDir),
+            datasetStamp:   () => { try { return File.GetLastWriteTimeUtc(treasureJson); }
+                                    catch { return null; } },
+            mem:            new LiveMemory(),
+            enabled:        enabled,
+            claimDetection: claimDetection);
         _treasure.StartFastHold();
     }
 
@@ -84,6 +88,21 @@ internal sealed class Engine
         // strict in-live: stable through formation, enemy turns, and cast animations while still
         // excluding the world map (mode 0).
         bool battleDisplayed = BattleState.BattleDisplayed(slot9, battleMode);
+
+        // TEMP (RetryDiagnostics): log battle-presence transitions. Keyed on displayed + the two
+        // sticky sentinels (NOT mode, which flickers every action) so a Retry's reload shows up
+        // without spamming. Reveals whether "Retry from Start of Battle" drops battleDisplayed.
+        if (Tuning.RetryDiagnostics)
+        {
+            string key = $"{battleDisplayed}|{slot0:X}|{slot9:X}";
+            if (key != _lastDispKey)
+            {
+                _lastDispKey = key;
+                Log.Info($"diag/engine: displayed={battleDisplayed} slot0={slot0:X} slot9={slot9:X} " +
+                         $"mode={battleMode} event={eventId} paused={paused}");
+            }
+        }
+
         _treasure.Tick(now, battleDisplayed);
     }
 }

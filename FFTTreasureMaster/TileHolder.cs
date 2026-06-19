@@ -53,5 +53,25 @@ internal sealed class TileHolder
         return (written, foreign);
     }
 
-
+    /// <summary>
+    /// Reverts one tile's Held bytes back to their captured resting value (<paramref name="tile"/>.Addrs off).
+    /// Writable guard applied first; Foreign and Resting bytes are never written. Returns the count of
+    /// addresses actually reverted. This is the module's first Clear path -- required because the engine
+    /// does not reliably re-clear 0xCC on static maps when claim detection removes a tile mid-battle.
+    /// </summary>
+    internal int Unlight(TreasureTile tile)
+    {
+        int n = 0;
+        foreach (var (addr, off) in tile.Addrs)
+        {
+            if (!_mem.Writable(addr, 1)) continue;
+            byte cur = _mem.U8(addr);
+            if (TreasureMaster.ClassifyAddr(cur) == TreasureMaster.AddrState.Held)
+            {
+                _mem.W8(addr, off);
+                n++;
+            }
+        }
+        return n;
+    }
 }

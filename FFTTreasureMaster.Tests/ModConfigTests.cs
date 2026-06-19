@@ -14,6 +14,10 @@ namespace FFTTreasureMaster.Tests;
 ///   (3) A Config.json written with Enabled=true  round-trips back as true.
 ///   (4) A Config.json written with Enabled=false round-trips back as false.
 ///   (5) FromFile on corrupt JSON silently returns a default Config (no throw).
+///   (6) Default Config has HideClaimedTiles == true (dim-on-claim ships on by default).
+///   (7) FromFile on a missing path returns HideClaimedTiles == true.
+///   (8) A Config.json written with HideClaimedTiles=true  round-trips back as true.
+///   (9) A Config.json written with HideClaimedTiles=false round-trips back as false.
 /// </summary>
 public class ModConfigTests
 {
@@ -77,5 +81,48 @@ public class ModConfigTests
             Assert.True(c.Enabled);   // corrupt load falls back to default (true)
         });
         Assert.Null(ex);
+    }
+
+    // ── HideClaimedTiles invariants ───────────────────────────────────────────
+
+    [Fact]
+    public void DefaultConfig_HideClaimedTilesIsTrue()
+    {
+        var c = new Config();
+        Assert.True(c.HideClaimedTiles);
+    }
+
+    [Fact]
+    public void FromFile_MissingPath_HideClaimedTilesDefaultTrue()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        var c    = Configurable<Config>.FromFile(path, "Test");
+        Assert.True(c.HideClaimedTiles);
+    }
+
+    [Fact]
+    public void RoundTrip_HideClaimedTiles_TrueValue()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+
+        var written = Configurable<Config>.FromFile(path, "Test");
+        written.HideClaimedTiles = true;
+        written.Save();
+
+        var loaded = Configurable<Config>.FromFile(path, "Test");
+        Assert.True(loaded.HideClaimedTiles);
+    }
+
+    [Fact]
+    public void RoundTrip_HideClaimedTiles_FalseValue()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+
+        var written = Configurable<Config>.FromFile(path, "Test");
+        written.HideClaimedTiles = false;
+        written.Save();
+
+        var loaded = Configurable<Config>.FromFile(path, "Test");
+        Assert.False(loaded.HideClaimedTiles);
     }
 }

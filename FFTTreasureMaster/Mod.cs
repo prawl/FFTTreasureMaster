@@ -35,20 +35,22 @@ public class Mod : IMod
             // The Reloaded launcher writes the user's edits to <Reloaded>/User/Mods/<ModId>/Config.json,
             // NOT to the deployed mod folder -- so read the user file when it exists, falling back to
             // modDir/Config.json (the shipped default) before the user has opened the config UI.
-            bool enabled = Tuning.TreasureEnabled;   // documented default
+            bool enabled        = Tuning.TreasureEnabled;        // documented default
+            bool claimDetection = Tuning.ClaimDetectionEnabled;  // documented default (false)
             try
             {
                 var configPath = ResolveConfigPath(modDir);
                 var cfg        = Configurable<Config>.FromFile(configPath, "FFT Treasure Master Configuration");
-                enabled = cfg.Enabled;
-                Log.Info($"config: Enabled={enabled} (from {configPath})");
+                enabled        = cfg.Enabled;
+                claimDetection = cfg.HideClaimedTiles;
+                Log.Info($"config: Enabled={enabled} HideClaimedTiles={claimDetection} (from {configPath})");
             }
             catch (Exception cfgEx)
             {
-                Log.Error($"config load failed, using default Enabled={enabled}: {cfgEx.Message}");
+                Log.Error($"config load failed, using defaults Enabled={enabled} HideClaimedTiles={claimDetection}: {cfgEx.Message}");
             }
 
-            _engine = new Engine(modDir, enabled);
+            _engine = new Engine(modDir, enabled, claimDetection);
             _engine.Start();
         }
         catch (Exception ex)

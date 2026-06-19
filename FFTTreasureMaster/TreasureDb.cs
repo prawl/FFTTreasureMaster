@@ -26,6 +26,11 @@ internal sealed class TreasureTileJson
     [JsonProperty("y")]     public int Y { get; set; }
     /// <summary>Each element is a 2-element string array: [addrHex, offHex].</summary>
     [JsonProperty("addrs")] public List<string[]> Addrs { get; set; } = new();
+    /// <summary>ItemData id of the rare Move-Find item on this tile (0 if absent). Used by claim
+    /// detection: when this item's inventory count rises while a unit is on the tile, it is claimed.</summary>
+    [JsonProperty("rareItemId")]   public int RareItemId   { get; set; }
+    /// <summary>ItemData id of the common Move-Find item on this tile (0 if absent).</summary>
+    [JsonProperty("commonItemId")] public int CommonItemId { get; set; }
 }
 
 /// <summary>One treasure tile with its validated flag-byte addresses.</summary>
@@ -34,6 +39,10 @@ internal sealed class TreasureTile
     public int X { get; internal set; }
     public int Y { get; internal set; }
     public List<TreasureAddrEntry> Addrs { get; internal set; } = new();
+    /// <summary>Rare / common Move-Find item ids on this tile (0 = none). The claim detector
+    /// watches their inventory counts.</summary>
+    public int RareItemId   { get; internal set; }
+    public int CommonItemId { get; internal set; }
 }
 
 /// <summary>Build key: PE TimeDateStamp + SizeOfImage from the captured game binary.</summary>
@@ -157,7 +166,11 @@ internal sealed class TreasureDb
                         validAddrs.Add(new TreasureAddrEntry { Addr = addr, Off = off });
                     }
                     if (tileOk && validAddrs.Count > 0)
-                        validTiles.Add(new TreasureTile { X = tj.X, Y = tj.Y, Addrs = validAddrs });
+                        validTiles.Add(new TreasureTile
+                        {
+                            X = tj.X, Y = tj.Y, Addrs = validAddrs,
+                            RareItemId = tj.RareItemId, CommonItemId = tj.CommonItemId,
+                        });
                 }
                 validMaps.Add(new TreasureMap
                 {

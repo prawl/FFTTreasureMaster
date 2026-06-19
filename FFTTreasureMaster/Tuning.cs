@@ -53,4 +53,24 @@ internal static class Tuning
     /// We get yellow tiles instead via the flat MarkValue (0xCC) write -- see TreasureMaster.Policy.
     /// Left wired (no-op) in case the utility pointer is ever found by disassembly.</summary>
     public const bool EnhancedMarkersEnabled = false;
+
+    /// <summary>
+    /// Documented default for Config.HideClaimedTiles (the runtime value flows from
+    /// FFTTreasureMaster.Configuration.Config via Mod.cs; this constant is the fallback used only
+    /// when the ctor is passed a null claimDetection). When true, a tile stops being highlighted
+    /// once its Move-Find treasure is claimed -- an eligible unit (a Chemist, or any unit with the
+    /// Treasure Hunter movement ability) picks up the hidden item. The unit-occupancy + inventory
+    /// addresses are 1.5-verified and baked; the read path fails safe (any unreadable read returns
+    /// without marking a claim, so the worst case is a tile that stays lit). Default ON.
+    /// </summary>
+    public const bool ClaimDetectionEnabled = true;
+
+    /// <summary>Investigation flag for the "no tiles after Retry from Start of Battle" bug (root
+    /// cause found: the game rebuilds its tile-highlight overlay only on a full battle load, so an
+    /// in-battle Retry never re-consumes the held 0xCC -- see handoff.md "RETRY RENDER-GATE"). When
+    /// true, the engine logs battle-presence sentinel transitions (slot0/slot9/mode/displayed) and
+    /// the module logs its phase/inLive transitions plus a per-armed-tick hold breakdown -- all
+    /// DEDUPED (logged only on change). Left wired (OFF) for a future RE session. Reads are guarded.
+    /// (static readonly, not const, so the gated blocks do not trip CS0162 unreachable-code.)</summary>
+    public static readonly bool RetryDiagnostics = false;
 }

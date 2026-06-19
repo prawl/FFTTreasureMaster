@@ -37,6 +37,30 @@ internal static class Offsets
     // fingerprint source (FNV-1a64 over a fixed-length prefix).
     public const long TerrainGrid = 0x140C6B440;   // 1.5 re-found 2026-06-17 +0x6440 (was 0x140C65000)
 
+    // --- Claim detection: unit positions + inventory counts (VERIFIED 1.5, 2026-06-19) ---
+    // A treasure tile is claimed when an item appears in inventory WHILE a unit stands on that tile.
+    // Two confirmed signals (probe: tools/probes/unit_occupancy_probe.py):
+    //   POSITION -- battle unit array at a fixed 0x200 stride in the stable 0x14185xxxx segment;
+    //     the LIVE grid position tracks there (X at the X-field, Y at X+1). Re-found via the
+    //     move-differential; identical across battles. Used only to know WHICH tile a unit is on.
+    //   INVENTORY -- a 256-entry item-count array (u8 each, capped at 99): count[itemId] =
+    //     InventoryCountBase + itemId. Confirmed by claim (+1 on a Move-Find pickup) and equip
+    //     (-1) both hitting count[129] (Galewall); ticks mid-battle; persistent party data.
+    // Together they need no eligibility byte: the count only rises when an ELIGIBLE unit (Chemist
+    // or a Treasure-Hunter unit) actually claims, and the position pins the exact tile -- so this
+    // covers both cases and disambiguates the 26 maps that reuse a rare item id across tiles.
+    // The (0,0) coordinate is ignored for occupancy (empty / non-tracking template copies read 0,0).
+
+    /// <summary>Grid-X address of the lowest unit slot the occupancy scan walks. Slot k's grid X is
+    /// UnitArrayBaseX + k*UnitRecordStride; grid Y is at +1.</summary>
+    public const long UnitArrayBaseX = 0x141851F2FL;
+    /// <summary>Number of unit slots scanned (covers the live unit block with margin).</summary>
+    public const int  UnitArraySlots = 65;
+    /// <summary>Bytes between consecutive unit records.</summary>
+    public const long UnitRecordStride = 0x200L;
+    /// <summary>Base of the inventory item-count array; count of item id is the u8 at base+id.</summary>
+    public const long InventoryCountBase = 0x1411A7C00L;
+
     // --- EnhancedMarker (native yellow move-find diamonds) -- UNVERIFIED for our 1.5 build ---
     // Static slot holding a pointer to the game's EnhancedMarkingUtility heap object. The marker
     // array begins at +0x8 (stride 0x18); MarkerWriter sets Enabled=2 + grid (X,Y) per treasure

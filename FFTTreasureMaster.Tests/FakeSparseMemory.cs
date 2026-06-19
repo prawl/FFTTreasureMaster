@@ -41,7 +41,11 @@ internal sealed class FakeSparseMemory : IGameMemory
         return U8s.TryGetValue(a, out var v) ? v : (byte)0;
     }
 
-    public ushort U16(long a) => U16s.TryGetValue(a, out var v) ? v : (ushort)0;
+    public ushort U16(long a)
+    {
+        ReadCount[a] = ReadCount.TryGetValue(a, out int c) ? c + 1 : 1;
+        return U16s.TryGetValue(a, out var v) ? v : (ushort)0;
+    }
     public ulong U64(long a) => U64s.TryGetValue(a, out var v) ? v : 0UL;
 
     public bool Readable(long a, int n) => ReadableAddrs.Contains(a);

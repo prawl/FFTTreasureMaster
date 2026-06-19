@@ -283,6 +283,10 @@ def main() -> int:
         pop_tiles   = pop["tiles"]
         tile_count  = len(pop_tiles)
         treasure_xy = {(t["x"], t["y"]) for t in pop_tiles}
+        # (x,y) -> (rareItemId, commonItemId) for claim detection (the runtime watches these
+        # inventory counts; a tile is claimed when its item count rises while a unit stands on it).
+        item_by_xy  = {(t["x"], t["y"]): (t.get("rareItemId", 0), t.get("commonItemId", 0))
+                       for t in pop_tiles}
 
         cmap = capture_maps.get(str(mid))
 
@@ -422,7 +426,11 @@ def main() -> int:
                 valid_addrs = []
 
             if valid_addrs:
-                shippable_tiles.append({"x": tx, "y": ty, "addrs": valid_addrs})
+                rare_id, common_id = item_by_xy.get((tx, ty), (0, 0))
+                shippable_tiles.append({
+                    "x": tx, "y": ty, "addrs": valid_addrs,
+                    "rareItemId": rare_id, "commonItemId": common_id,
+                })
 
         if shippable_tiles:
             shippable_count += 1
