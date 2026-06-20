@@ -2,7 +2,7 @@
   "ModId": "prawl.fft.treasuremaster",
   "ModName": "FFT Treasure Master",
   "ModAuthor": "prawl",
-  "ModVersion": "1.2.0",
+  "ModVersion": "1.2.1",
   "ModDescription": "Lights up the battlefield tiles that hide Move-Find treasure so you never walk past a hidden item, and dims each tile once its treasure is collected. In-process runtime; both behaviors toggle in the mod config.",
   "ModDll": "FFTTreasureMaster.dll",
   "ModIcon": "preview.png",

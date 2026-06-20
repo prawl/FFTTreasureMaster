@@ -547,8 +547,9 @@ internal sealed partial class TreasureMaster : ISignature
     /// counts rise since last tick, recording WHICH item id rose (preferring the rare item) so a
     /// later refund can be classified. The count rises only on a real claim by an eligible unit, so
     /// this needs no per-unit eligibility byte; occupancy pins the exact tile (so maps that reuse an
-    /// item id across tiles do not over-latch). Logs the occupied-treasure-tile set on change for a
-    /// live test. Returns true if any new tile latched. The caller refreshes the tracked counts
+    /// item id across tiles do not over-latch). Logs the occupied-treasure-tile set on change ONLY
+    /// when Tuning.ClaimDiagnostics is on (default OFF -- it spams a moving battle otherwise).
+    /// Returns true if any new tile latched. The caller refreshes the tracked counts
     /// (RefreshClaimCounts) after this AND DetectRefunds have read the prior values.
     /// </summary>
     private bool DetectClaims(TreasureMap map)
@@ -557,13 +558,16 @@ internal sealed partial class TreasureMaster : ISignature
         _claims.CollectOccupied(occupied);
 
         bool grew = false;
-        var occDiag = new System.Collections.Generic.List<string>();
+        // Diagnostic-only: the occupied-tile dump is gated behind Tuning.ClaimDiagnostics (default
+        // OFF) -- it re-fires on every step onto/off a treasure tile, so it spams a moving battle.
+        // Null when off, which also short-circuits the per-tile ReadCount game-memory reads below.
+        var occDiag = Tuning.ClaimDiagnostics ? new System.Collections.Generic.List<string>() : null;
         foreach (var tile in map.Tiles)
         {
             var key = (tile.X, tile.Y);
             if (!occupied.Contains(key)) continue;
-            occDiag.Add($"({tile.X},{tile.Y}) r{tile.RareItemId}={_claims.ReadCount(tile.RareItemId)} " +
-                        $"c{tile.CommonItemId}={_claims.ReadCount(tile.CommonItemId)}");
+            occDiag?.Add($"({tile.X},{tile.Y}) r{tile.RareItemId}={_claims.ReadCount(tile.RareItemId)} " +
+                         $"c{tile.CommonItemId}={_claims.ReadCount(tile.CommonItemId)}");
             if (_claimed.Contains(key)) continue;
 
             bool rareRose = ItemCountRose(tile.RareItemId);
@@ -576,12 +580,15 @@ internal sealed partial class TreasureMaster : ISignature
             }
         }
 
-        string diag = string.Join("  ", occDiag);
-        if (diag != _lastClaimDiag)
+        if (occDiag != null)
         {
-            _lastClaimDiag = diag;
-            if (diag.Length > 0)
-                Log.Info($"claim: map {map.MapId} unit(s) on treasure tile(s) -- {diag}");
+            string diag = string.Join("  ", occDiag);
+            if (diag != _lastClaimDiag)
+            {
+                _lastClaimDiag = diag;
+                if (diag.Length > 0)
+                    Log.Info($"claim: map {map.MapId} unit(s) on treasure tile(s) -- {diag}");
+            }
         }
         return grew;
     }

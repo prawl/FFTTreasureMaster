@@ -73,4 +73,12 @@ internal static class Tuning
     /// DEDUPED (logged only on change). Left wired (OFF) for a future RE session. Reads are guarded.
     /// (static readonly, not const, so the gated blocks do not trip CS0162 unreachable-code.)</summary>
     public static readonly bool RetryDiagnostics = false;
+
+    /// <summary>Live-test instrument for claim detection: when true, DetectClaims logs the set of
+    /// treasure tiles a unit is standing on plus each tile's rare/common item counts, DEDUPED
+    /// (logged only on change). Used to verify the claim-latch path on a real map; left wired OFF
+    /// because it re-fires every time a unit steps onto or off a treasure tile -- spam during a
+    /// moving battle. The per-tile ReadCount game-memory reads are skipped entirely while off.
+    /// (static readonly, not const, so the gated block does not trip CS0162 unreachable-code.)</summary>
+    public static readonly bool ClaimDiagnostics = false;
 }
