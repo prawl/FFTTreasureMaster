@@ -64,6 +64,12 @@ Verbs
       enough to re-find a shifted address.  Mirror of treasure_reanchor_probe.py
       mapscan / diff logic.
 
+  python tools\\probes\\unit_occupancy_probe.py collectsnap <tag> [loHex hiHex]
+      Snapshot writable game memory to a temp file for later cross-battle diffing.
+
+  python tools\\probes\\unit_occupancy_probe.py collectdiff <baselineTag> <wonATag> [<wonBTag>]
+      Diff saved snapshots to surface persistent collected-treasure flag candidates.
+
   python tools\\probes\\unit_occupancy_probe.py --selftest
       OFFLINE (no game).  Validates: the roster slot-address formula
       (RosterBase + slot*0x258 + off), the eligibility rule (Chemist 0x4b OR
@@ -74,8 +80,11 @@ Verbs
 
 import ctypes
 import ctypes.wintypes as w
+import os
+import pickle
 import struct
 import sys
+import tempfile
 import time
 
 # ---------------------------------------------------------------------------
@@ -806,6 +815,90 @@ def _find_pm1(snap1: dict[int, bytes], snap2: dict[int, bytes]) -> list[tuple[in
     return out
 
 
+def _find_stable_flips(before, after):
+    """Addresses whose byte changed between two snapshots (each a dict[int, bytes] keyed by region
+    base). Skips the UI/render arena and any region missing from either snapshot. Returns a list of
+    (addr, before_byte, after_byte). 'Stable' means the caller took before/after at the SAME game
+    context (e.g. both on the world map) so a difference reflects persistent state, not animation."""
+    out = []
+    for base, b1 in before.items():
+        b2 = after.get(base)
+        if b2 is None:
+            continue
+        n = min(len(b1), len(b2))
+        for i in range(n):
+            if b1[i] != b2[i]:
+                a = base + i
+                if _in_ui(a):
+                    continue
+                out.append((a, b1[i], b2[i]))
+    return out
+
+
+def _snap_path(tag):
+    return os.path.join(tempfile.gettempdir(), "fft_collectsnap_" + tag + ".pkl")
+
+
+def _save_snapshot(tag, snap):
+    with open(_snap_path(tag), "wb") as f:
+        pickle.dump(snap, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+
+def _load_snapshot(tag):
+    with open(_snap_path(tag), "rb") as f:
+        return pickle.load(f)
+
+
+def cmd_collectsnap(tag, lo=None, hi=None):
+    """Snapshot writable game memory to a temp file for later cross-battle diffing.
+    Run this BEFORE and AFTER a collect-and-WIN, BOTH taken at the SAME context (e.g. world map):
+      1. collectsnap baseline                  (before, on the world map)
+      2. enter a battle, collect ONE Move-Find treasure, WIN, return to the world map
+      3. collectsnap wonA                       (after, same world-map spot)
+      4. collectdiff baseline wonA              (see candidates)
+    Optional loHex hiHex bounds the snapshot to a sub-range for a smaller file."""
+    _require_game()
+    snap = _snapshot()   # writable regions, excludes the UI arena
+    if lo is not None and hi is not None:
+        snap = {b: d for b, d in snap.items() if not (b + len(d) <= lo or b >= hi)}
+    _save_snapshot(tag, snap)
+    total = sum(len(d) for d in snap.values())
+    print("  saved snapshot '" + tag + "' -> " + _snap_path(tag))
+    print("  " + str(len(snap)) + " regions, " + str(total) + " bytes")
+    print("  (these temp .pkl files are tens of MB each -- delete them when done)")
+
+
+def cmd_collectdiff(baseline, won_a, won_b=None):
+    """Diff saved snapshots to surface persistent collected-treasure flag CANDIDATES.
+    IMPORTANT: this is a CANDIDATE LIST, not an isolation. A won battle also changes gil, XP/JP,
+    the in-game clock, and story flags, so there will be noise. To narrow:
+      * For won_b, collect a DIFFERENT tile on the SAME map from the SAME starting save. The flag for
+        tile A vs tile B differs while most win-noise (gil/XP magnitude) is similar -- compare them.
+      * Also take a 'collect but LOSE' snapshot: the real flag is SET when won and CLEAR when lost.
+    Prefers single-bit 0->1 flips (a collected flag is usually one bit), banded by 64KB."""
+    base = _load_snapshot(baseline)
+    fa = _find_stable_flips(base, _load_snapshot(won_a))
+    def _single_bit_set(t):
+        x = t[1] ^ t[2]
+        return t[2] > t[1] and (x & (x - 1)) == 0 and x != 0
+    bits_a = [t for t in fa if _single_bit_set(t)]
+    print("  baseline->" + won_a + ": " + str(len(fa)) + " byte flips, " + str(len(bits_a)) + " single-bit 0->1")
+    for (a, b, c) in bits_a[:40]:
+        print("    0x%011x  %02x -> %02x" % (a, b, c))
+    if won_b:
+        fb = _find_stable_flips(base, _load_snapshot(won_b))
+        sa = {t[0] for t in fa}
+        sb = {t[0] for t in fb}
+        only_a = sorted(sa - sb)
+        only_b = sorted(sb - sa)
+        print("  shared (win-noise): " + str(len(sa & sb)) + "   only-A: " + str(len(only_a)) + "   only-B: " + str(len(only_b)))
+        print("  per-tile candidates (unique to one collected tile):")
+        for a in only_a[:40]:
+            print("    only-A 0x%011x" % a)
+        for a in only_b[:40]:
+            print("    only-B 0x%011x" % a)
+
+
 def cmd_invtrack() -> None:
     """Equip or UNEQUIP a Galewall in the menu (its inventory count changes by 1) between two
     snapshots; the count byte is the +/-1 change. Menu churn is tiny, so this isolates the
@@ -1205,6 +1298,23 @@ def _selftest() -> bool:
         print(f"  +/-1 finder: FAIL  got {[(hex(a), b, c) for a, b, c in pm1]}")
         ok = False
 
+    # ------------------------------------------------------------------
+    # 10. persistent stable-flip finder: keeps a real flip, skips missing regions + the UI arena.
+    # ------------------------------------------------------------------
+    _sf_base = 0x140900000
+    _sf_before = {_sf_base: bytes([0x00, 0x05, 0x00, 0x10]), 0x141000000: bytes([0x00])}
+    _sf_after  = {_sf_base: bytes([0x01, 0x05, 0x00, 0x10])}   # offset 0 flips; region 0x14100.. absent in 'after'
+    _sf_got = _find_stable_flips(_sf_before, _sf_after)
+    if _sf_got == [(_sf_base, 0x00, 0x01)]:
+        print("  stable-flip finder: OK")
+    else:
+        print("  stable-flip finder: FAIL  got " + str(_sf_got)); ok = False
+    _sf_ui = 0x140C63000   # inside UI_ARENA -- must be rejected
+    if _find_stable_flips({_sf_ui: bytes([0x00])}, {_sf_ui: bytes([0x01])}) == []:
+        print("  stable-flip UI-arena reject: OK")
+    else:
+        print("  stable-flip UI-arena reject: FAIL"); ok = False
+
     return ok
 
 
@@ -1295,6 +1405,17 @@ def main() -> None:
             sys.exit(2)
         cmd_tilescan(args[1])
         return
+
+    if args[0] == "collectsnap":
+        if len(args) < 2:
+            print("usage: collectsnap <tag> [loHex hiHex]"); sys.exit(2)
+        lo = int(args[2], 16) if len(args) > 3 else None
+        hi = int(args[3], 16) if len(args) > 3 else None
+        cmd_collectsnap(args[1], lo, hi); sys.exit(0)
+    if args[0] == "collectdiff":
+        if len(args) < 3:
+            print("usage: collectdiff <baselineTag> <wonATag> [<wonBTag>]"); sys.exit(2)
+        cmd_collectdiff(args[1], args[2], args[3] if len(args) > 3 else None); sys.exit(0)
 
     print(f"Unknown verb: {args[0]!r}")
     print(__doc__)
