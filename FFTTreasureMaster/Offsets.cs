@@ -61,6 +61,15 @@ internal static class Offsets
     /// <summary>Base of the inventory item-count array; count of item id is the u8 at base+id.</summary>
     public const long InventoryCountBase = 0x1411A7C00L;
 
+    // --- Persistent collected-treasure flags (LOCATED + DECODED 2026-06-21) ---
+    // 64-byte bitfield at this base holds "collected" flags for all Move-Find treasures
+    // (128 maps x 4 slots = 512 bits, MSB-first within each byte).
+    // Decode: idx = mapId * 4 + slot (slot = 0-based position in the map's treasure list,
+    // native X1..X4 file order); byte = base + idx/8; bit = 7 - (idx % 8).
+    // The Readable guard in CollectAudit keeps this fail-safe: an unreadable byte returns
+    // false (tile stays lit), so the worst case is a stale lit tile, never a missing tile.
+    public static readonly long TreasureCollectedBase = 0x1411A7680L;
+
     // --- EnhancedMarker (native yellow move-find diamonds) -- UNVERIFIED for our 1.5 build ---
     // Static slot holding a pointer to the game's EnhancedMarkingUtility heap object. The marker
     // array begins at +0x8 (stride 0x18); MarkerWriter sets Enabled=2 + grid (X,Y) per treasure

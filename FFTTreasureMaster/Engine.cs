@@ -37,7 +37,8 @@ internal sealed class Engine
                                     catch { return null; } },
             mem:            new LiveMemory(),
             enabled:        enabled,
-            claimDetection: claimDetection);
+            claimDetection: claimDetection,
+            collectDetection: claimDetection);
         _treasure.StartFastHold();
     }
 

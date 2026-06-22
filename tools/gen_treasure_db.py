@@ -287,6 +287,8 @@ def main() -> int:
         # inventory counts; a tile is claimed when its item count rises while a unit stands on it).
         item_by_xy  = {(t["x"], t["y"]): (t.get("rareItemId", 0), t.get("commonItemId", 0))
                        for t in pop_tiles}
+        # (x,y) -> slot index (0-based, native X1..X4 file order) for collect detection.
+        slot_by_xy  = {(t["x"], t["y"]): i for i, t in enumerate(pop_tiles)}
 
         cmap = capture_maps.get(str(mid))
 
@@ -430,6 +432,7 @@ def main() -> int:
                 shippable_tiles.append({
                     "x": tx, "y": ty, "addrs": valid_addrs,
                     "rareItemId": rare_id, "commonItemId": common_id,
+                    "slot": slot_by_xy.get((tx, ty), -1),
                 })
 
         if shippable_tiles:

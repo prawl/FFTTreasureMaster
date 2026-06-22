@@ -49,6 +49,11 @@ internal sealed partial class TreasureMaster : ISignature
     private readonly bool _enabled;
     private readonly FastHold _fastHold;
 
+    private readonly CollectAudit _collect;
+    private readonly bool         _collectDetection;
+    private readonly Func<int, TreasureTile, bool>? _collectedOracle;
+    private readonly HashSet<(int, int)> _collected = new();   // tiles collected+won in a PRIOR battle (persistent; outlives refunds)
+
     private readonly HashSet<(int, int)> _claimed = new();
     private readonly Dictionary<int, int> _lastCount = new();   // itemId -> inventory count last tick
     private readonly Dictionary<int, int> _armCount  = new();   // itemId -> count at arm (immutable refund baseline)
@@ -82,9 +87,12 @@ internal sealed partial class TreasureMaster : ISignature
     /// default). When false the module is permanently idle and never reads game memory.</param>
     /// <param name="claimDetection">Claim detection gate; null = use Tuning.ClaimDetectionEnabled.
     /// When true, an eligible player unit standing on a tile claims it for the battle.</param>
-    public TreasureMaster(TreasureDb db, IGameMemory? mem = null, bool? enabled = null, bool? claimDetection = null)
+    public TreasureMaster(TreasureDb db, IGameMemory? mem = null, bool? enabled = null,
+        bool? claimDetection = null, bool? collectDetection = null,
+        Func<int, TreasureTile, bool>? collectedOracle = null)
         : this(load: () => db, datasetStamp: () => null, mem: mem, enabled: enabled,
-               claimDetection: claimDetection) { }
+               claimDetection: claimDetection, collectDetection: collectDetection,
+               collectedOracle: collectedOracle) { }
 
     /// <summary>
     /// Injectable seam ctor used by tests and Engine alike.
@@ -97,7 +105,9 @@ internal sealed partial class TreasureMaster : ISignature
         Func<DateTime?> datasetStamp,
         IGameMemory? mem = null,
         bool? enabled = null,
-        bool? claimDetection = null)
+        bool? claimDetection = null,
+        bool? collectDetection = null,
+        Func<int, TreasureTile, bool>? collectedOracle = null)
     {
         _load           = load;
         _datasetStamp   = datasetStamp;
@@ -107,8 +117,12 @@ internal sealed partial class TreasureMaster : ISignature
         _holder         = new TileHolder(_mem);
         _markers        = new MarkerWriter(_mem);   // Tuning.EnhancedMarkersEnabled gates it (off)
         _claims         = new ClaimAudit(_mem);
+        _collect        = new CollectAudit(_mem);
         _enabled        = enabled ?? Tuning.TreasureEnabled;
         _claimDetection = claimDetection ?? Tuning.ClaimDetectionEnabled;
+        _collectDetection = collectDetection ?? Tuning.CollectDetectionEnabled;
+        _collectedOracle  = collectedOracle
+            ?? (_collectDetection ? (Func<int, TreasureTile, bool>)_collect.IsCollected : null);
         _fastHold       = new FastHold(_holder, Tuning.TreasureFastHoldMs);
         // Thread not started here -- tests must not spawn OS threads; Engine calls StartFastHold().
     }
@@ -138,6 +152,7 @@ internal sealed partial class TreasureMaster : ISignature
         _lastMarkerProbe            = null;
         _flapLoggedThisBattle       = false;
         _claimed.Clear();
+        _collected.Clear();
         _lastCount.Clear();
         _armCount.Clear();
         _claimItem.Clear();
@@ -332,13 +347,16 @@ internal sealed partial class TreasureMaster : ISignature
             case ArmVerdict.Arm:
                 _phase          = Phase.Armed;
                 _revalidateTick = 0;
-                _activeMap      = map;   // start with the full map; claim detection narrows it
+                SeedCollected(map);                          // persistent: hide tiles looted+won in a prior battle
                 if (_claimDetection) InitClaimBaseline(map);
+                RebuildActiveMap();                          // _activeMap = map minus _collected (and _claimed, empty here)
+                var armMap = _activeMap ?? map;
                 Log.Info($"treasure: map {map.MapId} {map.Name} armed -- " +
-                         $"{map.Tiles.Count} tile(s)" +
+                         $"{armMap.Tiles.Count} tile(s)" +
+                         (_collected.Count > 0 ? $", {_collected.Count} already collected (hidden)" : "") +
                          (map.IsMapIdOnly ? " (map-id-only)" : ""));
-                _holder.Hold(map);
-                WriteMarkers(map);   // no-op while dark; native yellow diamonds once enabled
+                _holder.Hold(armMap);
+                WriteMarkers(armMap);
                 break;
 
             case ArmVerdict.Retry:
@@ -477,12 +495,13 @@ internal sealed partial class TreasureMaster : ISignature
     private void RebuildActiveMap()
     {
         if (_map is not { } fullMap) return;
-        if (_claimed.Count == 0) { _activeMap = fullMap; return; }
+        if (_claimed.Count == 0 && _collected.Count == 0) { _activeMap = fullMap; return; }
 
         var filteredTiles = new System.Collections.Generic.List<TreasureTile>(fullMap.Tiles.Count);
         foreach (var t in fullMap.Tiles)
         {
-            if (!_claimed.Contains((t.X, t.Y))) filteredTiles.Add(t);
+            var key = (t.X, t.Y);
+            if (!_claimed.Contains(key) && !_collected.Contains(key)) filteredTiles.Add(t);
         }
         _activeMap = new TreasureMap
         {
@@ -497,6 +516,19 @@ internal sealed partial class TreasureMaster : ISignature
     }
 
     // ── claim detection: occupancy + inventory-count rise ──────────────────────────
+
+    /// <summary>Seeds <see cref="_collected"/> from the persistent collected-treasure oracle once at
+    /// arm: every tile the game records as already collected (picked up + battle won in a PRIOR
+    /// battle). Excluded from the lit set for the whole battle and -- unlike <see cref="_claimed"/> --
+    /// NOT cleared by an in-battle refund (a prior-battle collection does not un-happen mid-battle).
+    /// No-op, and reads no game memory, when no oracle is wired (the dark/default state).</summary>
+    private void SeedCollected(TreasureMap map)
+    {
+        _collected.Clear();
+        if (_collectedOracle is not { } oracle) return;
+        foreach (var tile in map.Tiles)
+            if (oracle(map.MapId, tile)) _collected.Add((tile.X, tile.Y));
+    }
 
     /// <summary>Snapshots the inventory counts of every tile's items at arm. The per-tick baseline
     /// (<see cref="_lastCount"/>) drives claim detection (a later rise marks a claim); the immutable

@@ -81,4 +81,12 @@ internal static class Tuning
     /// moving battle. The per-tile ReadCount game-memory reads are skipped entirely while off.
     /// (static readonly, not const, so the gated block does not trip CS0162 unreachable-code.)</summary>
     public static readonly bool ClaimDiagnostics = false;
+
+    /// <summary>Gate for PERSISTENT collected-treasure detection (excluding tiles whose Move-Find
+    /// treasure was collected AND the battle won in a PRIOR battle -- see CollectAudit).
+    /// The table is located and decoded: 64-byte bitfield at Offsets.TreasureCollectedBase,
+    /// indexed as idx = mapId*4 + slot, MSB-first within each byte. CollectAudit reads this
+    /// Readable-guarded; any unreadable byte returns false (tile stays lit -- fail-safe).
+    /// (static readonly, not const, so the gated wiring does not trip CS0162 unreachable-code.)</summary>
+    public static readonly bool CollectDetectionEnabled = true;
 }

@@ -18,8 +18,9 @@ public class Config : Configurable<Config>
     [DisplayName("Hide tiles after their treasure is claimed")]
     [Description("When a treasure is claimed from a tile -- a Chemist, or any unit with the " +
                  "Treasure Hunter movement ability, picks up the hidden item -- that tile stops " +
-                 "being highlighted for the rest of the battle. Turn this off to keep every " +
-                 "treasure tile lit for the whole battle. Default: on.")]
+                 "being highlighted for the rest of the battle. Also hides any tile whose Move-Find " +
+                 "treasure you already collected and won in a previous battle (it does not respawn). " +
+                 "Turn this off to keep every treasure tile lit. Default: on.")]
     [DefaultValue(true)]
     public bool HideClaimedTiles { get; set; } = true;
 }

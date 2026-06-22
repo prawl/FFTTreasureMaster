@@ -31,6 +31,9 @@ internal sealed class TreasureTileJson
     [JsonProperty("rareItemId")]   public int RareItemId   { get; set; }
     /// <summary>ItemData id of the common Move-Find item on this tile (0 if absent).</summary>
     [JsonProperty("commonItemId")] public int CommonItemId { get; set; }
+    /// <summary>0-based slot index in the map's treasure list (native X1..X4 file order). Used by
+    /// collect detection to index into the persistent collected-treasure bitfield. -1 = unknown.</summary>
+    [JsonProperty("slot")]         public int Slot         { get; set; } = -1;
 }
 
 /// <summary>One treasure tile with its validated flag-byte addresses.</summary>
@@ -43,6 +46,9 @@ internal sealed class TreasureTile
     /// watches their inventory counts.</summary>
     public int RareItemId   { get; internal set; }
     public int CommonItemId { get; internal set; }
+    /// <summary>0-based slot index in the map's treasure list (native X1..X4 file order). Used by
+    /// collect detection to index into the persistent collected-treasure bitfield. -1 = unknown.</summary>
+    public int Slot { get; internal set; } = -1;
 }
 
 /// <summary>Build key: PE TimeDateStamp + SizeOfImage from the captured game binary.</summary>
@@ -170,6 +176,7 @@ internal sealed class TreasureDb
                         {
                             X = tj.X, Y = tj.Y, Addrs = validAddrs,
                             RareItemId = tj.RareItemId, CommonItemId = tj.CommonItemId,
+                            Slot = tj.Slot,
                         });
                 }
                 validMaps.Add(new TreasureMap

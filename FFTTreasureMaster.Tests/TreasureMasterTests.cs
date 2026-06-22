@@ -2338,4 +2338,202 @@ public class TreasureMasterTests
         Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
     }
 
+    // ── Collected-tile exclusion (persistent prior-battle detection) ─────────────────────────
+
+    [Fact]
+    public void Collected_tile_is_never_lit_when_oracle_reports_collected()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        long addrC = TileAddr(340);   // collected tile
+        long addrS = TileAddr(341);   // sibling, not collected
+        var db = BuildClaimDb(dir, terrain,
+            (5, 7, addrC, 200, 0),
+            (6, 6, addrS, 201, 0));
+        var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false,
+            collectedOracle: (mapId, t) => t.X == 5 && t.Y == 7);
+        StabilizeAndArm(tm);
+        tm.FastHold.HoldOnce();
+        Assert.False(mem.Written.ContainsKey(addrC));                       // C excluded -> never written
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);          // C still resting
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);            // S lit
+    }
+
+    [Fact]
+    public void Collected_tile_stays_dark_through_a_sibling_claim_and_refund()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        long addrC = TileAddr(340);   // collected (oracle)
+        long addrS = TileAddr(341);   // claimed+refunded this battle
+        var db = BuildClaimDb(dir, terrain,
+            (5, 7, addrC, 200, 0),
+            (6, 6, addrS, 201, 0));
+        var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
+        SeedClaimUnit(mem, 6, 6);          // unit on S
+        SeedItemCount(mem, 201, 1);        // S rare baseline
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true,
+            collectedOracle: (mid, t) => t.X == 5 && t.Y == 7);
+        StabilizeAndArm(tm);
+        BumpItemCount(mem, 201);                       // claim S: 1 -> 2
+        tm.Tick(System.DateTime.Now, inLive: true);
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrS]);   // S unlit
+        SeedItemCount(mem, 201, 1);                    // refund S: 2 -> 1
+        tm.Tick(System.DateTime.Now, inLive: true);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);      // S re-lit
+        Assert.False(mem.Written.ContainsKey(addrC));               // C never written -> outlived refund
+    }
+
+    [Fact]
+    public void Collected_tile_that_is_also_claimed_stays_dark_after_refund()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        long addrC = TileAddr(340);
+        var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0));
+        var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
+        SeedClaimUnit(mem, 5, 7);          // unit on C
+        SeedItemCount(mem, 200, 1);
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true,
+            collectedOracle: (mid, t) => t.X == 5 && t.Y == 7);
+        StabilizeAndArm(tm);
+        BumpItemCount(mem, 200);                       // C also gets claimed this battle
+        tm.Tick(System.DateTime.Now, inLive: true);
+        SeedItemCount(mem, 200, 1);                    // refund: DetectRefunds clears _claimed
+        tm.Tick(System.DateTime.Now, inLive: true);
+        Assert.False(mem.Written.ContainsKey(addrC));  // _collected outlives the refund -> never lit
+    }
+
+    [Fact]
+    public void No_collected_oracle_lights_all_tiles()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        long addrC = TileAddr(340), addrS = TileAddr(341);
+        var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0), (6, 6, addrS, 201, 0));
+        var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false);
+        StabilizeAndArm(tm);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+    }
+
+    /// <summary>
+    /// Fail-safe: with collectDetection:true but the collected-table byte NOT seeded readable in
+    /// FakeSparseMemory, CollectAudit.IsCollected returns false (Readable guard), so both tiles
+    /// stay lit. Proves the feature is safe when the table is inaccessible at runtime.
+    /// </summary>
+    [Fact]
+    public void CollectDetection_enabled_but_table_unreadable_lights_all_tiles()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        long addrC = TileAddr(340), addrS = TileAddr(341);
+        var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0), (6, 6, addrS, 201, 0));
+        var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
+        // The collected-table byte at 0x1411A76A5 is NOT in mem.ReadableAddrs, so Readable(addr,1)
+        // returns false -> IsCollected returns false -> neither tile is excluded -> both lit.
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false, collectDetection: true);
+        StabilizeAndArm(tm);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+    }
+
+    [Fact]
+    public void Collected_oracle_is_consulted_once_per_tile_at_arm_only()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        long addrC = TileAddr(340), addrS = TileAddr(341);
+        var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0), (6, 6, addrS, 201, 0));
+        var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
+        int calls = 0;
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false,
+            collectedOracle: (mid, t) => { calls++; return false; });
+        StabilizeAndArm(tm);
+        int atArm = calls;
+        Assert.Equal(2, atArm);          // one call per tile at arm
+        TickN(tm, 10);
+        Assert.Equal(atArm, calls);      // no further calls on later armed ticks
+    }
+
+    [Fact]
+    public void Collected_exclusion_reads_no_claim_memory_when_claim_detection_off()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        long addrC = TileAddr(340), addrS = TileAddr(341);
+        var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0), (6, 6, addrS, 201, 0));
+        var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false,
+            collectedOracle: (mid, t) => t.X == 5 && t.Y == 7);
+        StabilizeAndArm(tm);
+        TickN(tm, 5);
+        Assert.False(mem.Written.ContainsKey(addrC));
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+        Assert.False(mem.ReadCount.ContainsKey(Offsets.UnitArrayBaseX));
+        Assert.False(mem.ReadCount.ContainsKey(Offsets.InventoryCountBase + 200));
+    }
+
+    /// <summary>
+    /// End-to-end test: CollectAudit real decode path. Tile C at (mapId=10, slot=0) has its
+    /// collected bit SET in FakeSparseMemory; tile S at (mapId=10, slot=1) is clear. With
+    /// collectDetection:true and NO lambda oracle, the real CollectAudit.IsCollected is used.
+    /// Arm expects C to be excluded (never written) and S to be lit.
+    /// </summary>
+    [Fact]
+    public void Collected_tile_excluded_via_CollectAudit_decode()
+    {
+        // Use mapId 10 so the collected-table byte does not collide with tile addresses.
+        const int testMapId = 10;
+        // Decode: idx_C = 10*4+0 = 40; byte = base+5 = 0x1411A7685; bit = 7.
+        //         idx_S = 10*4+1 = 41; byte = base+5 = 0x1411A7685; bit = 6.
+        const long collectBase = 0x1411A7680L;
+        int   idxC    = testMapId * 4 + 0;
+        long  cByteAddr = collectBase + idxC / 8;
+        int   cBit    = 7 - (idxC % 8);
+        int   idxS    = testMapId * 4 + 1;
+        long  sByteAddr = collectBase + idxS / 8;   // same byte as C
+        int   sBit    = 7 - (idxS % 8);
+
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        long addrC = TileAddr(360);
+        long addrS = TileAddr(361);
+
+        // Write treasure.json directly with explicit slots.
+        string json = $@"{{
+            ""buildKey"": null,
+            ""maps"": [{{
+                ""mapId"": {testMapId}, ""name"": ""Test"", ""tileCount"": 2,
+                ""fpVer"": 1, ""fpLen"": {terrain.Length}, ""fpHash"": ""{TreasureMaster.Fnv1a64(terrain):x}"",
+                ""tiles"": [
+                    {{ ""x"": 5, ""y"": 7, ""rareItemId"": 200, ""commonItemId"": 0, ""slot"": 0, ""addrs"": [[""{addrC:x}"", ""00""]] }},
+                    {{ ""x"": 6, ""y"": 8, ""rareItemId"": 201, ""commonItemId"": 0, ""slot"": 1, ""addrs"": [[""{addrS:x}"", ""00""]] }}
+                ]
+            }}]
+        }}";
+        System.IO.File.WriteAllText(System.IO.Path.Combine(dir, "treasure.json"), json);
+        var db = TreasureDb.Load(dir);
+
+        var mem = BuildMem((byte)testMapId, terrain, new[] { addrC, addrS }, initialByte: 0x00);
+
+        // Seed the collected-table byte: bit for C set, bit for S clear.
+        byte collectByte = (byte)(1 << cBit);   // only C's bit is 1 (cBit > sBit since slot 0 > slot 1 bit order)
+        mem.U8s[cByteAddr] = collectByte;
+        mem.ReadableAddrs.Add(cByteAddr);        // sByteAddr is the same address; already added
+
+        // Construct with real CollectAudit path (no lambda oracle).
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false, collectDetection: true);
+        StabilizeAndArm(tm);
+
+        // C: collected bit set -> excluded -> never written, still resting (0x00).
+        Assert.False(mem.Written.ContainsKey(addrC));
+        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+
+        // S: collected bit clear -> lit.
+        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+    }
+
 }
