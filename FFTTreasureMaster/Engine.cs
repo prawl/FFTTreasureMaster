@@ -53,11 +53,11 @@ internal sealed class Engine
         var token = _cts.Token;
         Task.Run(async () =>
         {
-            Log.Info("runtime loop started.");
+            ModLogger.Event(LogVerb.Startup, "The runtime loop has started; battles are being watched.");
             while (!token.IsCancellationRequested)
             {
                 try { Tick(); }
-                catch (Exception ex) { Log.Error("tick: " + ex.Message); }
+                catch (Exception ex) { ModLogger.Error(LogVerb.Engine, "The engine tick failed: " + ex.Message); }
                 try { await Task.Delay(PollMs, token); } catch { }
             }
         }, token);
@@ -82,11 +82,23 @@ internal sealed class Engine
         // module on BOTH edges so a battle that restarts without a clean exit still starts clean.
         BattleEdge edge = _battle.Step(slot0, slot9, battleMode, paused, eventId, now);
         if (edge == BattleEdge.Entered)
-            Log.Info($"battle: started (slot0={slot0:X} slot9={slot9:X} mode={battleMode})");
+        {
+            ModLogger.NoteBattleEdge();          // fresh console-dedup window for the new battle
+            Flight.FlushBattleStart();           // archive the previous battle's tail while it can still be saved
+            ModLogger.EventWithTrace(LogVerb.BattleStart, "Battle started.",
+                $"battle-start sentinels (slot0={slot0:X} slot9={slot9:X} mode={battleMode} event={eventId} paused={paused})");
+            Flight.Record("battle", $"enter slot0={slot0:X} slot9={slot9:X} mode={battleMode}");
+        }
         if (edge == BattleEdge.Entered || edge == BattleEdge.Exited)
         {
             if (edge == BattleEdge.Exited)
-                Log.Info($"battle: ended (slot0={slot0:X} slot9={slot9:X} mode={battleMode})");
+            {
+                ModLogger.EventWithTrace(LogVerb.BattleEnd, "Battle ended.",
+                    $"battle-end sentinels (slot0={slot0:X} slot9={slot9:X} mode={battleMode} event={eventId} paused={paused})");
+                Flight.Record("battle", $"exit slot0={slot0:X} slot9={slot9:X} mode={battleMode}");
+                Flight.FlushBattleEnd();
+                ModLogger.NoteBattleEdge();
+            }
             _treasure.ResetBattle();
         }
 
@@ -104,11 +116,12 @@ internal sealed class Engine
             if (key != _lastDispKey)
             {
                 _lastDispKey = key;
-                Log.Info($"diag/engine: displayed={battleDisplayed} slot0={slot0:X} slot9={slot9:X} " +
-                         $"mode={battleMode} event={eventId} paused={paused}");
+                ModLogger.Debug(LogVerb.Trace, $"engine displayed={battleDisplayed} slot0={slot0:X} slot9={slot9:X} " +
+                                               $"mode={battleMode} event={eventId} paused={paused}");
             }
         }
 
         _treasure.Tick(now, battleDisplayed);
+        Flight.DrainPending();   // performs any error-triggered flush queued since the last tick
     }
 }

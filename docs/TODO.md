@@ -20,6 +20,20 @@ that checklist.
   - Verify: owner-only flip after seeing the re-light in a live session; note the map and item
     used.
 
+- **[TM-4] Make the mod's messages match the FFTLivingWeapons logging model** (opened 2026-07-21) [AWAITING-LIVE]
+  - Done means: the console tells a short story a player can read (battle started, map armed,
+    treasure claimed) while the log file keeps every timestamped detail, so a bug report is
+    diagnosable after the fact even when nobody was watching; and the shape is machine-pinned
+    so it cannot drift. (Tech: typed ModLogger facade with LogVerb, FileConsoleLogger two-sink
+    core, ScopedLogger, the flight recorder with battle-edge, first-error, and standdown
+    flushes; verbs startup, config, battle-start, battle-end, arm, treasure, claim, anchor,
+    save, engine, trace; docs/LOGGING.md plus LogContractTests beside TodoContractTests; the
+    old Log shim retired; BuildLinked clean step preserves flight/.)
+  - Verify: the full test suite is green including the new LogContractTests, FileConsoleLogger,
+    FlightRecorder, and ScopedLogger suites; then the owner launches the game and sees the new
+    launch header and a battle report in the new line shape, and a flight archive appears
+    after a battle.
+
 ## Backlog
 
 - [TM-3] 2026-07-21: The release zip cannot be uploaded to Nexus yet because the mod has no

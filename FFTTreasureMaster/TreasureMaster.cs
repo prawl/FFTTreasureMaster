@@ -210,7 +210,8 @@ internal sealed partial class TreasureMaster : ISignature
                     var mapCount = 0;
                     foreach (var m in _db.Maps)
                         if (m.Tiles.Count > 0) mapCount++;
-                    Log.Info($"treasure: dataset reloaded -- {mapCount} map(s) with addresses");
+                    ModLogger.Event(LogVerb.Save, $"The treasure dataset was reloaded: {mapCount} map(s) carry addresses.");
+                    Flight.Record("save", $"dataset reloaded maps={mapCount}");
                 }
             }
         }
@@ -230,7 +231,7 @@ internal sealed partial class TreasureMaster : ISignature
         if (Tuning.RetryDiagnostics)
         {
             string sd = $"inLive={inLive} phase={_phase}";
-            if (sd != _lastStateDiag) { _lastStateDiag = sd; Log.Info($"diag/state: {sd}"); }
+            if (sd != _lastStateDiag) { _lastStateDiag = sd; ModLogger.Debug(LogVerb.Trace, $"state {sd}"); }
         }
 
         if (!inLive)
@@ -260,7 +261,7 @@ internal sealed partial class TreasureMaster : ISignature
         if (!_enabled)
         {
             _globalIdle = true;
-            Log.Info("treasure: disabled in config -- module idle (enable it in the Reloaded mod config to mark treasure tiles)");
+            ModLogger.Event(LogVerb.Config, "Treasure marking is disabled in the mod configuration; enable it in the Reloaded launcher to mark treasure tiles.");
             return;
         }
 
@@ -284,16 +285,21 @@ internal sealed partial class TreasureMaster : ISignature
                     (uint)bk.TimeDateStamp, (uint)bk.SizeOfImage,
                     live.Value.TimeDateStamp, live.Value.SizeOfImage))
             {
-                string mismatchMsg =
-                    $"treasure: dataset built for game {bk.TimeDateStamp:X}/{bk.SizeOfImage:X} " +
-                    $"but running {live.Value.TimeDateStamp:X}/{live.Value.SizeOfImage:X} " +
-                    $"-- disarmed, re-capture needed";
+                string mismatchDetail =
+                    $"anchor dataset build {bk.TimeDateStamp:X}/{bk.SizeOfImage:X}, " +
+                    $"running build {live.Value.TimeDateStamp:X}/{live.Value.SizeOfImage:X}";
 
                 var res = _resolver?.Invoke(_db);
                 if (res is null)
                 {
                     _globalIdle = true;
-                    Log.Info(mismatchMsg + (_resolver is null ? "" : " -- signature re-resolve failed"));
+                    ModLogger.WarnWithTrace(LogVerb.Anchor,
+                        _resolver is null
+                            ? "The game build does not match the treasure dataset; treasures stay unmarked until a re-capture."
+                            : "The game build does not match the treasure dataset and the signature re-resolve failed; treasures stay unmarked until a re-capture.",
+                        mismatchDetail);
+                    Flight.Record("anchor", "standdown " + mismatchDetail);
+                    Flight.RequestFlush("standdown");
                     return;
                 }
 
@@ -307,9 +313,11 @@ internal sealed partial class TreasureMaster : ISignature
                 foreach (var m in _db.Maps) if (m.Tiles.Count > 0) mapCount++;
                 string regions = string.Join(",", res.RegionDeltas.Select(kv => $"{kv.Key}={kv.Value:X}"));
                 string derived = string.Join(",", res.DerivedRegions);
-                Log.Info("treasure: build key mismatch -- re-resolved by signature: " +
-                         $"{mapCount} map(s), regions=[{regions}], derived=[{derived}] " +
-                         $"claim={_claimOkForBuild} collect={_collectOkForBuild} fingerprint={_fingerprintOkForBuild}");
+                ModLogger.EventWithTrace(LogVerb.Anchor,
+                    $"The game build changed and the addresses were re-resolved by signature: {mapCount} map(s) remapped.",
+                    $"anchor regions=[{regions}] derived=[{derived}] claim={_claimOkForBuild} " +
+                    $"collect={_collectOkForBuild} fingerprint={_fingerprintOkForBuild} ({mismatchDetail})");
+                Flight.Record("anchor", $"resolved regions=[{regions}] derived=[{derived}]");
                 // Fall through: proceed to arm against the remapped dataset.
             }
         }
@@ -347,8 +355,9 @@ internal sealed partial class TreasureMaster : ISignature
             if (!_naggedThisBattle)
             {
                 _naggedThisBattle = true;
-                Log.Info($"treasure: map {mapId} {found.Name} has {found.TileCount} treasure " +
-                         $"tile(s), not captured -- run treasure_flags.py session");
+                ModLogger.WarnWithTrace(LogVerb.Treasure,
+                    $"Map {mapId} {found.Name} hides {found.TileCount} treasure tile(s) whose addresses are not captured yet; they cannot be lit.",
+                    "treasure capture tool: tools/treasure_flags.py session");
             }
             return;
         }
@@ -376,8 +385,9 @@ internal sealed partial class TreasureMaster : ISignature
         {
             _flapLoggedThisBattle = true;
             var d = _audit.FingerprintDiag(map);
-            Log.Info($"treasure: map {map.MapId} fingerprint mismatch -- arming on map-id + quorum anyway " +
-                     $"(weather/terrain drift; readOk={d.ReadOk} fpVer={d.FpVer} got={d.Got:X} want={d.Expected:X})");
+            ModLogger.WarnWithTrace(LogVerb.Arm,
+                $"Map {map.MapId} failed its terrain fingerprint check; arming on map id and quorum anyway (weather or terrain drift).",
+                $"arm fingerprint readOk={d.ReadOk} fpVer={d.FpVer} got={d.Got:X} want={d.Expected:X}");
         }
 
         var (verdict, _) = _audit.AuditAddrs(map, Tuning.TreasureMinPlausibleAddrs);
@@ -391,10 +401,11 @@ internal sealed partial class TreasureMaster : ISignature
                 if (_claimDetection && _claimOkForBuild) InitClaimBaseline(map);
                 RebuildActiveMap();                          // _activeMap = map minus _collected (and _claimed, empty here)
                 var armMap = _activeMap ?? map;
-                Log.Info($"treasure: map {map.MapId} {map.Name} armed -- " +
-                         $"{armMap.Tiles.Count} tile(s)" +
-                         (_collected.Count > 0 ? $", {_collected.Count} already collected (hidden)" : "") +
-                         (map.IsMapIdOnly ? " (map-id-only)" : ""));
+                ModLogger.Event(LogVerb.Arm,
+                    $"Map {map.MapId} {map.Name} is armed: {armMap.Tiles.Count} treasure tile(s) held lit" +
+                    (_collected.Count > 0 ? $", {_collected.Count} already collected and hidden" : "") +
+                    (map.IsMapIdOnly ? " (matched by map id only)" : "") + ".");
+                Flight.Record("arm", $"armed map={map.MapId} tiles={armMap.Tiles.Count} collected={_collected.Count}");
                 _holder.Hold(armMap);
                 WriteMarkers(armMap);
                 break;
@@ -404,8 +415,8 @@ internal sealed partial class TreasureMaster : ISignature
                 if (_armAttempts >= Tuning.TreasureArmAttemptCap && !_capLoggedThisBattle)
                 {
                     _capLoggedThisBattle = true;
-                    Log.Info($"treasure: map {map.MapId} waiting to arm -- " +
-                             $"flag bytes not in rest state (tiles off-screen?)");
+                    ModLogger.Debug(LogVerb.Arm,
+                        $"map {map.MapId} is waiting to arm; the flag bytes are not in their rest state (tiles off-screen?)");
                 }
                 break;
         }
@@ -426,7 +437,7 @@ internal sealed partial class TreasureMaster : ISignature
             if (_badMapTicks >= Tuning.TreasureMapIdBadTicksToReset)
             {
                 // Map changed (chained battle) or something went wrong -- full reset.
-                Log.Info($"treasure: map id changed from {map.MapId} -- resetting for new battle");
+                ModLogger.Event(LogVerb.Treasure, $"The map changed from {map.MapId} mid-battle (a chained battle); resetting for the new map.");
                 ResetBattle();
             }
             return;   // suspend writes this tick
@@ -451,8 +462,8 @@ internal sealed partial class TreasureMaster : ISignature
             if (!_audit.FingerprintMatches(map))
             {
                 _flapLoggedThisBattle = true;
-                Log.Info($"treasure: map {map.MapId} terrain drifted mid-battle -- " +
-                         $"holding marks through it (fingerprint no longer matches; not a disarm)");
+                ModLogger.Warn(LogVerb.Arm,
+                    $"Map {map.MapId} terrain drifted mid-battle; the marks are held through it (the fingerprint no longer matches; not a disarm).");
             }
         }
 
@@ -466,9 +477,12 @@ internal sealed partial class TreasureMaster : ISignature
             RefreshClaimCounts(map);   // refresh per-tick baselines AFTER both decisions read them
             if (grew || shrank)
             {
-                Log.Info($"claim: {_claimed.Count} tile(s) active" +
-                         (shrank ? " (refund re-lit tiles)" : "") +
-                         $": [{string.Join(", ", _claimed)}]");
+                ModLogger.EventWithTrace(LogVerb.Claim,
+                    shrank
+                        ? $"A battle reset refunded the claimed treasures; the tiles are lit again ({_claimed.Count} still claimed)."
+                        : $"A treasure was claimed; {_claimed.Count} tile(s) on this map are now claimed and unlit.",
+                    $"claim tiles=[{string.Join(", ", _claimed)}]");
+                Flight.Record("claim", (shrank ? "refund" : "claim") + $" count={_claimed.Count}");
                 RebuildActiveMap();
             }
             foreach (var tile in map.Tiles)
@@ -486,8 +500,8 @@ internal sealed partial class TreasureMaster : ISignature
         if (foreign > 0 && !_foreignLoggedThisBattle)
         {
             _foreignLoggedThisBattle = true;
-            Log.Info($"treasure: map {map.MapId} {foreign} byte(s) off-flag (tiles off-screen?) " +
-                     $"-- skipping those, holding the rest");
+            ModLogger.Warn(LogVerb.Treasure,
+                $"Map {map.MapId} has {foreign} flag byte(s) away from their expected value (tiles off-screen?); skipping those and holding the rest.");
         }
         if (Tuning.RetryDiagnostics) LogHoldDiag(holdMap, wrote, foreign);
     }
@@ -522,7 +536,7 @@ internal sealed partial class TreasureMaster : ISignature
         }
         string diag = $"hold: tiles={map.Tiles.Count} wrote={wrote} rest={rest} held={held} " +
                       $"foreign={frgn} unread={unread} [{string.Join(" ", samples)}]";
-        if (diag != _lastHoldDiag) { _lastHoldDiag = diag; Log.Info("diag/" + diag); }
+        if (diag != _lastHoldDiag) { _lastHoldDiag = diag; ModLogger.Debug(LogVerb.Trace, diag); }
     }
 
     // ── claim map rebuild ─────────────────────────────────────────────────────────
@@ -660,7 +674,7 @@ internal sealed partial class TreasureMaster : ISignature
             {
                 _lastClaimDiag = diag;
                 if (diag.Length > 0)
-                    Log.Info($"claim: map {map.MapId} unit(s) on treasure tile(s) -- {diag}");
+                    ModLogger.Debug(LogVerb.Claim, $"map {map.MapId} unit(s) on treasure tile(s): {diag}");
             }
         }
         return grew;
@@ -752,7 +766,7 @@ internal sealed partial class TreasureMaster : ISignature
             if (!_markersLoggedThisBattle)
             {
                 _markersLoggedThisBattle = true;
-                Log.Info($"treasure: enhanced markers active -- wrote {wrote} slot(s) for map {map.MapId} {map.Name}");
+                ModLogger.Event(LogVerb.Treasure, $"Enhanced markers are active: {wrote} marker slot(s) written for map {map.MapId} {map.Name}.");
             }
             return;
         }
@@ -763,7 +777,9 @@ internal sealed partial class TreasureMaster : ISignature
         if (probe != _lastMarkerProbe)
         {
             _lastMarkerProbe = probe;
-            Log.Info($"treasure: enhanced markers NOT written -- ptr@0x{Offsets.EnhancedMarkingUtilityPtr:X} {probe}");
+            ModLogger.WarnWithTrace(LogVerb.Treasure,
+                "Enhanced markers could not be written; the marking utility pointer did not resolve.",
+                $"marker ptr@0x{Offsets.EnhancedMarkingUtilityPtr:X} {probe}");
         }
     }
 }

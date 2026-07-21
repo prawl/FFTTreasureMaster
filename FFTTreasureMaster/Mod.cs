@@ -28,8 +28,9 @@ public class Mod : IMod
         {
             string modDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
                             ?? Environment.CurrentDirectory;
-            Log.Init(modDir);
-            Log.Info("Treasure Master starting up (running inside FFT_enhanced.exe).");
+            ModLogger.Init(modDir);
+            Flight.Init(modDir);
+            ModLogger.Event(LogVerb.Startup, "Treasure Master is starting inside fft_enhanced.exe.");
 
             // Load mod config fail-soft: any read failure falls back to the Tuning default (true).
             // The Reloaded launcher writes the user's edits to <Reloaded>/User/Mods/<ModId>/Config.json,
@@ -43,11 +44,14 @@ public class Mod : IMod
                 var cfg        = Configurable<Config>.FromFile(configPath, "FFT Treasure Master Configuration");
                 enabled        = cfg.Enabled;
                 claimDetection = cfg.HideClaimedTiles;
-                Log.Info($"config: Enabled={enabled} HideClaimedTiles={claimDetection} (from {configPath})");
+                ModLogger.EventWithTrace(LogVerb.Config,
+                    $"Configuration loaded: Enabled={enabled} HideClaimedTiles={claimDetection}.",
+                    $"config source {configPath}");
             }
             catch (Exception cfgEx)
             {
-                Log.Error($"config load failed, using defaults Enabled={enabled} HideClaimedTiles={claimDetection}: {cfgEx.Message}");
+                ModLogger.Warn(LogVerb.Config,
+                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection}: {cfgEx.Message}");
             }
 
             _engine = new Engine(modDir, enabled, claimDetection);
@@ -55,7 +59,7 @@ public class Mod : IMod
         }
         catch (Exception ex)
         {
-            try { Log.Error("startup failed -- Treasure Master will not run: " + ex); } catch { }
+            try { ModLogger.Error(LogVerb.Startup, "Startup failed; Treasure Master will not run.", ex); } catch { }
         }
     }
 

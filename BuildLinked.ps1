@@ -40,8 +40,9 @@ try {
     # --- [3/4] Clean the live mod folder, then publish the DLL + stage the manifest ---
     Write-Host "[3/4] Cleaning $dest and publishing the DLL..." -ForegroundColor Yellow
     if (Test-Path $dest) {
-        # Keep the Vortex marker so Vortex doesn't treat the folder as orphaned.
-        Remove-Item "$dest\*" -Exclude "__folder_managed_by_vortex" -Recurse -Force -ErrorAction SilentlyContinue
+        # Keep the Vortex marker so Vortex doesn't treat the folder as orphaned, and the
+        # flight/ archives so a dev deploy doesn't erase the black-box evidence (docs/LOGGING.md).
+        Remove-Item "$dest\*" -Exclude "__folder_managed_by_vortex","flight" -Recurse -Force -ErrorAction SilentlyContinue
     } else {
         New-Item -ItemType Directory -Force -Path $dest | Out-Null
     }
