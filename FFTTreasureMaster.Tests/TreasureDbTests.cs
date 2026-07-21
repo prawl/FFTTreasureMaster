@@ -272,4 +272,107 @@ public class TreasureDbTests
         Assert.Single(db.Maps);
         Assert.Null(db.Maps[0].FpVer);
     }
+
+    // ── schema v2: 3-element addr entries + anchors block ────────────────────
+
+    private const string AnchorsBlockJson = """
+        "anchors": {
+          "regions": [
+            {"id": "R1", "base": "0x140DE2BC8", "span": ["0x140DE4837", "0x140E01967"],
+             "sigs": [{"name": "R1-primary", "pattern": "48 8B 0D ?? ?? ?? ??", "dispOff": 3,
+                       "endAdjust": 0, "target": "0x140DE2BC8"}]}
+          ],
+          "singletons": [
+            {"name": "Slot0", "addr": "0x140782A30",
+             "sigs": [{"name": "Slot0", "pattern": "11 05 ?? ?? ?? ??", "dispOff": 2,
+                       "endAdjust": 0, "target": "0x140782A30"}]}
+          ]
+        }
+        """;
+
+    [Fact]
+    public void Three_element_addr_entry_populates_Region()
+    {
+        var dir = TempDir();
+        File.WriteAllText(Path.Combine(dir, "treasure.json"), $$"""
+            {
+              "schema": 2,
+              "buildKey": null,
+              {{AnchorsBlockJson}},
+              "maps": [{
+                "mapId": 74, "name": "x", "tileCount": 1,
+                "fpLen": null, "fpHash": null,
+                "tiles": [{"x": 0, "y": 1,
+                           "addrs": [["0x140de1ea7", "0x01", "R1"]]}]
+              }]
+            }
+            """);
+        var db = TreasureDb.Load(dir);
+        var entry = db.Maps[0].Tiles[0].Addrs[0];
+        Assert.Equal(0x140de1ea7L, entry.Addr);
+        Assert.Equal(0x01, entry.Off);
+        Assert.Equal("R1", entry.Region);
+    }
+
+    [Fact]
+    public void Two_element_addr_entry_leaves_Region_null_back_compat()
+    {
+        var dir = TempDir();
+        File.WriteAllText(Path.Combine(dir, "treasure.json"), """
+            {
+              "buildKey": null,
+              "maps": [{
+                "mapId": 74, "name": "x", "tileCount": 1,
+                "fpLen": null, "fpHash": null,
+                "tiles": [{"x": 0, "y": 1,
+                           "addrs": [["0x140de1ea7", "0x01"]]}]
+              }]
+            }
+            """);
+        var db = TreasureDb.Load(dir);
+        var entry = db.Maps[0].Tiles[0].Addrs[0];
+        Assert.Equal(0x140de1ea7L, entry.Addr);
+        Assert.Null(entry.Region);
+    }
+
+    [Fact]
+    public void Missing_anchors_block_yields_null_Anchors_but_maps_still_load()
+    {
+        var dir = TempDir();
+        File.WriteAllText(Path.Combine(dir, "treasure.json"), """
+            {
+              "buildKey": null,
+              "maps": [{
+                "mapId": 74, "name": "x", "tileCount": 1,
+                "fpLen": null, "fpHash": null,
+                "tiles": [{"x": 0, "y": 1,
+                           "addrs": [["0x140de1ea7", "0x01"]]}]
+              }]
+            }
+            """);
+        var db = TreasureDb.Load(dir);
+        Assert.Null(db.Anchors);
+        Assert.Single(db.Maps);
+        Assert.Single(db.Maps[0].Tiles);
+    }
+
+    [Fact]
+    public void Well_formed_anchors_block_parses_into_a_non_null_AnchorTable()
+    {
+        var dir = TempDir();
+        File.WriteAllText(Path.Combine(dir, "treasure.json"), $$"""
+            {
+              "schema": 2,
+              "buildKey": null,
+              {{AnchorsBlockJson}},
+              "maps": []
+            }
+            """);
+        var db = TreasureDb.Load(dir);
+        Assert.NotNull(db.Anchors);
+        Assert.Single(db.Anchors!.Regions);
+        Assert.Equal("R1", db.Anchors.Regions[0].Id);
+        Assert.Single(db.Anchors.Singletons);
+        Assert.Equal("Slot0", db.Anchors.Singletons[0].Name);
+    }
 }

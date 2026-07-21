@@ -1,10 +1,12 @@
-"""Bake data/treasure_addrs.json + data/map_trap_formation.json -> FFTTreasureMaster/treasure.json.
+"""Bake data/treasure_addrs.json + data/map_trap_formation.json + data/anchor_sigs.json
+-> FFTTreasureMaster/treasure.json.
 
-The ONLY hard gate is the cross-language self-test (g). Every per-tile / per-address
-problem WARNS and drops just that tile or address -- one messy capture must never block
-deploying every other map (the campaign accretes captures over weeks; a single dirty
-tile bricking the whole bake would stall it). The quality bars are: verified status, the
-in-session eyeball hold-test, and the >= MIN_ADDRS_TO_SHIP clean-copy floor.
+There are two hard gates: the cross-language self-test (g) and anchor-region assignment
+(j). Every OTHER per-tile / per-address problem WARNS and drops just that tile or address
+-- one messy capture must never block deploying every other map (the campaign accretes
+captures over weeks; a single dirty tile bricking the whole bake would stall it). The
+quality bars are: verified status, the in-session eyeball hold-test, and the
+>= MIN_ADDRS_TO_SHIP clean-copy floor.
 
 Bake rules:
   (a) Ship addresses for verified tiles that satisfy ONE of two modes:
@@ -38,6 +40,13 @@ Bake rules:
       fpVer=0: map-id-only mode (no fingerprint at all -- see rule (a) above).
       Both fpVer=2 and fpVer=3 are shipped with fpLen == TERRAIN_RAW_LEN (1456); the runtime
       dispatches on fpVer.  Map-id-only maps are emitted with fpVer=0, fpHash=null, fpLen=null.
+  (j) Schema v2: data/anchor_sigs.json (the 7 tile-region bases R0..R6 + 10 singleton sig
+      anchors) is validated structurally (self-test AND at bake time) and baked verbatim
+      (minus _meta) into treasure.json's "anchors" block. Every shipped tile addr is
+      tagged with its region id by INCLUSIVE span membership. An addr matching NO region
+      span or MORE THAN ONE is a HARD BAKE FAILURE (exit 1) -- unlike per-capture dirt,
+      that means the anchor table itself is broken and must be fixed before shipping
+      anything, so it is never silently warned-and-dropped like rule (c).
 
 Populated = at least one is_treasure tile in map_trap_formation.json (mapIds 1-127).
 """
@@ -75,9 +84,12 @@ TERRAIN_RECORD_LEN = 7
 TERRAIN_NUM_RECORDS = 208
 TERRAIN_RAW_LEN = TERRAIN_RECORD_LEN * TERRAIN_NUM_RECORDS  # 1456
 
-ADDRS_JSON = ROOT / "data" / "treasure_addrs.json"
-TRAP_JSON  = ROOT / "data" / "map_trap_formation.json"
-OUT_JSON   = ROOT / "FFTTreasureMaster" / "treasure.json"
+ADDRS_JSON       = ROOT / "data" / "treasure_addrs.json"
+TRAP_JSON        = ROOT / "data" / "map_trap_formation.json"
+ANCHOR_SIGS_JSON = ROOT / "data" / "anchor_sigs.json"
+OUT_JSON         = ROOT / "FFTTreasureMaster" / "treasure.json"
+
+SCHEMA_VERSION = 2
 
 # ── FNV-1a 64-bit ─────────────────────────────────────────────────────────────
 
@@ -200,6 +212,28 @@ def _self_test() -> bool:
             ok = False
     if ok:
         print("  self-test: pair drop rules OK")
+
+    # Anchor table (schema v2): structural validation of the real data/anchor_sigs.json,
+    # plus the pinned cross-language region-assignment vector shared with the C# tests.
+    anchor_data = json.loads(ANCHOR_SIGS_JSON.read_text(encoding="utf-8"))
+    anchor_errs = validate_anchor_table(anchor_data)
+    if anchor_errs:
+        print("SELF-TEST FAIL: data/anchor_sigs.json is structurally invalid:")
+        for e in anchor_errs:
+            print(f"  {e}")
+        ok = False
+    else:
+        print(f"  self-test: anchor table ({len(anchor_data['regions'])} regions, "
+              f"{len(anchor_data['singletons'])} singletons) structurally valid")
+
+    region_spans = parse_region_spans(anchor_data["regions"])
+    got_region = assign_region(0x140de8077, region_spans)
+    if got_region != "R1":
+        print(f"SELF-TEST FAIL: assign_region(0x140de8077) = {got_region!r}, expected 'R1'")
+        ok = False
+    else:
+        print("  self-test: assign_region(0x140de8077) = R1  OK")
+
     return ok
 
 # ── parsing helpers ───────────────────────────────────────────────────────────
@@ -223,6 +257,150 @@ def pair_drop_reason(addr: int, off: int) -> str | None:
         return f"volatile family >= 0x{VOLATILE_BASE:x} (relocates between runs)"
     return None
 
+# ── anchor table (schema v2: region bases + singleton sig anchors) ────────────
+
+def _anchor_parse_pattern(text: str) -> list:
+    """'89 05 ?? ?? ?? ?? CC' -> [0x89, 0x05, None, None, None, None, 0xCC].
+    Raises ValueError on a bad token -- broken anchor data must fail the gate, never
+    ship a corrupt sig silently."""
+    out = [None if tok == "??" else int(tok, 16) for tok in text.split()]
+    if not out:
+        raise ValueError("empty pattern")
+    return out
+
+
+def _check_anchor_sig(owner: str, sig: dict, errs: list[str]) -> None:
+    """Structural checks shared by every sig (region or singleton). Appends to errs;
+    never raises (a hand-edited data/anchor_sigs.json must always fail loud, not crash
+    the gate with a traceback)."""
+    label = f"{owner}/{sig.get('name', '?')}"
+    pattern, disp_off, end_adjust, target_str = (
+        sig.get("pattern"), sig.get("dispOff"), sig.get("endAdjust"), sig.get("target"))
+    if pattern is None or disp_off is None or end_adjust is None or target_str is None:
+        errs.append(f"{label}: missing required sig field (pattern/dispOff/endAdjust/target)")
+        return
+    try:
+        pat = _anchor_parse_pattern(pattern)
+    except ValueError as e:
+        errs.append(f"{label}: bad pattern ({e})")
+        return
+    if disp_off + 4 + end_adjust > len(pat):
+        errs.append(f"{label}: dispOff + 4 + endAdjust exceeds pattern length")
+    try:
+        target = parse_hex(target_str)
+    except ValueError:
+        errs.append(f"{label}: unparseable target {target_str!r}")
+        return
+    if not (MODULE_BASE <= target < MODULE_END):
+        errs.append(f"{label}: target 0x{target:x} outside module span")
+    pin_const_str = sig.get("pinConst")
+    if pin_const_str is not None:
+        try:
+            parse_hex(pin_const_str)
+        except ValueError:
+            errs.append(f"{label}: unparseable pinConst {pin_const_str!r}")
+
+
+def validate_anchor_table(data: dict) -> list[str]:
+    """Hard-gate structural validation for the anchors block (data/anchor_sigs.json,
+    re-checked here both at self-test time and at bake time). ANY problem here is a
+    bake failure -- unlike per-tile capture dirt (pair_drop_reason), broken anchor
+    data must block the deploy, never warn-and-drop."""
+    errs: list[str] = []
+    regions     = data.get("regions", [])
+    singletons  = data.get("singletons", [])
+
+    if len(regions) != 7:
+        errs.append(f"expected 7 regions, got {len(regions)}")
+    if len(singletons) != 10:
+        errs.append(f"expected 10 singletons, got {len(singletons)}")
+
+    total_sigs = 0
+    spans: list[tuple[str, int, int]] = []
+
+    for region in regions:
+        rid = region.get("id", "?")
+        base_str, span = region.get("base"), region.get("span")
+        if base_str is None:
+            errs.append(f"region {rid}: missing base")
+        else:
+            try:
+                base = parse_hex(base_str)
+                if not (MODULE_BASE <= base < MODULE_END):
+                    errs.append(f"region {rid}: base 0x{base:x} outside module span")
+            except ValueError:
+                errs.append(f"region {rid}: unparseable base {base_str!r}")
+        if not span or len(span) != 2:
+            errs.append(f"region {rid}: missing/malformed span")
+        else:
+            try:
+                lo, hi = parse_hex(span[0]), parse_hex(span[1])
+            except ValueError:
+                errs.append(f"region {rid}: unparseable span {span!r}")
+            else:
+                if lo > hi:
+                    errs.append(f"region {rid}: span lo > hi")
+                if not (MODULE_BASE <= lo < MODULE_END) or not (MODULE_BASE <= hi < MODULE_END):
+                    errs.append(f"region {rid}: span outside module bounds")
+                spans.append((rid, lo, hi))
+        for sig in region.get("sigs", []):
+            total_sigs += 1
+            _check_anchor_sig(rid, sig, errs)
+
+    for singleton in singletons:
+        sname = singleton.get("name", "?")
+        addr_str = singleton.get("addr")
+        addr = None
+        if addr_str is None:
+            errs.append(f"singleton {sname}: missing addr")
+        else:
+            try:
+                addr = parse_hex(addr_str)
+                if not (MODULE_BASE <= addr < MODULE_END):
+                    errs.append(f"singleton {sname}: addr 0x{addr:x} outside module span")
+            except ValueError:
+                errs.append(f"singleton {sname}: unparseable addr {addr_str!r}")
+        for sig in singleton.get("sigs", []):
+            total_sigs += 1
+            _check_anchor_sig(sname, sig, errs)
+            pin_const_str = sig.get("pinConst")
+            if pin_const_str is not None and addr is not None:
+                try:
+                    target = parse_hex(sig["target"])
+                    pin_const = parse_hex(pin_const_str)
+                except (KeyError, ValueError):
+                    continue  # already reported by _check_anchor_sig
+                if target + pin_const != addr:
+                    errs.append(f"singleton {sname}: addr 0x{addr:x} != "
+                                f"target(0x{target:x}) + pinConst(0x{pin_const:x})")
+
+    if total_sigs != 22:
+        errs.append(f"expected 22 sigs total, got {total_sigs}")
+
+    spans.sort(key=lambda t: t[1])
+    for i in range(len(spans) - 1):
+        _, _, hi = spans[i]
+        _, lo2, _ = spans[i + 1]
+        if hi >= lo2:
+            errs.append(f"spans overlap: {spans[i][0]} and {spans[i + 1][0]}")
+
+    return errs
+
+
+def parse_region_spans(regions: list) -> list[tuple[str, int, int]]:
+    """[{"id": "R1", "span": ["0x..", "0x.."]}, ...] -> [("R1", lo, hi), ...]."""
+    return [(r["id"], parse_hex(r["span"][0]), parse_hex(r["span"][1])) for r in regions]
+
+
+def assign_region(addr: int, spans: list[tuple[str, int, int]]) -> str | None:
+    """Inclusive-span region-id lookup for a tile address. None = no region matched.
+    Raises ValueError if MORE than one span matches -- broken anchor data (overlapping
+    spans), a hard bake failure, never a silent pick-one."""
+    hits = [rid for rid, lo, hi in spans if lo <= addr <= hi]
+    if len(hits) > 1:
+        raise ValueError(f"matches multiple regions: {hits}")
+    return hits[0] if hits else None
+
 # ── main bake ─────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -235,6 +413,17 @@ def main() -> int:
     trap_data   = json.loads(TRAP_JSON.read_text(encoding="utf-8"))
     addrs_data  = json.loads(ADDRS_JSON.read_text(encoding="utf-8"))
     capture_maps: dict = addrs_data.get("maps", {})
+
+    # Anchor table (schema v2): re-validated here (not just at self-test time) since it
+    # gates the real bake -- a broken data/anchor_sigs.json must block deploying anything.
+    anchor_data = json.loads(ANCHOR_SIGS_JSON.read_text(encoding="utf-8"))
+    anchor_errs = validate_anchor_table(anchor_data)
+    if anchor_errs:
+        print("GATE FAIL: data/anchor_sigs.json is structurally invalid:")
+        for e in anchor_errs:
+            print(f"  {e}")
+        return 1
+    region_spans = parse_region_spans(anchor_data["regions"])
 
     # Build the authoritative set of populated treasure maps (mapIds 1-127 with
     # at least one is_treasure tile in the snapshot).
@@ -383,8 +572,10 @@ def main() -> int:
             # hard failure: capture artifacts (lockstep strays, the volatile 0x142e family,
             # duplicate copies, the rare out-of-span hit) are expected on real captures and
             # must not block deploying every other map. The >= MIN_ADDRS_TO_SHIP floor plus
-            # the in-session eyeball hold-test are the quality bars; the only hard gate is
-            # the cross-language self-test.
+            # the in-session eyeball hold-test are the quality bars. The ONE exception is
+            # anchor-region assignment just below: an addr matching no region (or more than
+            # one) means the anchor table itself is broken, so it goes to gate_failures
+            # (hard exit-1 bake failure), never a warn+drop.
             valid_addrs: list[list[str]] = []
             for pair in tile.get("addrs", []):
                 addr_str, off_str = pair[0], pair[1]
@@ -417,8 +608,23 @@ def main() -> int:
                     )
                     continue
 
+                try:
+                    region_id = assign_region(addr, region_spans)
+                except ValueError as e:
+                    gate_failures.append(
+                        f"map {mid} tile ({tx},{ty}) addr {addr_str}: {e} "
+                        f"(broken anchor data -- overlapping region spans)"
+                    )
+                    continue
+                if region_id is None:
+                    gate_failures.append(
+                        f"map {mid} tile ({tx},{ty}) addr {addr_str}: not covered by "
+                        f"any anchor region span (broken anchor data)"
+                    )
+                    continue
+
                 seen_addrs.add(addr)
-                valid_addrs.append([addr_str, off_str])
+                valid_addrs.append([addr_str, off_str, region_id])
 
             if valid_addrs and len(valid_addrs) < MIN_ADDRS_TO_SHIP:
                 warnings.append(
@@ -480,7 +686,8 @@ def main() -> int:
         print("\nGATE FAILURES:")
         for f in gate_failures:
             print(f"  {f}")
-        print(f"\nGATE FAIL: {len(gate_failures)} violation(s). Fix the capture data and re-run.")
+        print(f"\nGATE FAIL: {len(gate_failures)} violation(s). "
+              f"Fix the capture data or data/anchor_sigs.json and re-run.")
         return 1
 
     # ── build key output (None when nothing captured yet) ────────────────────
@@ -492,7 +699,15 @@ def main() -> int:
     else:
         out_key = None
 
-    out = {"buildKey": out_key, "maps": out_maps}
+    out = {
+        "schema":   SCHEMA_VERSION,
+        "buildKey": out_key,
+        "anchors": {
+            "regions":    anchor_data["regions"],
+            "singletons": anchor_data["singletons"],
+        },
+        "maps": out_maps,
+    }
     OUT_JSON.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
     total_populated = len(populated)

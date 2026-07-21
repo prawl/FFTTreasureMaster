@@ -14,6 +14,10 @@ internal sealed class TreasureAddrEntry
     // Populated by TreasureDb.Load after parsing — never by JSON directly.
     public long Addr { get; internal set; }
     public byte Off  { get; internal set; }
+    /// <summary>Schema v2: the anchor region id (e.g. "R1") this addr was tagged with at
+    /// bake time, or null for a v1 (2-element) entry / a regionless entry. Used by
+    /// AnchorRemap to compute addr' = addr + regionDeltas[Region] on a build-key mismatch.</summary>
+    public string? Region { get; internal set; }
 
     /// <summary>Supports foreach (var (addr, off) in tile.Addrs) deconstruction.</summary>
     public void Deconstruct(out long addr, out byte off) { addr = Addr; off = Off; }
@@ -105,7 +109,9 @@ internal sealed class TreasureMap
 
 internal sealed class TreasureDbJson
 {
-    [JsonProperty("buildKey")] public TreasureBuildKey?   BuildKey { get; set; }
+    [JsonProperty("schema")]   public int?                Schema   { get; set; }
+    [JsonProperty("buildKey")] public TreasureBuildKey?    BuildKey { get; set; }
+    [JsonProperty("anchors")]  public AnchorTableJson?     Anchors  { get; set; }
     [JsonProperty("maps")]     public List<TreasureMapJson> Maps   { get; set; } = new();
 }
 
@@ -118,18 +124,27 @@ internal sealed class TreasureDbJson
 /// </summary>
 internal sealed class TreasureDb
 {
-    private const long ModuleBase = 0x140000000L;
-    private const long ModuleEnd  = 0x143000000L;   // exclusive
-    private const long UiArenaLo  = 0x140C63000L;
-    private const long UiArenaHi  = 0x140CC5000L;   // exclusive
+    // Internal (not private): AnchorRemap.cs reuses these bounds to drop a remapped
+    // addr that lands outside the module or inside the UI render arena.
+    internal const long ModuleBase = 0x140000000L;
+    internal const long ModuleEnd  = 0x143000000L;   // exclusive
+    internal const long UiArenaLo  = 0x140C63000L;
+    internal const long UiArenaHi  = 0x140CC5000L;   // exclusive
 
     public TreasureBuildKey? BuildKey { get; }
     public IReadOnlyList<TreasureMap> Maps { get; }
+    /// <summary>Schema v2 anchor table (7 region bases + 10 singleton sig anchors), or
+    /// null on a v1 dataset (no "anchors" key) or any parse/structural problem -- a null
+    /// table means a build-key mismatch can never re-resolve, only disarm.</summary>
+    public AnchorTable? Anchors { get; }
 
-    private TreasureDb(TreasureBuildKey? key, List<TreasureMap> maps)
+    // Internal (not private): AnchorRemap.cs builds a new TreasureDb from a remapped
+    // map list, carrying BuildKey/Anchors through unchanged.
+    internal TreasureDb(TreasureBuildKey? key, List<TreasureMap> maps, AnchorTable? anchors)
     {
         BuildKey = key;
         Maps     = maps;
+        Anchors  = anchors;
     }
 
     /// <summary>
@@ -169,7 +184,14 @@ internal sealed class TreasureDb
                         if (addr >= UiArenaLo && addr < UiArenaHi)
                         { tileOk = false; break; }
 
-                        validAddrs.Add(new TreasureAddrEntry { Addr = addr, Off = off });
+                        // pair[2] (when present) is the schema v2 anchor region id --
+                        // a plain string, not hex ("R1", not "0xR1").  Absent on a
+                        // v1 (2-element) or regionless entry.
+                        validAddrs.Add(new TreasureAddrEntry
+                        {
+                            Addr = addr, Off = off,
+                            Region = pair.Length >= 3 ? pair[2] : null,
+                        });
                     }
                     if (tileOk && validAddrs.Count > 0)
                         validTiles.Add(new TreasureTile
@@ -191,7 +213,8 @@ internal sealed class TreasureDb
                 });
             }
 
-            return new TreasureDb(root.BuildKey, validMaps);
+            var anchors = AnchorDb.Parse(root.Anchors);
+            return new TreasureDb(root.BuildKey, validMaps, anchors);
         }
         catch
         {
@@ -200,13 +223,15 @@ internal sealed class TreasureDb
         }
     }
 
-    private static TreasureDb Empty() => new(null, new List<TreasureMap>());
+    private static TreasureDb Empty() => new(null, new List<TreasureMap>(), null);
 
     /// <summary>Returns an empty dataset. Exposed for tests that need to inject an
     /// initially-empty db and swap it out via the reload seam.</summary>
     internal static TreasureDb MakeEmpty() => Empty();
 
-    private static bool TryParseHex(string? s, out long result)
+    // Internal (not private): AnchorDb.cs mirrors this exact parse for anchor hex
+    // fields (target/base/span/addr) so both loaders agree on "0x"-prefix handling.
+    internal static bool TryParseHex(string? s, out long result)
     {
         result = 0;
         if (string.IsNullOrEmpty(s)) return false;

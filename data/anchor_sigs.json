@@ -1,0 +1,276 @@
+{
+  "_meta": {
+    "schemaVersion": 1,
+    "purpose": "AoB code signatures anchoring the 7 tile-region bases (R0..R6) plus 10 singleton addresses, so a game-patch build-key mismatch can re-resolve the dataset instead of a global disarm.",
+    "note": "sig table for build 1782338711/0x1878E000; transcribed from the proven 1.5.1 offline+live analysis"
+  },
+  "regions": [
+    {
+      "id": "R0",
+      "base": "0x140CDB824",
+      "span": ["0x140CC500F", "0x140CCA7B7"],
+      "sigs": [
+        {
+          "name": "R0-primary",
+          "pattern": "89 05 ?? ?? ?? ?? 8B 83 A8 01 07 00 89 05 ?? ?? ?? ?? E9 ?? ?? ?? ?? 48 8D 35 ?? ?? ?? ??",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x140CDB824"
+        },
+        {
+          "name": "R0-alt",
+          "pattern": "48 8D 0D ?? ?? ?? ?? 89 1D ?? ?? ?? ?? 89 1D ?? ?? ?? ?? 66 89 1D A6 EB B0 00",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x140CCA820"
+        }
+      ]
+    },
+    {
+      "id": "R1",
+      "base": "0x140DE2BC8",
+      "span": ["0x140DE4837", "0x140E01967"],
+      "sigs": [
+        {
+          "name": "R1-primary",
+          "pattern": "48 8B 0D ?? ?? ?? ?? 33 D2 48 8B 89 A8 00 1B 00 E8 ?? ?? ?? ?? 83 3D ?? ?? ?? ?? 53",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x140DE2BC8"
+        },
+        {
+          "name": "R1-alt-bufA",
+          "pattern": "48 8D 05 ?? ?? ?? ?? BA 7F 01 00 00 48 39 05 ?? ?? ?? ?? 48 8D 0D ?? ?? ?? ??",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x140DE2BE0"
+        }
+      ]
+    },
+    {
+      "id": "R2",
+      "base": "0x140E72BE0",
+      "span": ["0x140E7C1A3", "0x140E9E77B"],
+      "sigs": [
+        {
+          "name": "R2-primary",
+          "pattern": "48 8D 05 ?? ?? ?? ?? 48 03 C8 E8 ?? ?? ?? ?? 49 63 0A 48 8D 05 ?? ?? ?? ??",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x140E72BE0"
+        }
+      ]
+    },
+    {
+      "id": "R3",
+      "base": "0x140F96348",
+      "span": ["0x140F92D75", "0x140FB50CF"],
+      "sigs": [
+        {
+          "name": "R3-primary",
+          "pattern": "48 8D 0D ?? ?? ?? ?? 48 0F 44 C1 45 33 C9 48 89 05 ?? ?? ?? ?? 48 8B 88 A8 00 1B 00",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x140F96348"
+        },
+        {
+          "name": "R3-alt",
+          "pattern": "48 89 35 ?? ?? ?? ?? C6 05 ?? ?? ?? ?? E1 48 89 05 ?? ?? ?? ?? 48 89 35 ?? ?? ?? ??",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x140F92C60"
+        }
+      ]
+    },
+    {
+      "id": "R4",
+      "base": "0x141026348",
+      "span": ["0x14102F90B", "0x141051EE3"],
+      "sigs": [
+        {
+          "name": "R4-primary",
+          "pattern": "48 8D 05 ?? ?? ?? ?? 41 8B 52 04 4C 8D 45 E0 48 69 C9 B8 00 00 00 48 03 C8",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x141026348"
+        }
+      ]
+    },
+    {
+      "id": "R5",
+      "base": "0x14114A4E4",
+      "span": ["0x1411465D9", "0x141149A24"],
+      "sigs": [
+        {
+          "name": "R5-primary",
+          "pattern": "44 89 2D ?? ?? ?? ?? 44 89 2D ?? ?? ?? ?? E8 ?? ?? ?? ?? 44 39 2D ?? ?? ?? ??",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x14114A4E4"
+        },
+        {
+          "name": "R5-alt",
+          "pattern": "48 8D 0D ?? ?? ?? ?? 0F 10 01 41 0F 11 00 0F 10 49 10 41 0F 11 48 10 0F 10 41 20",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x141149D30"
+        }
+      ]
+    },
+    {
+      "id": "R6",
+      "base": "0x14116B74E",
+      "span": ["0x14116BC07", "0x14118B0F7"],
+      "sigs": [
+        {
+          "name": "R6-primary",
+          "pattern": "4C 8D 15 ?? ?? ?? ?? 49 8D 49 0D 66 45 39 3A 7C 1D 88 41 FF 44 88 01 88 51 01",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x14116B74E"
+        },
+        {
+          "name": "R6-alt",
+          "pattern": "89 05 ?? ?? ?? ?? 8B 44 24 24 89 05 ?? ?? ?? ?? 8B 44 24 28 89 05 ?? ?? ?? ??",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x1411A3870"
+        }
+      ]
+    }
+  ],
+  "singletons": [
+    {
+      "name": "Slot0",
+      "addr": "0x140782A30",
+      "sigs": [
+        {
+          "name": "Slot0",
+          "pattern": "11 05 ?? ?? ?? ?? 0F 11 05 ?? ?? ?? ?? 48 8D",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x140782A30"
+        }
+      ]
+    },
+    {
+      "name": "Slot9",
+      "addr": "0x140782A54",
+      "sigs": [
+        {
+          "name": "Slot9",
+          "pattern": "3B 0D ?? ?? ?? ?? 66 0F 44 D3 FF",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x140782A54"
+        }
+      ]
+    },
+    {
+      "name": "EventId",
+      "addr": "0x140782A94",
+      "sigs": [
+        {
+          "name": "EventId",
+          "pattern": "8B 05 ?? ?? ?? ?? 39 86 ?? ?? ??",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x140782A94"
+        }
+      ]
+    },
+    {
+      "name": "BattleMode",
+      "addr": "0x1409069A0",
+      "sigs": [
+        {
+          "name": "BattleMode",
+          "pattern": "89 05 ?? ?? ?? ?? 48 8B FB 4C 63",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x1409069A0"
+        }
+      ]
+    },
+    {
+      "name": "PauseFlag",
+      "addr": "0x140C6B1C8",
+      "sigs": [
+        {
+          "name": "PauseFlag",
+          "pattern": "83 3D ?? ?? ?? ?? 01 74 05 E8 ??",
+          "dispOff": 2,
+          "endAdjust": 1,
+          "target": "0x140C6B1C8"
+        }
+      ]
+    },
+    {
+      "name": "LiveBattleMapId",
+      "addr": "0x140784478",
+      "sigs": [
+        {
+          "name": "LiveBattleMapId",
+          "pattern": "8B 05 ?? ?? ?? ?? 83 C0 CB 83 F8",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x140784478"
+        }
+      ]
+    },
+    {
+      "name": "InventoryCountBase",
+      "addr": "0x1411A7C00",
+      "sigs": [
+        {
+          "name": "InventoryCountBase",
+          "pattern": "8D 0D ?? ?? ?? ?? 80 3C 0B 00 77",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x1411A7C00"
+        }
+      ]
+    },
+    {
+      "name": "TreasureCollectedBase",
+      "addr": "0x1411A7680",
+      "sigs": [
+        {
+          "name": "TreasureCollectedBase",
+          "pattern": "8D 0D ?? ?? ?? ?? 48 8B 5C 24 ?? 44",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x1411A7680"
+        }
+      ]
+    },
+    {
+      "name": "UnitArrayBaseX",
+      "addr": "0x141851F2F",
+      "sigs": [
+        {
+          "name": "UnitArrayBaseX-parent",
+          "pattern": "48 8D 0D ?? ?? ?? ?? 48 C1 E0 09 48 03 C1 74 62 F6 80 F8 01 00 00 01 75 59",
+          "dispOff": 3,
+          "endAdjust": 0,
+          "target": "0x141853CE0",
+          "pinConst": "-0x1DB1"
+        }
+      ]
+    },
+    {
+      "name": "TerrainGrid",
+      "addr": "0x140C6B440",
+      "sigs": [
+        {
+          "name": "TerrainGrid-parent",
+          "pattern": "8B 15 ?? ?? ?? ?? 8D 42 CC 83 F8 29 77 10 49 B9 01 00 00 00 12 02 00 00",
+          "dispOff": 2,
+          "endAdjust": 0,
+          "target": "0x140C6B1CC",
+          "pinConst": "0x274"
+        }
+      ]
+    }
+  ]
+}

@@ -118,5 +118,58 @@ public class TreasureSchemaTests
             Assert.NotEmpty(map.Tiles);
         }
     }
+
+    // ── schema v2: anchors block ─────────────────────────────────────────────
+
+    [Fact]
+    public void Generated_treasure_json_is_schema_2()
+    {
+        var settings = new JsonSerializerSettings { MissingMemberHandling = MissingMemberHandling.Error };
+        var db = JsonConvert.DeserializeObject<TreasureDbJson>(
+            File.ReadAllText(RepoTreasurePath()), settings);
+        Assert.NotNull(db);
+        Assert.Equal(2, db!.Schema);
+    }
+
+    [Fact]
+    public void Generated_treasure_json_has_7_regions_and_10_singletons()
+    {
+        var settings = new JsonSerializerSettings { MissingMemberHandling = MissingMemberHandling.Error };
+        var db = JsonConvert.DeserializeObject<TreasureDbJson>(
+            File.ReadAllText(RepoTreasurePath()), settings);
+        Assert.NotNull(db?.Anchors);
+        Assert.Equal(7, db!.Anchors!.Regions?.Count);
+        Assert.Equal(10, db.Anchors.Singletons?.Count);
+    }
+
+    [Fact]
+    public void TreasureDb_parses_a_non_null_AnchorTable_from_the_generated_file()
+    {
+        var db = TreasureDb.Load(Path.GetDirectoryName(RepoTreasurePath())!);
+        Assert.NotNull(db.Anchors);
+        Assert.Equal(7, db.Anchors!.Regions.Count);
+        Assert.Equal(10, db.Anchors.Singletons.Count);
+    }
+
+    [Fact]
+    public void Every_tile_addr_entry_has_a_region_matching_a_known_region()
+    {
+        var db = TreasureDb.Load(Path.GetDirectoryName(RepoTreasurePath())!);
+        Assert.NotNull(db.Anchors);
+        var knownRegions = db.Anchors!.Regions.Select(r => r.Id).ToHashSet();
+        Assert.NotEmpty(knownRegions);
+
+        int checkedAddrs = 0;
+        foreach (var map in db.Maps)
+        foreach (var tile in map.Tiles)
+        foreach (var entry in tile.Addrs)
+        {
+            checkedAddrs++;
+            Assert.True(entry.Region is not null,
+                $"map {map.MapId} tile ({tile.X},{tile.Y}) addr 0x{entry.Addr:x} has no region");
+            Assert.Contains(entry.Region!, knownRegions);
+        }
+        Assert.True(checkedAddrs > 0, "no tile addrs were checked -- fixture produced no data");
+    }
 }
 
