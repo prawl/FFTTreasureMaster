@@ -47,19 +47,27 @@ internal sealed class FftivcJobTable : IJobTable
         catch { return false; }
     }
 
+    /// <summary>Effective innate state: GetJob's snapshot overlaid with the audit values of
+    /// this session's programmatic patches (ours and other mods'). GetJob alone is stale by
+    /// loader design after any ApplyTablePatch -- see InnateOverlay's doc.</summary>
     public ushort[]? GetInnates(int jobId)
     {
         try
         {
             var job = _mgr.GetJob(jobId);
             if (job == null) return null;
-            return new[]
+            var baseValues = new[]
             {
                 job.InnateAbilityId1 ?? 0,
                 job.InnateAbilityId2 ?? 0,
                 job.InnateAbilityId3 ?? 0,
                 job.InnateAbilityId4 ?? 0,
             };
+            var audit = _mgr.ChangedProperties;
+            return InnateOverlay.Apply(baseValues, slot =>
+                audit.TryGetValue((jobId, InnateOverlay.SlotPropertyNames[slot]), out var entry)
+                    ? entry.Difference?.NewValue
+                    : null);
         }
         catch { return null; }
     }
