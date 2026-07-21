@@ -6,6 +6,15 @@ Where docs/TODO.md items land when they ship, die, or retract; newest first with
 Entry first line: `- [TM-<n>] SHIPPED <hash> YYYY-MM-DD: <summary>`, or WONTFIX / RETRACTED
 with a date and no hash.
 
+## 1.5.0 cycle
+
+- [TM-1] SHIPPED 4731b27 2026-07-21: the repo now tracks its work the same way the sibling
+  mods do, in one machine-checked ledger, so open items survive between sessions instead of
+  living in scattered notes. (Tech: docs/TODO.md + docs/CHANGELOG.md + docs/RELEASE_SCOPE.md
+  under the 35 TodoContractTests ported from the FFTLivingWeapons pattern; proven non-vacuous
+  by a deliberate format sabotage going red; enforced by the existing test gate in
+  BuildLinked, Publish, and CI.)
+
 ## Pre-ledger (backfilled)
 
 - [TM-0] SHIPPED 8a2a979 2026-07-21: version 1.4.0 makes the mod survive game patches instead

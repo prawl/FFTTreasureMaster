@@ -11,13 +11,6 @@ that checklist.
 
 ## Now (release: 1.5.0)
 
-- **[TM-1] Give this repo the same work ledger the sibling mods use** (opened 2026-07-21) [BUILDING]
-  - Done means: work items live in one machine-checked file instead of scattered notes, so
-    nothing gets lost between sessions. (Tech: docs/TODO.md + docs/CHANGELOG.md +
-    docs/RELEASE_SCOPE.md exist, TodoContractTests enforces the format, and the full test
-    suite is green.)
-  - Verify: the test suite passes, and deliberately breaking a ledger line makes it fail
-    (proving the checks actually check something), then passes again once restored.
 - **[TM-2] Confirm live that a battle reset re-lights the refunded treasure tile** (opened 2026-07-21) [AWAITING-LIVE]
   - Done means: the owner has seen it happen on screen: claim a treasure, reset the battle so
     the item is taken back, and the tile's glow returns. The code path is built and unit-tested

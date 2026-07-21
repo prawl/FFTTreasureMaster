@@ -13,8 +13,8 @@ grows a real box inventory.
 ## IN (ship gate; every box green = ship)
 
 ### 1. Work-ledger system (TM-1)
-- [ ] docs/TODO.md + docs/CHANGELOG.md + TodoContractTests enforce the ledger contract; suite
-      green; non-vacuity sabotage check performed.
+- [x] docs/TODO.md + docs/CHANGELOG.md + TodoContractTests enforce the ledger contract; suite
+      green; non-vacuity sabotage check performed (shipped 4731b27, 2026-07-21).
 
 ### 2. Refund re-light live confirmation (TM-2)
 - [ ] The claimed-tile re-light on a battle-reset refund is seen working in a real session
