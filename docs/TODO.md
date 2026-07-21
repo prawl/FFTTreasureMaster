@@ -37,6 +37,17 @@ that checklist.
   Now, Backlog, and changelog sections; decide whether entry-shaped lines in Walled or
   Format should fail the contract. Found in the ColorCustomizer sibling (its CC-17); every
   repo sharing the ledger system has the same blind spot.
+- [TM-7] 2026-07-21: Let every unit the player controls pick up hidden treasure as if it had
+  the Treasure Hunter ability equipped, so nobody has to burn their movement slot on it; off
+  by default behind a new Reloaded config toggle. Scoped 2026-07-21: promising but one
+  premise is unproven, because the community mod thought to prove this actually grants OTHER
+  innate skills (JP Boost), and nobody has shown an innate Treasure Hunter working; first
+  step is a short live probe with a throwaway table edit, before any code. (Tech: Treasure
+  Hunter = ability id 509; grant path = InnateAbilityId slots in the 176-entry JOB_DATA
+  table, best ridden via fftivc.utility.modloader's IFFTOJobDataManager controller as an
+  OPTIONAL dependency; job innates are faction-shared, so enemy generics inherit the grant
+  and can permanently consume treasures; full dossier in handoff.md, section "INNATE
+  TREASURE HUNTER".)
 
 ## Walled (blocked by engine / external)
 
