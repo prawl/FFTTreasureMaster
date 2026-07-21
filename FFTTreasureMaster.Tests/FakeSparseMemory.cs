@@ -30,6 +30,16 @@ internal sealed class FakeSparseMemory : IGameMemory
     public readonly Dictionary<long, uint>    U32s           = new();
     public readonly Dictionary<long, int>     ReadCount      = new();
 
+    // AnchorScan extensions: arbitrary-offset range reads inside a registered block (a fake
+    // PE section's backing bytes). Kept separate from TerrainBlocks (which only serves an
+    // EXACT base-addr match) so existing terrain-fingerprint tests are untouched.
+    private readonly List<(long baseAddr, byte[] bytes)> _blocks = new();
+
+    /// <summary>Registers <paramref name="bytes"/> as the backing data for the VA range
+    /// [<paramref name="baseAddr"/>, baseAddr+bytes.Length). TryReadBytes serves any sub-range
+    /// read that falls entirely within a registered block.</summary>
+    public void RegisterBlock(long baseAddr, byte[] bytes) => _blocks.Add((baseAddr, bytes));
+
     // MarkerWriter extensions: U64s seeds the dereferenced utility pointer; WrittenU32
     // records 4-byte marker-field writes (mirrors Written for the 0x80 path).
     public readonly Dictionary<long, ulong>   U64s           = new();
@@ -64,6 +74,17 @@ internal sealed class FakeSparseMemory : IGameMemory
             buf = new byte[len];
             System.Array.Copy(block, buf, len);
             return true;
+        }
+        // Serve any sub-range read that falls entirely within a registered block.
+        foreach (var (baseAddr, bytes) in _blocks)
+        {
+            long offset = addr - baseAddr;
+            if (offset >= 0 && offset + len <= bytes.Length)
+            {
+                buf = new byte[len];
+                System.Array.Copy(bytes, offset, buf, 0, len);
+                return true;
+            }
         }
         buf = new byte[len];
         return false;

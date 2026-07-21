@@ -89,4 +89,31 @@ internal static class Tuning
     /// Readable-guarded; any unreadable byte returns false (tile stays lit -- fail-safe).
     /// (static readonly, not const, so the gated wiring does not trip CS0162 unreachable-code.)</summary>
     public static readonly bool CollectDetectionEnabled = true;
+
+    // --- update-hardening: signature re-resolve scan mechanics (AnchorScan/AnchorResolver) ---
+
+    /// <summary>Bytes read per chunk while scanning a section for a signature pattern. Chunking
+    /// keeps a single TryReadBytes call small and predictable; the whole section is covered by
+    /// stepping this far each iteration (the actual read length also includes the overlap below).</summary>
+    public const int AnchorScanChunkBytes = 0x40000;
+
+    /// <summary>Largest section VirtualSize eligible for scanning. Comfortably above the real
+    /// game's ~0x610000 executable text section, but well under the game's 0x147AC7E0-byte
+    /// RWX .trace blob (an execute-flagged section that is emphatically not code to search).</summary>
+    public const int AnchorScanMaxSectionBytes = 0x2000000;
+
+    /// <summary>Total bytes scannable across every eligible section before the whole resolve
+    /// gives up and returns null (defense-in-depth: several moderately-sized sections could
+    /// otherwise sum past a sane scan budget even though each passes AnchorScanMaxSectionBytes).</summary>
+    public const int AnchorScanMaxTotalBytes = 0x4000000;
+
+    /// <summary>Per-pattern hit cap. Two or more hits already means the signature is ambiguous
+    /// (a hard fail for the whole resolution); this just bounds the list so a degenerate
+    /// mostly-wildcard pattern can't grow unbounded.</summary>
+    public const int AnchorScanHitCap = 8;
+
+    /// <summary>Largest |delta| (resolved VA minus baked VA) accepted from a signature
+    /// resolve. A sane rebase after a patch shifts code by at most a few sections' worth of
+    /// bytes; anything past this cap is treated as a bad resolve (null) rather than trusted.</summary>
+    public const int AnchorMaxDeltaBytes = 0x4000000;
 }

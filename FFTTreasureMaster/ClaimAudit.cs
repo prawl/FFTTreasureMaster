@@ -22,8 +22,13 @@ namespace FFTTreasureMaster;
 internal sealed class ClaimAudit
 {
     private readonly IGameMemory _mem;
+    private readonly AddrMap _addrs;
 
-    public ClaimAudit(IGameMemory mem) => _mem = mem;
+    public ClaimAudit(IGameMemory mem, AddrMap? addrs = null)
+    {
+        _mem = mem;
+        _addrs = addrs ?? new AddrMap();
+    }
 
     /// <summary>Adds the grid (x,y) of every readable, on-grid unit slot to
     /// <paramref name="occupied"/>. (0,0) is skipped (empty slots and non-tracking template copies
@@ -32,7 +37,7 @@ internal sealed class ClaimAudit
     {
         for (int k = 0; k < Offsets.UnitArraySlots; k++)
         {
-            long xAddr = Offsets.UnitArrayBaseX + (long)k * Offsets.UnitRecordStride;
+            long xAddr = _addrs.UnitArrayBaseX + (long)k * Offsets.UnitRecordStride;
             if (!_mem.Readable(xAddr, 2)) continue;
             int x = _mem.U8(xAddr);
             int y = _mem.U8(xAddr + 1);
@@ -47,7 +52,7 @@ internal sealed class ClaimAudit
     public int ReadCount(int itemId)
     {
         if (itemId <= 0) return -1;
-        long addr = Offsets.InventoryCountBase + itemId;
+        long addr = _addrs.InventoryCountBase + itemId;
         if (!_mem.Readable(addr, 1)) return -1;
         return _mem.U8(addr);
     }

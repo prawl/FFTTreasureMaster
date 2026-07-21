@@ -24,8 +24,13 @@ internal sealed class ArmAudit
     private const long SizeOfImageOff   = 0x50;
 
     private readonly IGameMemory _mem;
+    private readonly AddrMap _addrs;
 
-    public ArmAudit(IGameMemory mem) => _mem = mem;
+    public ArmAudit(IGameMemory mem, AddrMap? addrs = null)
+    {
+        _mem = mem;
+        _addrs = addrs ?? new AddrMap();
+    }
 
     // ── PE build key ──────────────────────────────────────────────────────────────
 
@@ -60,8 +65,8 @@ internal sealed class ArmAudit
     public bool TryReadMapId(out byte id)
     {
         id = 0;
-        if (!_mem.Readable(Offsets.LiveBattleMapId, 1)) return false;
-        id = _mem.U8(Offsets.LiveBattleMapId);
+        if (!_mem.Readable(_addrs.LiveBattleMapId, 1)) return false;
+        id = _mem.U8(_addrs.LiveBattleMapId);
         return TreasureMaster.MapIdValid(id);
     }
 
@@ -85,7 +90,7 @@ internal sealed class ArmAudit
         if (map.FpLen is not { } fpLen || map.FpHash is not { } expected)
             return false;
 
-        if (!_mem.TryReadBytes(Offsets.TerrainGrid, fpLen, out var buf))
+        if (!_mem.TryReadBytes(_addrs.TerrainGrid, fpLen, out var buf))
             return false;
 
         ulong got = map.FpVer switch
@@ -107,7 +112,7 @@ internal sealed class ArmAudit
     {
         ulong expected = map.FpHash ?? 0;
         int fpLen = map.FpLen ?? 0;
-        if (fpLen == 0 || !_mem.TryReadBytes(Offsets.TerrainGrid, fpLen, out var buf))
+        if (fpLen == 0 || !_mem.TryReadBytes(_addrs.TerrainGrid, fpLen, out var buf))
             return (false, 0, expected, map.FpVer, 0);
         ulong got = map.FpVer switch
         {

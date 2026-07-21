@@ -2536,4 +2536,210 @@ public class TreasureMasterTests
         Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
     }
 
+    // ── Signature re-resolve (update hardening): resolver seam on a build-key mismatch ───────
+
+    /// <summary>Writes a region-tagged (schema v2, 3-element addr) treasure.json with one tile,
+    /// a mismatched build key, and the given rare/common item ids (0 = none).</summary>
+    private static TreasureDb BuildRegionTaggedDb(
+        string dir, long addr, string region, int rareItemId = 0, int commonItemId = 0,
+        TreasureBuildKey? buildKey = null)
+    {
+        var bk = buildKey ?? new TreasureBuildKey { TimeDateStamp = 0x1111, SizeOfImage = 0x2222 };
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        string json = $@"{{
+            ""buildKey"": {{""timeDateStamp"": {bk.TimeDateStamp}, ""sizeOfImage"": {bk.SizeOfImage}}},
+            ""maps"": [{{
+                ""mapId"": 74, ""name"": ""Test Map"", ""tileCount"": 1,
+                ""fpLen"": {terrain.Length}, ""fpHash"": ""{TreasureMaster.Fnv1a64(terrain):x}"",
+                ""tiles"": [{{ ""x"": 0, ""y"": 1, ""rareItemId"": {rareItemId}, ""commonItemId"": {commonItemId},
+                    ""addrs"": [[""{addr:x}"", ""00"", ""{region}""]] }}]
+            }}]
+        }}";
+        File.WriteAllText(Path.Combine(dir, "treasure.json"), json);
+        return TreasureDb.Load(dir);
+    }
+
+    /// <summary>Bare-minimum FakeSparseMemory for the resolver-seam tests: mismatched PE header,
+    /// map id + terrain seeded, the ONE tile addr Resting+Writable at <paramref name="addr"/>.</summary>
+    private static FakeSparseMemory BuildResolverMem(long addr, uint tsMismatch = 0xAAAA, uint soiMismatch = 0xBBBB)
+    {
+        var mem = new FakeSparseMemory();
+        mem.U8s[Offsets.LiveBattleMapId] = 74;
+        mem.ReadableAddrs.Add(Offsets.LiveBattleMapId);
+        mem.TerrainBlocks[Offsets.TerrainGrid] = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        SeedPeHeader(mem, timeDateStamp: tsMismatch, sizeOfImage: soiMismatch);
+        mem.U8s[addr] = 0x00;
+        mem.ReadableAddrs.Add(addr);
+        mem.WritableAddrs.Add(addr);
+        return mem;
+    }
+
+    private static AnchorResolution MakeCanned(
+        Dictionary<string, long>? regionDeltas = null, bool claimOk = true, bool collectOk = true,
+        bool fingerprintOk = true, IReadOnlyList<string>? derived = null) => new()
+    {
+        RegionDeltas = regionDeltas ?? new Dictionary<string, long>(),
+        DerivedRegions = derived ?? Array.Empty<string>(),
+        Slot0 = Offsets.Slot0, Slot9 = Offsets.Slot9, EventId = Offsets.EventId,
+        BattleMode = Offsets.BattleMode, PauseFlag = Offsets.PauseFlag,
+        LiveBattleMapId = Offsets.LiveBattleMapId, TerrainGrid = Offsets.TerrainGrid,
+        UnitArrayBaseX = Offsets.UnitArrayBaseX, InventoryCountBase = Offsets.InventoryCountBase,
+        TreasureCollectedBase = Offsets.TreasureCollectedBase,
+        ClaimOk = claimOk, CollectOk = collectOk, FingerprintOk = fingerprintOk,
+    };
+
+    [Fact]
+    public void AnchorResolver_not_invoked_when_build_key_matches()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        var addr = TileAddr(400);
+        var bk = new TreasureBuildKey { TimeDateStamp = 0xAB12, SizeOfImage = 0xCD34 };
+        var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
+            addrs: new[] { (addr, (byte)0x00) }, buildKey: bk);
+        var mem = BuildMem(74, terrain, new[] { addr });
+        SeedPeHeader(mem, timeDateStamp: 0xAB12, sizeOfImage: 0xCD34);   // matching key
+
+        int calls = 0;
+        Func<TreasureDb, AnchorResolution?> resolver = db2 => { calls++; return null; };
+        var tm = new TreasureMaster(db, mem, enabled: true, resolver: resolver);
+        StabilizeAndArm(tm);
+
+        Assert.Equal(0, calls);
+        Assert.True(mem.Written.ContainsKey(addr));
+    }
+
+    /// <summary>LOAD-BEARING #1: on a build-key mismatch, a resolver success remaps the region-
+    /// tagged dataset by the returned delta -- the hold writes land ONLY at the remapped
+    /// address, never at the baked one.</summary>
+    [Fact]
+    public void AnchorResolver_success_remaps_writes_land_only_at_remapped_addr()
+    {
+        var dir = TempDir();
+        long bakedAddr = TileAddr(410);
+        long delta = 0x2000;
+        long remappedAddr = bakedAddr + delta;
+
+        var db = BuildRegionTaggedDb(dir, bakedAddr, "R1");
+        var mem = BuildResolverMem(remappedAddr);
+        // The baked addr is deliberately left unseeded (unreadable/unwritable/not readable) --
+        // proves it is never touched.
+
+        var canned = MakeCanned(regionDeltas: new Dictionary<string, long> { ["R1"] = delta });
+        var tm = new TreasureMaster(db, mem, enabled: true, resolver: db2 => canned);
+        StabilizeAndArm(tm);
+
+        Assert.True(mem.Written.ContainsKey(remappedAddr));
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[remappedAddr]);
+        Assert.False(mem.Written.ContainsKey(bakedAddr));
+        Assert.False(mem.ReadCount.ContainsKey(bakedAddr));
+    }
+
+    [Fact]
+    public void AnchorResolver_returning_null_disarms_globally()
+    {
+        var dir = TempDir();
+        long bakedAddr = TileAddr(411);
+        var db = BuildRegionTaggedDb(dir, bakedAddr, "R1");
+        var mem = BuildResolverMem(bakedAddr);
+
+        var tm = new TreasureMaster(db, mem, enabled: true, resolver: db2 => null);
+        TickN(tm, Tuning.TreasureArmStableTicks + 20);
+
+        Assert.Empty(mem.Written);
+    }
+
+    [Fact]
+    public void AnchorResolver_ClaimOk_false_skips_claim_memory_reads_while_armed()
+    {
+        var dir = TempDir();
+        long bakedAddr = TileAddr(420);
+        long delta = 0x3000;
+        long remappedAddr = bakedAddr + delta;
+
+        var db = BuildRegionTaggedDb(dir, bakedAddr, "R1", rareItemId: 200);
+        var mem = BuildResolverMem(remappedAddr);
+        // Seed unit + inventory data so a bug WOULD be observable if claim detection ran.
+        mem.U8s[Offsets.UnitArrayBaseX] = 0;
+        mem.U8s[Offsets.UnitArrayBaseX + 1] = 1;
+        mem.ReadableAddrs.Add(Offsets.UnitArrayBaseX);
+        mem.U8s[Offsets.InventoryCountBase + 200] = 1;
+        mem.ReadableAddrs.Add(Offsets.InventoryCountBase + 200);
+
+        var canned = MakeCanned(regionDeltas: new Dictionary<string, long> { ["R1"] = delta }, claimOk: false);
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true, resolver: db2 => canned);
+        StabilizeAndArm(tm);
+        TickN(tm, 5);
+
+        Assert.True(mem.Written.ContainsKey(remappedAddr));   // still arms and holds
+        Assert.False(mem.ReadCount.ContainsKey(Offsets.UnitArrayBaseX));
+        Assert.False(mem.ReadCount.ContainsKey(Offsets.InventoryCountBase + 200));
+    }
+
+    [Fact]
+    public void AnchorResolver_CollectOk_false_skips_collected_oracle_at_seed()
+    {
+        var dir = TempDir();
+        long bakedAddr = TileAddr(430);
+        long delta = 0x4000;
+        long remappedAddr = bakedAddr + delta;
+
+        var db = BuildRegionTaggedDb(dir, bakedAddr, "R1");
+        var mem = BuildResolverMem(remappedAddr);
+
+        int oracleCalls = 0;
+        var canned = MakeCanned(regionDeltas: new Dictionary<string, long> { ["R1"] = delta }, collectOk: false);
+        var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false,
+            collectedOracle: (mid, t) => { oracleCalls++; return true; },
+            resolver: db2 => canned);
+        StabilizeAndArm(tm);
+
+        Assert.Equal(0, oracleCalls);
+        // Not excluded (the gate bit at SeedCollected before the oracle was ever consulted) --
+        // the tile stays lit.
+        Assert.True(mem.Written.ContainsKey(remappedAddr));
+    }
+
+    [Fact]
+    public void AnchorResolver_stamp_reload_after_mismatch_reinvokes_resolver_and_resets_flags()
+    {
+        var dir = TempDir();
+        long bakedAddr = TileAddr(440);
+        long delta = 0x5000;
+        long remappedAddr = bakedAddr + delta;
+        var db = BuildRegionTaggedDb(dir, bakedAddr, "R1", rareItemId: 200);
+        var mem = BuildResolverMem(remappedAddr);
+        mem.U8s[Offsets.UnitArrayBaseX] = 0;
+        mem.U8s[Offsets.UnitArrayBaseX + 1] = 1;
+        mem.ReadableAddrs.Add(Offsets.UnitArrayBaseX);
+        mem.U8s[Offsets.InventoryCountBase + 200] = 1;
+        mem.ReadableAddrs.Add(Offsets.InventoryCountBase + 200);
+
+        int calls = 0;
+        DateTime? stamp = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        var tm = new TreasureMaster(
+            load: () => db,
+            datasetStamp: () => stamp,
+            mem: mem,
+            enabled: true,
+            claimDetection: true,
+            // First resolve: ClaimOk=false (no claim reads). Second resolve (post-reload):
+            // ClaimOk=true -- claim reads should resume, proving the flags actually reset.
+            resolver: db2 => { calls++; return MakeCanned(
+                regionDeltas: new Dictionary<string, long> { ["R1"] = delta },
+                claimOk: calls >= 2); });
+
+        StabilizeAndArm(tm);
+        Assert.Equal(1, calls);
+        Assert.True(mem.Written.ContainsKey(remappedAddr));
+        Assert.False(mem.ReadCount.ContainsKey(Offsets.UnitArrayBaseX));
+
+        // Bump the dataset stamp -> forces a reload + full L0 re-check.
+        stamp = new DateTime(2026, 1, 1, 0, 1, 0, DateTimeKind.Utc);
+        TickN(tm, Tuning.TreasureStampCheckTicks + Tuning.TreasureArmStableTicks + 10);
+
+        Assert.True(calls >= 2, $"expected resolver invoked again after reload, got {calls} call(s)");
+        Assert.True(mem.ReadCount.ContainsKey(Offsets.UnitArrayBaseX),
+            "claim reads should resume after the flags reset and the second resolution allows them");
+    }
 }

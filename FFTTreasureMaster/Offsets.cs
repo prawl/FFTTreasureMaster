@@ -9,6 +9,11 @@ namespace FFTTreasureMaster;
 /// This is the Treasure-Master-only subset of the addresses (battle sentinels + map
 /// identity + terrain grid). Sources: FFTHandsFree/docs/BATTLE_MEMORY_MAP.md and the
 /// live re-find probes noted per field.
+///
+/// These are the baked defaults for THIS build key, surfaced to the rest of the runtime
+/// through AddrMap (never read directly outside AddrMap's own field initializers). On a
+/// build-key mismatch, AnchorResolver re-resolves the live addresses by signature and
+/// AddrMap.Apply rebases every field; these constants are only ever the starting point.
 /// </summary>
 internal static class Offsets
 {

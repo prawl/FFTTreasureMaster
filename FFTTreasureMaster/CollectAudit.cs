@@ -20,8 +20,13 @@ namespace FFTTreasureMaster;
 internal sealed class CollectAudit
 {
     private readonly IGameMemory _mem;
+    private readonly AddrMap _addrs;
 
-    public CollectAudit(IGameMemory mem) => _mem = mem;
+    public CollectAudit(IGameMemory mem, AddrMap? addrs = null)
+    {
+        _mem = mem;
+        _addrs = addrs ?? new AddrMap();
+    }
 
     /// <summary>True when the game records <paramref name="tile"/>'s Move-Find treasure (on map
     /// <paramref name="mapId"/>) as already collected in a prior battle. Returns false on any
@@ -29,11 +34,11 @@ internal sealed class CollectAudit
     /// hides a tile based on an unconfirmed read.</summary>
     public bool IsCollected(int mapId, TreasureTile tile)
     {
-        if (Offsets.TreasureCollectedBase == 0) return false;   // address unknown: inert (kept for safety)
+        if (_addrs.TreasureCollectedBase == 0) return false;   // address unknown: inert (kept for safety)
         int slot = tile.Slot;
         if (mapId < 0 || mapId > 127 || slot < 0 || slot > 3) return false;   // unknown/out-of-range: fail-safe
         int idx  = mapId * 4 + slot;
-        long addr = Offsets.TreasureCollectedBase + idx / 8;
+        long addr = _addrs.TreasureCollectedBase + idx / 8;
         if (!_mem.Readable(addr, 1)) return false;              // unreadable: fail-safe (never hide a tile)
         int bit = 7 - (idx % 8);                                 // MSB-first
         return ((_mem.U8(addr) >> bit) & 1) != 0;

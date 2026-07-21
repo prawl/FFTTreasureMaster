@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace FFTTreasureMaster;
 
@@ -40,6 +41,8 @@ internal sealed partial class TreasureMaster : ISignature
     private readonly Func<TreasureDb>    _load;
     private readonly Func<DateTime?>     _datasetStamp;
     private readonly IGameMemory  _mem;
+    private readonly AddrMap      _addrs;
+    private readonly Func<TreasureDb, AnchorResolution?>? _resolver;
     private readonly ArmAudit     _audit;
     private readonly TileHolder   _holder;
     private readonly MarkerWriter _markers;   // native yellow-diamond path (dark until verified)
@@ -53,6 +56,13 @@ internal sealed partial class TreasureMaster : ISignature
     private readonly bool         _collectDetection;
     private readonly Func<int, TreasureTile, bool>? _collectedOracle;
     private readonly HashSet<(int, int)> _collected = new();   // tiles collected+won in a PRIOR battle (persistent; outlives refunds)
+
+    // Feature flags for a build re-resolved by signature (see AnchorResolver). All start true --
+    // the fast path (matching build key) never touches them, so config alone decides, byte-
+    // identical to before AddrMap/AnchorResolver existed.
+    private bool _claimOkForBuild = true;
+    private bool _collectOkForBuild = true;
+    private bool _fingerprintOkForBuild = true;
 
     private readonly HashSet<(int, int)> _claimed = new();
     private readonly Dictionary<int, int> _lastCount = new();   // itemId -> inventory count last tick
@@ -89,10 +99,11 @@ internal sealed partial class TreasureMaster : ISignature
     /// When true, an eligible player unit standing on a tile claims it for the battle.</param>
     public TreasureMaster(TreasureDb db, IGameMemory? mem = null, bool? enabled = null,
         bool? claimDetection = null, bool? collectDetection = null,
-        Func<int, TreasureTile, bool>? collectedOracle = null)
+        Func<int, TreasureTile, bool>? collectedOracle = null,
+        Func<TreasureDb, AnchorResolution?>? resolver = null, AddrMap? addrs = null)
         : this(load: () => db, datasetStamp: () => null, mem: mem, enabled: enabled,
                claimDetection: claimDetection, collectDetection: collectDetection,
-               collectedOracle: collectedOracle) { }
+               collectedOracle: collectedOracle, resolver: resolver, addrs: addrs) { }
 
     /// <summary>
     /// Injectable seam ctor used by tests and Engine alike.
@@ -107,17 +118,21 @@ internal sealed partial class TreasureMaster : ISignature
         bool? enabled = null,
         bool? claimDetection = null,
         bool? collectDetection = null,
-        Func<int, TreasureTile, bool>? collectedOracle = null)
+        Func<int, TreasureTile, bool>? collectedOracle = null,
+        Func<TreasureDb, AnchorResolution?>? resolver = null,
+        AddrMap? addrs = null)
     {
         _load           = load;
         _datasetStamp   = datasetStamp;
         _db             = TreasureDb.MakeEmpty();   // placeholder; replaced on first Tick
         _mem            = mem ?? new LiveMemory();
-        _audit          = new ArmAudit(_mem);
+        _addrs          = addrs ?? new AddrMap();
+        _resolver       = resolver;
+        _audit          = new ArmAudit(_mem, _addrs);
         _holder         = new TileHolder(_mem);
         _markers        = new MarkerWriter(_mem);   // Tuning.EnhancedMarkersEnabled gates it (off)
-        _claims         = new ClaimAudit(_mem);
-        _collect        = new CollectAudit(_mem);
+        _claims         = new ClaimAudit(_mem, _addrs);
+        _collect        = new CollectAudit(_mem, _addrs);
         _enabled        = enabled ?? Tuning.TreasureEnabled;
         _claimDetection = claimDetection ?? Tuning.ClaimDetectionEnabled;
         _collectDetection = collectDetection ?? Tuning.CollectDetectionEnabled;
@@ -188,6 +203,9 @@ internal sealed partial class TreasureMaster : ISignature
                     // Full state reset so L0 re-evaluates against the new dataset.
                     _globalIdle        = false;
                     _globalIdleChecked = false;
+                    _claimOkForBuild       = true;
+                    _collectOkForBuild     = true;
+                    _fingerprintOkForBuild = true;
                     ResetBattle();
                     var mapCount = 0;
                     foreach (var m in _db.Maps)
@@ -266,11 +284,33 @@ internal sealed partial class TreasureMaster : ISignature
                     (uint)bk.TimeDateStamp, (uint)bk.SizeOfImage,
                     live.Value.TimeDateStamp, live.Value.SizeOfImage))
             {
-                _globalIdle = true;
-                Log.Info($"treasure: dataset built for game {bk.TimeDateStamp:X}/{bk.SizeOfImage:X} " +
-                         $"but running {live.Value.TimeDateStamp:X}/{live.Value.SizeOfImage:X} " +
-                         $"-- disarmed, re-capture needed");
-                return;
+                string mismatchMsg =
+                    $"treasure: dataset built for game {bk.TimeDateStamp:X}/{bk.SizeOfImage:X} " +
+                    $"but running {live.Value.TimeDateStamp:X}/{live.Value.SizeOfImage:X} " +
+                    $"-- disarmed, re-capture needed";
+
+                var res = _resolver?.Invoke(_db);
+                if (res is null)
+                {
+                    _globalIdle = true;
+                    Log.Info(mismatchMsg + (_resolver is null ? "" : " -- signature re-resolve failed"));
+                    return;
+                }
+
+                _addrs.Apply(res);
+                _db = AnchorRemap.Remap(_db, res.RegionDeltas);
+                _claimOkForBuild       = res.ClaimOk;
+                _collectOkForBuild     = res.CollectOk;
+                _fingerprintOkForBuild = res.FingerprintOk;
+
+                var mapCount = 0;
+                foreach (var m in _db.Maps) if (m.Tiles.Count > 0) mapCount++;
+                string regions = string.Join(",", res.RegionDeltas.Select(kv => $"{kv.Key}={kv.Value:X}"));
+                string derived = string.Join(",", res.DerivedRegions);
+                Log.Info("treasure: build key mismatch -- re-resolved by signature: " +
+                         $"{mapCount} map(s), regions=[{regions}], derived=[{derived}] " +
+                         $"claim={_claimOkForBuild} collect={_collectOkForBuild} fingerprint={_fingerprintOkForBuild}");
+                // Fall through: proceed to arm against the remapped dataset.
             }
         }
         // Build key null (stub-only dataset) or matches: proceed.
@@ -332,7 +372,7 @@ internal sealed partial class TreasureMaster : ISignature
         // by the build key (L0), the per-tick map-id match (L1, unique per map) and the per-tile
         // resting-byte audit + quorum below (L3). A mismatch is logged once per battle as a drift
         // census but does NOT disarm. Map-id-only maps have no fingerprint to check.
-        if (!map.IsMapIdOnly && !_flapLoggedThisBattle && !_audit.FingerprintMatches(map))
+        if (_fingerprintOkForBuild && !map.IsMapIdOnly && !_flapLoggedThisBattle && !_audit.FingerprintMatches(map))
         {
             _flapLoggedThisBattle = true;
             var d = _audit.FingerprintDiag(map);
@@ -348,7 +388,7 @@ internal sealed partial class TreasureMaster : ISignature
                 _phase          = Phase.Armed;
                 _revalidateTick = 0;
                 SeedCollected(map);                          // persistent: hide tiles looted+won in a prior battle
-                if (_claimDetection) InitClaimBaseline(map);
+                if (_claimDetection && _claimOkForBuild) InitClaimBaseline(map);
                 RebuildActiveMap();                          // _activeMap = map minus _collected (and _claimed, empty here)
                 var armMap = _activeMap ?? map;
                 Log.Info($"treasure: map {map.MapId} {map.Name} armed -- " +
@@ -404,7 +444,7 @@ internal sealed partial class TreasureMaster : ISignature
         // dropped to ARMING, stopped holding, and -- when the new terrain state persisted --
         // permanently disarmed for the battle, killing the marks for the rest of the fight. We
         // log the first drift per battle (a free in-the-wild drift census) and keep holding.
-        if (!map.IsMapIdOnly && !_flapLoggedThisBattle
+        if (_fingerprintOkForBuild && !map.IsMapIdOnly && !_flapLoggedThisBattle
                 && ++_revalidateTick >= Tuning.TreasureRevalidateEveryNTicks)
         {
             _revalidateTick = 0;
@@ -419,7 +459,7 @@ internal sealed partial class TreasureMaster : ISignature
         // Claim detection: a tile is claimed when a unit stands on it AND its item count has risen
         // (the count rises only on a real claim by an eligible unit; the occupancy pins the exact
         // tile). Un-light every claimed tile every tick (survives a stale ~8ms FastHold pass).
-        if (_claimDetection)
+        if (_claimDetection && _claimOkForBuild)
         {
             bool grew   = DetectClaims(map);
             bool shrank = DetectRefunds(map);
@@ -525,6 +565,7 @@ internal sealed partial class TreasureMaster : ISignature
     private void SeedCollected(TreasureMap map)
     {
         _collected.Clear();
+        if (!_collectOkForBuild) return;   // signature re-resolve gate: table addr didn't resolve
         if (_collectedOracle is not { } oracle) return;
         foreach (var tile in map.Tiles)
             if (oracle(map.MapId, tile)) _collected.Add((tile.X, tile.Y));

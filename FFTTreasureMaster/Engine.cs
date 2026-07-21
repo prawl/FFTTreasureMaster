@@ -20,6 +20,7 @@ internal sealed class Engine
 
     private readonly TreasureMaster _treasure;
     private readonly BattleState _battle = new();   // debounced in/out edges (slot9 sticks; mode flickers)
+    private readonly AddrMap _addrs = new();   // shared sentinel addresses; rebased by AnchorResolver on a build-key mismatch
     private CancellationTokenSource? _cts;
     private string? _lastDispKey;   // TEMP (RetryDiagnostics): dedupe sentinel-transition logs
 
@@ -31,14 +32,18 @@ internal sealed class Engine
     public Engine(string modDir, bool? enabled = null, bool? claimDetection = null)
     {
         var treasureJson = Path.Combine(modDir, "treasure.json");
+        var liveMem = new LiveMemory();
+        var resolver = new AnchorResolver(liveMem);
         _treasure = new TreasureMaster(
             load:           () => TreasureDb.Load(modDir),
             datasetStamp:   () => { try { return File.GetLastWriteTimeUtc(treasureJson); }
                                     catch { return null; } },
-            mem:            new LiveMemory(),
+            mem:            liveMem,
             enabled:        enabled,
             claimDetection: claimDetection,
-            collectDetection: claimDetection);
+            collectDetection: claimDetection,
+            resolver:       resolver.TryResolve,
+            addrs:          _addrs);
         _treasure.StartFastHold();
     }
 
@@ -66,11 +71,11 @@ internal sealed class Engine
 
     private void Tick()
     {
-        uint slot0      = Mem.U32(Offsets.Slot0);
-        uint slot9      = Mem.U32(Offsets.Slot9);
-        int  battleMode = Mem.U8(Offsets.BattleMode);
-        bool paused     = Mem.U8(Offsets.PauseFlag) == 1;
-        int  eventId    = Mem.U16(Offsets.EventId);
+        uint slot0      = Mem.U32(_addrs.Slot0);
+        uint slot9      = Mem.U32(_addrs.Slot9);
+        int  battleMode = Mem.U8(_addrs.BattleMode);
+        bool paused     = Mem.U8(_addrs.PauseFlag) == 1;
+        int  eventId    = Mem.U16(_addrs.EventId);
         var  now        = DateTime.Now;
 
         // Enter is instant; exit is debounced (battleMode flickers, slot9 sticks). Reset the
