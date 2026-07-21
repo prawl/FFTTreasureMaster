@@ -8,6 +8,13 @@ with a date and no hash.
 
 ## 1.5.0 cycle
 
+- [TM-6] SHIPPED 5569e8e 2026-07-21: a ledger row accidentally pasted into the Walled or
+  Format section no longer hides from the contract checks; any entry-shaped line outside
+  the real entry sections now fails the build instead of silently rotting where the grammar
+  and id-uniqueness scans never look. Decision recorded: yes, they fail the contract.
+  Proven non-vacuous by a planted stray going red and the revert going green. (Tech:
+  TodoContractTests invariant I with EntryShapedRegex over the non-entry sections; the
+  blind spot the ColorCustomizer sibling found as CC-17.)
 - [TM-5] SHIPPED 99d0cea 2026-07-21: a dev deploy no longer erases the flight recorder's
   saved evidence, so a crash investigated after a redeploy still has its black box to read.
   Proven live: a sentinel file planted in the flight folder survived a full deploy together
