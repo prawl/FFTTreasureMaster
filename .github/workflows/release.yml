@@ -48,10 +48,10 @@ jobs:
       with:
         python-version: '3.12'
 
-    - name: Setup .NET 8.0 SDK (for the runtime DLL)
+    - name: Setup .NET 9.0 SDK (for the runtime DLL)
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: 9.0.x
 
     - name: Setup Node.js (for changelog)
       uses: actions/setup-node@v4
