@@ -12,15 +12,29 @@ namespace FFTTreasureMaster.Tests;
 /// </summary>
 public class ScopedLoggerTests
 {
+    /// <summary>Thread-safe capture: while this instance sits in the shared static
+    /// ModLogger.Instance, OTHER test classes running in parallel log production lines into it
+    /// too. An unsynchronized List.Add racing across threads can corrupt the list or drop
+    /// entries (a real CI red, 2026-07-21), so every touch goes through the lock and asserts
+    /// read a snapshot.</summary>
     private sealed class CaptureLogger : ILogger
     {
-        public readonly List<(LogLevel Level, LogVerb? Verb, string Message)> Lines = new();
+        private readonly object _gate = new();
+        private readonly List<(LogLevel Level, LogVerb? Verb, string Message)> _lines = new();
         public LogLevel LogLevel { get; set; } = LogLevel.Debug;
-        public void Log(LogVerb verb, string message) => Lines.Add((LogLevel.Info, verb, message));
-        public void LogWarning(LogVerb verb, string message) => Lines.Add((LogLevel.Warning, verb, message));
-        public void LogError(LogVerb verb, string message) => Lines.Add((LogLevel.Error, verb, message));
-        public void LogError(LogVerb verb, string message, Exception exception) => Lines.Add((LogLevel.Error, verb, message));
-        public void LogDebug(LogVerb verb, string message) => Lines.Add((LogLevel.Debug, verb, message));
+        private void Add(LogLevel level, LogVerb verb, string message)
+        {
+            lock (_gate) { _lines.Add((level, verb, message)); }
+        }
+        public (LogLevel Level, LogVerb? Verb, string Message)[] Snapshot()
+        {
+            lock (_gate) { return _lines.ToArray(); }
+        }
+        public void Log(LogVerb verb, string message) => Add(LogLevel.Info, verb, message);
+        public void LogWarning(LogVerb verb, string message) => Add(LogLevel.Warning, verb, message);
+        public void LogError(LogVerb verb, string message) => Add(LogLevel.Error, verb, message);
+        public void LogError(LogVerb verb, string message, Exception exception) => Add(LogLevel.Error, verb, message);
+        public void LogDebug(LogVerb verb, string message) => Add(LogLevel.Debug, verb, message);
         public void NoteBattleEdge() { }
     }
 
@@ -38,7 +52,7 @@ public class ScopedLoggerTests
         try
         {
             ModLogger.For(LogVerb.Claim, () => true).Info(msg);
-            Assert.Contains((LogLevel.Info, (LogVerb?)LogVerb.Claim, msg), capture.Lines);
+            Assert.Contains((LogLevel.Info, (LogVerb?)LogVerb.Claim, msg), capture.Snapshot());
         }
         finally { ModLogger.UseNullLogger(); }
     }
@@ -50,7 +64,7 @@ public class ScopedLoggerTests
         try
         {
             ModLogger.For(LogVerb.Claim, () => false).Info(msg);
-            Assert.Contains((LogLevel.Debug, (LogVerb?)LogVerb.Claim, msg), capture.Lines);
+            Assert.Contains((LogLevel.Debug, (LogVerb?)LogVerb.Claim, msg), capture.Snapshot());
         }
         finally { ModLogger.UseNullLogger(); }
     }
@@ -62,7 +76,7 @@ public class ScopedLoggerTests
         try
         {
             ModLogger.For(LogVerb.Arm, () => false).Warn(msg);
-            Assert.Contains((LogLevel.Debug, (LogVerb?)LogVerb.Arm, msg), capture.Lines);
+            Assert.Contains((LogLevel.Debug, (LogVerb?)LogVerb.Arm, msg), capture.Snapshot());
         }
         finally { ModLogger.UseNullLogger(); }
     }
@@ -74,7 +88,7 @@ public class ScopedLoggerTests
         try
         {
             ModLogger.For(LogVerb.Claim, () => throw new InvalidOperationException()).Info(msg);
-            Assert.Contains((LogLevel.Debug, (LogVerb?)LogVerb.Claim, msg), capture.Lines);
+            Assert.Contains((LogLevel.Debug, (LogVerb?)LogVerb.Claim, msg), capture.Snapshot());
         }
         finally { ModLogger.UseNullLogger(); }
     }
@@ -86,8 +100,8 @@ public class ScopedLoggerTests
         try
         {
             ModLogger.EventWithTrace(LogVerb.Arm, msg, "detail " + msg);
-            Assert.Contains((LogLevel.Info, (LogVerb?)LogVerb.Arm, msg), capture.Lines);
-            Assert.Contains((LogLevel.Debug, (LogVerb?)LogVerb.Trace, "detail " + msg), capture.Lines);
+            Assert.Contains((LogLevel.Info, (LogVerb?)LogVerb.Arm, msg), capture.Snapshot());
+            Assert.Contains((LogLevel.Debug, (LogVerb?)LogVerb.Trace, "detail " + msg), capture.Snapshot());
         }
         finally { ModLogger.UseNullLogger(); }
     }
