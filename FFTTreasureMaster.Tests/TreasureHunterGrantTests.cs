@@ -16,7 +16,9 @@ namespace FFTTreasureMaster.Tests;
 ///   a missing seam (modloader absent) logs exactly one line;
 ///   the not-ready retry sleeps until ready or gives up at the cap with one line;
 ///   an apply is only counted once the read-back confirms 509 landed;
-///   the delayed re-assert pass restores a clobbered grant and logs the conflict;
+///   the delayed re-assert pass restores a clobbered grant and logs the conflict, but it
+///   honors the same skips as the first pass (unreadable rows are never written on faith,
+///   rows another mod has since filled are never overwritten);
 ///   any seam exception is caught and logged once, never propagated.
 /// </summary>
 public class TreasureHunterGrantTests
@@ -242,6 +244,37 @@ public class TreasureHunterGrantTests
         Assert.Equal(1, s.Reasserted);
         Assert.Equal(TH, t.Rows[76][2]);
         Assert.Equal(2, log.Count);   // summary + conflict
+    }
+
+    [Fact]
+    public void ReassertSkips_WhenRowBecameFullWithoutTH_NeverOverwrites()
+    {
+        var t = new FakeJobTable(); t.Rows[76] = new ushort[] { 0, 0, 0, 0 };
+        var log = new List<string>();
+        // During the re-assert delay another mod fully repopulates the row with its own
+        // abilities (no 509, no free slot). The re-assert must not overwrite any of them.
+        Action<int> sleep = ms => { if (ms == 50) t.Rows[76] = new ushort[] { 400, 401, 402, 403 }; };
+
+        var s = Grant(t, log, new[] { 76 }, sleep: sleep, reassertMs: 50).Run();
+
+        Assert.Equal(1, s.Applied);
+        Assert.Equal(0, s.Reasserted);
+        Assert.Single(t.ApplyCalls);   // only the original grant; no re-assert write
+        Assert.Equal(new ushort[] { 400, 401, 402, 403 }, t.Rows[76]);
+    }
+
+    [Fact]
+    public void ReassertSkips_WhenRowBecameUnreadable_NeverWritesBlind()
+    {
+        var t = new FakeJobTable(); t.Rows[76] = new ushort[] { 0, 0, 0, 0 };
+        var log = new List<string>();
+        Action<int> sleep = ms => { if (ms == 50) t.Rows.Remove(76); };
+
+        var s = Grant(t, log, new[] { 76 }, sleep: sleep, reassertMs: 50).Run();
+
+        Assert.Equal(1, s.Applied);
+        Assert.Equal(0, s.Reasserted);
+        Assert.Single(t.ApplyCalls);   // an unreadable row is never written to on faith
     }
 
     [Fact]

@@ -36,15 +36,31 @@ public class Mod : IMod
     /// subscription, no controller traffic, no log lines. Guarded so no failure here can
     /// disturb the running engine.
     /// </summary>
+    /// <summary>0 until the grant hook has armed once / the grant thread has started once.
+    /// Both Start and StartEx route here, and the watchdog races the loader event, so both
+    /// steps are once-latched.</summary>
+    private int _grantArmed;
+    private int _grantStarted;
+
     private void HookInnateGrant(IModLoaderV1? modLoader)
     {
         if (modLoader == null || !_grantEnabled) return;
+        if (Interlocked.Exchange(ref _grantArmed, 1) != 0) return;
         try
         {
             ModLogger.Event(LogVerb.Config,
                 "Treasure Hunter grant armed: waiting for all mods to finish loading. " +
                 "(Tech: loader captured in StartEx; grant runs after OnModLoaderInitialized.)");
             modLoader.OnModLoaderInitialized += () => StartGrantThread(modLoader);
+            // Hot-load safety net: loaded into an already-running game, the event above has
+            // already fired and will never call us. The watchdog starts the latched grant
+            // after a delay; in a normal launch the event wins and the watchdog no-ops.
+            var watchdog = new Thread(() =>
+            {
+                Thread.Sleep(Tuning.GrantWatchdogDelayMs);
+                StartGrantThread(modLoader);
+            }) { IsBackground = true, Name = "TreasureMaster.GrantWatchdog" };
+            watchdog.Start();
         }
         catch (Exception ex)
         {
@@ -52,8 +68,9 @@ public class Mod : IMod
         }
     }
 
-    private static void StartGrantThread(IModLoaderV1 modLoader)
+    private void StartGrantThread(IModLoaderV1 modLoader)
     {
+        if (Interlocked.Exchange(ref _grantStarted, 1) != 0) return;
         try
         {
             var t = new Thread(() => RunGrant(modLoader)) { IsBackground = true, Name = "TreasureMaster.Grant" };
@@ -66,19 +83,22 @@ public class Mod : IMod
     }
 
     /// <summary>Background: acquire the modloader's job-table controller and run the grant.
-    /// A null controller while the modloader is active gets its own warn line -- that is the
-    /// tripwire for an interfaces version mismatch, distinct from "not installed".</summary>
+    /// A null controller while the modloader is active means an interfaces version mismatch:
+    /// that case warns once and stops (the grant's "not installed" line would be wrong).</summary>
     private static void RunGrant(IModLoaderV1 modLoader)
     {
         try
         {
             var table = FftivcJobTable.TryCreate(modLoader);
             if (table == null && ModLoaderActive(modLoader))
+            {
                 ModLogger.Warn(LogVerb.Config,
                     "The FFT Ivalice Chronicles Mod Loader is installed, but its job-table " +
                     "controller could not be acquired, so the Treasure Hunter grant is off " +
                     "this session. (Tech: GetController returned null while " +
                     "fftivc.utility.modloader is active; likely an interfaces version mismatch.)");
+                return;   // one accurate line; the grant's "not installed" line would be wrong here
+            }
             new TreasureHunterGrant(enabled: true, table, Tuning.TreasureHunterGrantJobIds,
                                     msg => ModLogger.Event(LogVerb.Config, msg),
                                     Thread.Sleep).Run();

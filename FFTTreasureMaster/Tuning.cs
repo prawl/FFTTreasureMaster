@@ -131,6 +131,12 @@ internal static class Tuning
     /// merge in the modloader; our late write usually wins, this makes it certain).</summary>
     public const int GrantReassertDelayMs = 2000;
 
+    /// <summary>Hot-load safety net: if the mod is loaded into an already-running game, the
+    /// all-mods-loaded event has already fired and will never call the grant. A watchdog
+    /// starts the (once-latched) grant after this delay instead; in a normal launch the
+    /// event wins the race and the watchdog call is a no-op.</summary>
+    public const int GrantWatchdogDelayMs = 5000;
+
     // --- update-hardening: signature re-resolve scan mechanics (AnchorScan/AnchorResolver) ---
 
     /// <summary>Bytes read per chunk while scanning a section for a signature pattern. Chunking

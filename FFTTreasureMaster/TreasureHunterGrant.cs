@@ -130,7 +130,9 @@ internal sealed class TreasureHunterGrant
     }
 
     /// <summary>Re-reads every granted row after a delay and re-applies the ability where
-    /// another mod's edit removed it. Returns the number of rows re-applied.</summary>
+    /// another mod's edit removed it, under the SAME protections as the first pass: an
+    /// unreadable row is never written on faith, and a row another mod has since filled is
+    /// never overwritten (that mod won the merge; we yield). Returns the rows re-applied.</summary>
     private int ReassertPass(List<int> applied)
     {
         if (applied.Count == 0) return 0;
@@ -139,8 +141,9 @@ internal sealed class TreasureHunterGrant
         foreach (var jobId in applied)
         {
             var now = _table!.GetInnates(jobId);
-            if (now != null && Has509(now)) continue;
-            int slot = now == null ? PreferredSlotIndex : Math.Max(PickSlot(now), 0);
+            if (now == null || Has509(now)) continue;
+            int slot = PickSlot(now);
+            if (slot < 0) continue;
             if (_table.TryApplyInnate(jobId, slot, TreasureHunterAbilityId)) reasserted++;
         }
         return reasserted;

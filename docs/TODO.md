@@ -22,14 +22,16 @@ that checklist.
 - **[TM-7] Every party member finds hidden treasure, behind an off-by-default toggle** (opened 2026-07-21) [BUILDING]
   - Done means: a new Reloaded config toggle (default off) makes every unit the player fields
     pick up hidden tile treasure without equipping Treasure Hunter, and with the toggle off
-    the game behaves exactly as vanilla. First milestone is the premise probe: show that a
-    Knight given an innate Treasure Hunter (ability id 509, via a throwaway table-edit probe
-    mod) claims a treasure instead of springing the trap. (Tech: strategy ranking and probe
-    steps in handoff.md "INNATE TREASURE HUNTER"; production path = the
-    fftivc.utility.modloader controller API as an optional dependency.)
-  - Verify: owner live sessions: first the premise probe (the Knight claims a known treasure
-    tile); later the real toggle on lets a party without Treasure Hunter claim treasures, and
-    the toggle off leaves treasure tiles springing traps exactly as vanilla.
+    the game behaves exactly as vanilla. The premise probe already passed live on 2026-07-21:
+    a Knight given an innate Treasure Hunter (ability id 509, via a throwaway table edit)
+    claimed a treasure instead of springing the trap. (Tech: implementation on main behind
+    Config.AllUnitsTreasureHunter, riding the fftivc.utility.modloader controller API as an
+    optional dependency; row set and remaining checks in handoff.md "INNATE TREASURE
+    HUNTER".)
+  - Verify: owner live sessions per the handoff checklist: the toggle on lets a party without
+    Treasure Hunter claim treasures, the toggle off leaves treasure tiles springing traps
+    exactly as vanilla, and a boot without the mod loader installed stays clean with one
+    friendly log line.
 
 ## Backlog
 
@@ -48,6 +50,7 @@ that checklist.
   Now, Backlog, and changelog sections; decide whether entry-shaped lines in Walled or
   Format should fail the contract. Found in the ColorCustomizer sibling (its CC-17); every
   repo sharing the ledger system has the same blind spot.
+
 ## Walled (blocked by engine / external)
 
 - After an in-battle "Retry from Start of Battle", the treasure glow does not come back until
