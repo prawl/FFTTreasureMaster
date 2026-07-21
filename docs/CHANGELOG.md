@@ -8,6 +8,12 @@ with a date and no hash.
 
 ## 1.5.0 cycle
 
+- [TM-5] SHIPPED 99d0cea 2026-07-21: a dev deploy no longer erases the flight recorder's
+  saved evidence, so a crash investigated after a redeploy still has its black box to read.
+  Proven live: a sentinel file planted in the flight folder survived a full deploy together
+  with every real archive. (Tech: the BuildLinked.ps1 clean now filters top-level entries
+  with Where-Object; Remove-Item with Exclude and Recurse spares an excluded directory but
+  wipes its contents; same fix as ColorCustomizer commit 9a16b092.)
 - [TM-7] SHIPPED 133b833 2026-07-21: every unit the player fields can now pick up hidden
   Move-Find treasure without equipping Treasure Hunter, behind a new config toggle that
   ships OFF because it also hands the ability to enemy humans of the same jobs. Owner

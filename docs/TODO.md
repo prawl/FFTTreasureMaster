@@ -25,12 +25,6 @@ that checklist.
   Nexus id in its filename, so Vortex would show it with a warning and no version. (Tech:
   Publish.ps1's NexusModId parameter is still the placeholder 0; register the mod on Nexus and
   pass the real id before the first upload.)
-- [TM-5] 2026-07-21: The dev deploy quietly erases the flight recorder's saved evidence even
-  though it means to keep it, so a crash investigated after a redeploy has no black box to
-  read. Proven in the ColorCustomizer sibling: PowerShell's Remove-Item -Exclude spares an
-  excluded DIRECTORY itself but still recursively wipes the directory's contents. (Tech:
-  BuildLinked.ps1 line 45; fix by filtering top-level entries with Where-Object before
-  Remove-Item, as ColorCustomizer commit 9a16b092 does for its logs/ folder.)
 - [TM-6] 2026-07-21: A ledger row accidentally pasted after the Format section escapes every
   grammar and id-uniqueness scan, because the contract tests only read entries out of the
   Now, Backlog, and changelog sections; decide whether entry-shaped lines in Walled or
