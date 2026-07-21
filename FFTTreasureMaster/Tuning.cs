@@ -90,6 +90,47 @@ internal static class Tuning
     /// (static readonly, not const, so the gated wiring does not trip CS0162 unreachable-code.)</summary>
     public static readonly bool CollectDetectionEnabled = true;
 
+    // --- innate Treasure Hunter grant (TreasureHunterGrant, via the FFTIVC modloader) ---
+
+    /// <summary>Documented default for Config.AllUnitsTreasureHunter (the runtime value flows
+    /// from FFTTreasureMaster.Configuration.Config via Mod.cs; this constant is the fallback
+    /// when the config file cannot be read). When true, the mod asks the separately installed
+    /// FFTIVC Mod Loader to add the Treasure Hunter movement ability as a built-in innate on
+    /// the standard player jobs, so any unit of those jobs picks up Move-Find treasure by
+    /// stepping on the tile. Enemy humans of the covered jobs gain it too. Default OFF: it
+    /// changes battle balance, so the player opts in.</summary>
+    public const bool AllUnitsTreasureHunterEnabled = false;
+
+    /// <summary>JOB_DATA row ids covered by the Treasure Hunter grant: Ramza's three story
+    /// jobs (1, 2, 3), the joined special characters with a free innate slot (13 Orlandeau,
+    /// 22 Mustadio, 25 Rapha, 26 Marach, 30 Agrias, 50 Cloud, 72 Reis as Holy Dragon), and
+    /// the twenty generic jobs (74..93). Deliberately excluded: 31 Beowulf (the table's only
+    /// Templar row, shared with enemy Templars), 42 Meliadoul (row attribution not yet
+    /// live-verified), 15 Reis human / 144 Byblos / 145 Construct 8 (all four innate slots
+    /// already occupied), 21 Orran (guest-only), and every monster row (94..141: wild-monster
+    /// spillover outweighs the benefit). Values from the vanilla JOB_DATA dump verified against
+    /// the live premise probe of 2026-07-21.</summary>
+    public static readonly int[] TreasureHunterGrantJobIds =
+    {
+        1, 2, 3, 13, 22, 25, 26, 30, 50, 72,
+        74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
+        84, 85, 86, 87, 88, 89, 90, 91, 92, 93,
+    };
+
+    /// <summary>Delay between readiness probes while waiting for the modloader's job table
+    /// (its signature scan runs asynchronously at startup; there is no cross-mod ordering
+    /// guarantee, so the grant polls instead of assuming).</summary>
+    public const int GrantRetryIntervalMs = 250;
+
+    /// <summary>Total time the grant will wait for the job table before giving up for the
+    /// session (one warn line; the core mod is unaffected).</summary>
+    public const int GrantRetryCapMs = 30000;
+
+    /// <summary>Delay before the single re-assert pass that re-reads every granted row and
+    /// re-applies the ability if another mod's table edit clobbered it (last-writer-wins
+    /// merge in the modloader; our late write usually wins, this makes it certain).</summary>
+    public const int GrantReassertDelayMs = 2000;
+
     // --- update-hardening: signature re-resolve scan mechanics (AnchorScan/AnchorResolver) ---
 
     /// <summary>Bytes read per chunk while scanning a section for a signature pattern. Chunking

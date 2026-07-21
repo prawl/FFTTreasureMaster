@@ -23,4 +23,15 @@ public class Config : Configurable<Config>
                  "Turn this off to keep every treasure tile lit. Default: on.")]
     [DefaultValue(true)]
     public bool HideClaimedTiles { get; set; } = true;
+
+    [DisplayName("All units gain Treasure Hunter")]
+    [Description("Give every unit of the standard player jobs the Treasure Hunter movement " +
+                 "ability for free, so anyone can pick up Move-Find treasure just by stepping on " +
+                 "the tile (no more dragging a Chemist everywhere). Fair warning: enemy humans " +
+                 "with those same jobs get it too, and a treasure an enemy grabs is gone for good. " +
+                 "Requires the separately installed FFT: The Ivalice Chronicles Mod Loader (by " +
+                 "Nenkai); without it this setting quietly does nothing. Changes apply the next " +
+                 "time the game is launched. Default: off.")]
+    [DefaultValue(false)]
+    public bool AllUnitsTreasureHunter { get; set; } = false;
 }
