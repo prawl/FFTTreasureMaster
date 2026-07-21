@@ -8,6 +8,17 @@ with a date and no hash.
 
 ## 1.5.0 cycle
 
+- [TM-7] SHIPPED 133b833 2026-07-21: every unit the player fields can now pick up hidden
+  Move-Find treasure without equipping Treasure Hunter, behind a new config toggle that
+  ships OFF because it also hands the ability to enemy humans of the same jobs. Owner
+  live-verified all three ways on 2026-07-21: toggle on, two random units claimed treasure;
+  toggle off, vanilla traps returned; mod loader absent, tile highlighting still worked
+  with one friendly log line expected. (Tech: innate ability 509 written into a free
+  InnateAbilityId slot of 30 player job rows via fftivc.utility.modloader's
+  IFFTOJobDataManager controller as an optional dependency; real StartEx entry point
+  replacing a dead Start overload; readiness retry plus audit-overlay read-back after the
+  loader's stale GetJob snapshot was diagnosed from its source; projects moved to
+  net9.0-windows; commits b31df3a, ac70f72, 0e3575d, c06bff5, 133b833.)
 - [TM-4] SHIPPED 5bd1fe2 2026-07-21: the mod's messages now match the FFTLivingWeapons logging
   model: the console tells a short story a player can read (battle started, map armed, treasure
   claimed) while treasuremaster.log keeps every timestamped detail, and a black-box flight
