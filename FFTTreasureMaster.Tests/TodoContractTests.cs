@@ -24,6 +24,10 @@ namespace FFTTreasureMaster.Tests;
 /// G. The release name captured from the Now header appears (as a substring) in
 ///    docs/RELEASE_SCOPE.md, so the ledger and the ship-gate doc cannot silently drift apart.
 /// H. Neither file contains an em dash or a " -- " double-dash separator anywhere.
+/// I. No entry-shaped line (`- [TM-n] ...` / `- **[TM-n] ...`) hides in TODO.md's Walled or
+///    Format sections, where the grammar and id-uniqueness scans (which read only Now,
+///    Backlog, and the changelog) would never see it (the TM-6 blind spot, found as CC-17
+///    in the ColorCustomizer sibling).
 /// </summary>
 public class TodoContractTests
 {
@@ -399,5 +403,40 @@ public class TodoContractTests
             }
         }
         Assert.True(violations.Count == 0, "Disallowed dash sequence found:\n" + string.Join("\n", violations));
+    }
+
+    // --- I. No entry-shaped line hides outside the entry sections (TM-6) ---
+
+    /// <summary>Anything that LOOKS like a ledger row: a dash bullet whose text opens with a
+    /// (possibly bolded) [TM-n] id, at any indentation. Deliberately broader than the strict
+    /// entry grammars: a malformed stray should be flagged, not excused for being malformed.</summary>
+    private static readonly Regex EntryShapedRegex = new(
+        @"^\s*-\s*(\*\*)?\[TM-\d+\]", RegexOptions.Compiled);
+
+    [Theory]
+    [InlineData("- [TM-9] 2026-07-21: a stray backlog-shaped row", true)]
+    [InlineData("- **[TM-9] A stray Now-shaped row** (opened 2026-07-21) [QUEUED]", true)]
+    [InlineData("  - [TM-9] indented stray", true)]
+    [InlineData("- Backlog: entry first line `- [TM-<n>] YYYY-MM-DD: <one sentence>`; indented", false)]
+    [InlineData("- After an in-battle Retry the glow does not come back (prose, no id).", false)]
+    public void EntryShapedRegex_cases(string line, bool expected)
+        => Assert.Equal(expected, EntryShapedRegex.IsMatch(line));
+
+    [Fact]
+    public void No_entry_shaped_line_hides_in_Walled_or_Format()
+    {
+        var lines = File.ReadAllLines(Path.Combine(RepoRoot(), "docs", "TODO.md"));
+        var strays = new List<string>();
+        foreach (var (header, body) in SplitSections(lines))
+        {
+            if (header.StartsWith("## Now") || header.StartsWith("## Backlog")) continue;
+            foreach (var line in body)
+                if (EntryShapedRegex.IsMatch(line))
+                    strays.Add($"{header} -> {line}");
+        }
+        Assert.True(strays.Count == 0,
+            "Entry-shaped ledger lines found outside the Now/Backlog sections, where the grammar " +
+            "and id-uniqueness checks never look; move each to a real section or delete it:\n" +
+            string.Join("\n", strays));
     }
 }
