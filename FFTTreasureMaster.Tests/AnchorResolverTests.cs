@@ -142,10 +142,16 @@ public class AnchorResolverTests
     /// <summary>Seeds a fake PE header (e_lfanew + file header + one section header per entry).
     /// Each tuple is (virtualSize, virtualAddress, characteristics).</summary>
     private static FakeSparseMemory SeedPeHeader(params (uint virtualSize, uint virtualAddress, uint characteristics)[] sections)
+        => SeedPeHeaderAt(ModuleBase, sections);
+
+    /// <summary>Same fake PE header, staged at <paramref name="moduleBase"/> (the LIVE base for the
+    /// ASLR test).</summary>
+    private static FakeSparseMemory SeedPeHeaderAt(long moduleBase,
+        params (uint virtualSize, uint virtualAddress, uint characteristics)[] sections)
     {
         var mem = new FakeSparseMemory();
-        long peAddr = ModuleBase + ELfanew;
-        mem.SeedU32(ModuleBase + 0x3C, ELfanew);
+        long peAddr = moduleBase + ELfanew;
+        mem.SeedU32(moduleBase + 0x3C, ELfanew);
         SeedU16(mem, peAddr + 6, (ushort)sections.Length);
         SeedU16(mem, peAddr + 20, (ushort)SizeOfOptionalHeader);
         long sectionTableAddr = peAddr + 24 + SizeOfOptionalHeader;
@@ -190,6 +196,32 @@ public class AnchorResolverTests
         foreach (var id in AllRegionIds) Assert.Equal(0x1000L, result!.RegionDeltas[id]);
         Assert.Equal(Slot0Addr + 0x1000, result!.Slot0);
         Assert.Equal(TerrainAddr + 0x1000, result.TerrainGrid);
+    }
+
+    // ── ASLR (TM-8) ───────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Region_delta_is_RVA_only_when_the_image_is_relocated()
+    {
+        // Stage the whole fake image at a relocated base. Every disp32 lands at the LIVE
+        // equivalent of the sig's dataset target plus a 0x1000 RVA shift, so the resolver must
+        // subtract the ASLR delta before computing the region delta (else AnchorMaxDeltaBytes trips).
+        const long relocated = 0x7FF6_1234_0000L;
+        const long rvaShift = 0x1000;
+        try
+        {
+            Assert.True(ImageBase.Set(relocated));
+            long liveSection0 = ImageBase.Base + 0x1000;
+            var mem = SeedPeHeaderAt(ImageBase.Base, (0x2000, 0x1000, ExecChar));
+            mem.RegisterBlock(liveSection0, BuildSection(liveSection0, delta: ImageBase.Delta + rvaShift));
+
+            var result = new AnchorResolver(mem).TryResolve(MakeDb(BuildTable()));
+
+            Assert.NotNull(result);
+            foreach (var id in AllRegionIds) Assert.Equal(rvaShift, result!.RegionDeltas[id]);
+            Assert.Equal(ImageBase.At(Slot0Addr + rvaShift), result!.Slot0);
+        }
+        finally { ImageBase.ResetForTests(); }
     }
 
     // ── LOAD-BEARING #2 ───────────────────────────────────────────────────────────────────────

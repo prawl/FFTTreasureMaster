@@ -2,9 +2,11 @@ namespace FFTTreasureMaster;
 
 /// <summary>
 /// Verified game addresses for FFT: The Ivalice Chronicles (fft_enhanced.exe, 1.5).
-/// The image base is fixed at 0x140000000 with no ASLR, and every address below lives
-/// in the always-mapped main module, so they are valid in-process pointers -- but access
-/// still goes through <see cref="Mem"/> (RPM/WPM), NEVER a raw deref.
+/// Every pin below is a DATASET-space absolute: a preferred-base address (image base 0x140000000,
+/// the only base the Denuvo-wrapped builds had). The Denuvo-free build loads at a random base
+/// (ASLR), so each pin is exposed as a property that rebases it through <see cref="ImageBase.At"/>
+/// (TM-8); the values handed out are LIVE addresses. All pins live in the always-mapped main
+/// module, but access still goes through <see cref="Mem"/> (RPM/WPM), NEVER a raw deref.
 ///
 /// This is the Treasure-Master-only subset of the addresses (battle sentinels + map
 /// identity + terrain grid). Sources: FFTHandsFree/docs/BATTLE_MEMORY_MAP.md and the
@@ -13,34 +15,34 @@ namespace FFTTreasureMaster;
 /// These are the baked defaults for THIS build key, surfaced to the rest of the runtime
 /// through AddrMap (never read directly outside AddrMap's own field initializers). On a
 /// build-key mismatch, AnchorResolver re-resolves the live addresses by signature and
-/// AddrMap.Apply rebases every field; these constants are only ever the starting point.
+/// AddrMap.Apply rebases every field; these pins are only ever the starting point.
 /// </summary>
 internal static class Offsets
 {
     // --- in-battle sentinels (read by the engine loop; fed to BattleState) ---
-    public const long Slot0 = 0x140782A30;   // 1.5 +0x6000 (was 0x14077CA30): in-battle existence marker (sticks 0xFF after a QUIT)
-    public const long Slot9 = 0x140782A54;   // 1.5 +0x6000 (was 0x14077CA54): in-battle sentinel (reads 0xFFFFFFFF)
-    public const long EventId = 0x140782A94; // 1.5 +0x6000 (was 0x14077CA94): u16 event/cutscene id out of live battle (suspends the exit timer)
+    public static long Slot0 => ImageBase.At(0x140782A30);   // 1.5 +0x6000 (was 0x14077CA30): in-battle existence marker (sticks 0xFF after a QUIT)
+    public static long Slot9 => ImageBase.At(0x140782A54);   // 1.5 +0x6000 (was 0x14077CA54): in-battle sentinel (reads 0xFFFFFFFF)
+    public static long EventId => ImageBase.At(0x140782A94); // 1.5 +0x6000 (was 0x14077CA94): u16 event/cutscene id out of live battle (suspends the exit timer)
 
     // --- battlefield discriminator: 0 = OUT of battle (world map / menus, even while slot9
     //     is the stuck sentinel), 2/3/4 = on the live battlefield, 1/5 = targeting/animation.
     //     Verified in FFTHandsFree (CommandWatcher.cs); BattleState.BattleDisplayed gates the
     //     Treasure module on slot9-stuck AND mode != 0. ---
-    public const long BattleMode = 0x1409069A0;   // 1.5 +0x6350 (was 0x140900650): u8
+    public static long BattleMode => ImageBase.At(0x1409069A0);   // 1.5 +0x6350 (was 0x140900650): u8
 
     // --- pause flag: 1 while a menu / Status card is open, 0 on the free battlefield / enemy
     //     turns. Used by BattleState to suspend the exit debounce (a pause mid-battle must not
     //     accumulate out-of-live time). ---
-    public const long PauseFlag = 0x140C6B1C8;   // 1.5 confirmed live 2026-06-17 (was 0x140C64A5C)
+    public static long PauseFlag => ImageBase.At(0x140C6B1C8);   // 1.5 confirmed live 2026-06-17 (was 0x140C64A5C)
 
     // --- Treasure Master: map identity + terrain grid ---
     // u8 current battle's map id; valid 1..127 (FFTHandsFree LiveBattleMapId contract).
     // STALE out of battle: only read while a battle map is displayed.
-    public const long LiveBattleMapId = 0x140784478;   // 1.5 re-found 2026-06-17 +0x6C3C (was 0x14077D83C)
+    public static long LiveBattleMapId => ImageBase.At(0x140784478);   // 1.5 re-found 2026-06-17 +0x6C3C (was 0x14077D83C)
 
     // Static per-map terrain records, 7 bytes/tile; used read-only as the map-identity
     // fingerprint source (FNV-1a64 over a fixed-length prefix).
-    public const long TerrainGrid = 0x140C6B440;   // 1.5 re-found 2026-06-17 +0x6440 (was 0x140C65000)
+    public static long TerrainGrid => ImageBase.At(0x140C6B440);   // 1.5 re-found 2026-06-17 +0x6440 (was 0x140C65000)
 
     // --- Claim detection: unit positions + inventory counts (VERIFIED 1.5, 2026-06-19) ---
     // A treasure tile is claimed when an item appears in inventory WHILE a unit stands on that tile.
@@ -58,13 +60,13 @@ internal static class Offsets
 
     /// <summary>Grid-X address of the lowest unit slot the occupancy scan walks. Slot k's grid X is
     /// UnitArrayBaseX + k*UnitRecordStride; grid Y is at +1.</summary>
-    public const long UnitArrayBaseX = 0x141851F2FL;
+    public static long UnitArrayBaseX => ImageBase.At(0x141851F2FL);
     /// <summary>Number of unit slots scanned (covers the live unit block with margin).</summary>
     public const int  UnitArraySlots = 65;
     /// <summary>Bytes between consecutive unit records.</summary>
     public const long UnitRecordStride = 0x200L;
     /// <summary>Base of the inventory item-count array; count of item id is the u8 at base+id.</summary>
-    public const long InventoryCountBase = 0x1411A7C00L;
+    public static long InventoryCountBase => ImageBase.At(0x1411A7C00L);
 
     // --- Persistent collected-treasure flags (LOCATED + DECODED 2026-06-21) ---
     // 64-byte bitfield at this base holds "collected" flags for all Move-Find treasures
@@ -73,7 +75,7 @@ internal static class Offsets
     // native X1..X4 file order); byte = base + idx/8; bit = 7 - (idx % 8).
     // The Readable guard in CollectAudit keeps this fail-safe: an unreadable byte returns
     // false (tile stays lit), so the worst case is a stale lit tile, never a missing tile.
-    public static readonly long TreasureCollectedBase = 0x1411A7680L;
+    public static long TreasureCollectedBase => ImageBase.At(0x1411A7680L);
 
     // --- EnhancedMarker (native yellow move-find diamonds) -- UNVERIFIED for our 1.5 build ---
     // Static slot holding a pointer to the game's EnhancedMarkingUtility heap object. The marker
@@ -82,5 +84,5 @@ internal static class Offsets
     // FFT-MoveFind_Markers address and is NOT yet confirmed against our build key, so the write
     // path stays gated off (Tuning.EnhancedMarkersEnabled) until a live probe matches it. The
     // build-key L0 gate (TreasureMaster) is the global safety net if the game is ever patched.
-    public const long EnhancedMarkingUtilityPtr = 0x143CD3AA0;
+    public static long EnhancedMarkingUtilityPtr => ImageBase.At(0x143CD3AA0);
 }

@@ -1,8 +1,8 @@
-# Release Scope: 1.5.0 (ledger adoption + innate Treasure Hunter)
+# Release Scope: 1.5.0 (ledger adoption + innate Treasure Hunter) and the 1.6.0 compat cut
 
-STATUS: LOCKED (owner ship order 2026-07-21: "commit, push and cut a new tag")
+STATUS: LOCKED (owner ship order 2026-07-21: "commit, push and cut a new tag"; 1.6.0 compat cut appended 2026-10-16)
 
-Current shipped version 1.4.0; this release is **1.5.0**. This doc is the ship gate for the
+Current shipped version 1.5.0 (2026-07-21); the in-flight release is **1.6.0**, the compat cut at the bottom of this file. The 1.5.0 text below is kept as shipped. This doc is the ship gate for the
 release named in docs/TODO.md's Now header; TodoContractTests keeps the two in lockstep (the
 release name must appear here). The heavier per-box enforcement the sibling FFTLivingWeapons
 repo runs is deliberately not ported; it comes in if this doc ever grows a real box inventory.
@@ -33,3 +33,19 @@ repo runs is deliberately not ported; it comes in if this doc ever grows a real 
   refund is observed.
 - Nexus registration + the real NexusModId in the release filename (TM-3).
 - Anything not listed above; see docs/TODO.md Backlog and Walled.
+
+## 1.6.0 compat cut (2026-10-16): the Denuvo-free game build, no new features
+
+The publisher removed Denuvo from the game in September 2026. The code did not move, but the
+unprotected build lets Windows load it at a random address each launch (ASLR), so the mod's
+fixed addresses pointed at nothing and it never armed. This cut makes the mod find the game
+wherever it lands and does nothing else. Version 1.6.0 so it sorts above the community fork's
+1.5.2 patch of the same break. Owner scope call 2026-10-16.
+
+- [ ] **ASLR rebase (TM-8)**: every address is resolved against the live image base; the dataset
+      keeps its capture key and the signature re-resolve confirms nothing moved.
+- [ ] **Owner live pass**: startup line names the resolved base, the anchor line reports the
+      re-resolve with all region deltas zero, treasure tiles glow on a treasure map.
+- [ ] Gates re-run at the cut: dotnet test green, gen_treasure_db.py self-test green.
+- [ ] Package built (FFTTreasureMaster-1.6.0 zip); ModVersion bumped to 1.6.0.
+- [ ] Tag v1.6.0 cut at the release commit and pushed (rides the owner's push word).

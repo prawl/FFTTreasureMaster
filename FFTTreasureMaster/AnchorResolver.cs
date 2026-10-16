@@ -14,10 +14,14 @@ namespace FFTTreasureMaster;
 /// sig.Target (its OWN baked target, never the entity's base/addr) -- an alternate sig resolves
 /// a DIFFERENT VA than the region base/singleton addr it anchors, so the entity's resolved
 /// value is always bakedBase-or-bakedAddr + delta, never the alternate's own resolvedTarget.
+///
+/// ADDRESS SPACES (TM-8, ASLR): sig targets, region bases and singleton addrs are DATASET space
+/// (preferred base 0x140000000). The section walk and the scan run over the LIVE image
+/// (<see cref="ImageBase.Base"/>), so a resolved target is LIVE and the ASLR shift is removed
+/// before any delta is taken. AnchorResolution: addresses LIVE, RegionDeltas dataset-space.
 /// </summary>
 internal sealed class AnchorResolver
 {
-    private const long ModuleBase = 0x140000000L;
     private static readonly string[] RequiredIndependentRegions = { "R0", "R5", "R6" };
     private static readonly string[] MirrorRegions = { "R1", "R2", "R3", "R4" };
 
@@ -63,7 +67,7 @@ internal sealed class AnchorResolver
         {
             var singleton = table.Singletons.FirstOrDefault(s => s.Name == name);
             if (singleton is null || !singletonDelta.TryGetValue(name, out long d)) return null;
-            return singleton.Addr + d;
+            return ImageBase.At(singleton.Addr + d);   // LIVE: dataset addr + RVA delta, rebased
         }
 
         long? slot0 = Resolve("Slot0"), slot9 = Resolve("Slot9"), eventId = Resolve("EventId");
@@ -140,7 +144,9 @@ internal sealed class AnchorResolver
 
             long? resolved = scan.ResolveTarget(list[0], sig);
             if (resolved is null) continue;   // guarded disp32 read failed -- contributes nothing
-            deltas.Add(resolved.Value - sig.Target);
+            // The scan returns a LIVE target while sig.Target is dataset space: remove the ASLR
+            // shift first so the delta is RVA-only and AnchorMaxDeltaBytes keeps its meaning.
+            deltas.Add((resolved.Value - ImageBase.Delta) - sig.Target);
         }
         if (deltas.Count == 0) return (false, null);
 
@@ -155,8 +161,8 @@ internal sealed class AnchorResolver
 
     private List<(long va, long size)>? WalkSections()
     {
-        if (!ReadU32(ModuleBase + 0x3C, out uint eLfanew)) return null;
-        long peAddr = ModuleBase + eLfanew;
+        if (!ReadU32(ImageBase.Base + 0x3C, out uint eLfanew)) return null;
+        long peAddr = ImageBase.Base + eLfanew;
         if (!ReadU16(peAddr + 6, out ushort numSections)) return null;
         if (!ReadU16(peAddr + 20, out ushort sizeOfOptionalHeader)) return null;
 
@@ -173,7 +179,7 @@ internal sealed class AnchorResolver
             if ((characteristics & ImageScnMemExecute) == 0) continue;
             if (virtualSize > Tuning.AnchorScanMaxSectionBytes) continue;
 
-            sections.Add((ModuleBase + virtualAddress, virtualSize));
+            sections.Add((ImageBase.Base + virtualAddress, virtualSize));
         }
         return sections;
     }

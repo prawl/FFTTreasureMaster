@@ -2,7 +2,8 @@ namespace FFTTreasureMaster;
 
 /// <summary>
 /// Mutable holder of the 10 singleton game addresses the engine sentinels and the read-path
-/// audits (ArmAudit/ClaimAudit/CollectAudit) use every tick. Fields initialize to the baked
+/// audits (ArmAudit/ClaimAudit/CollectAudit) use every tick. AddrMap holds LIVE addresses (the
+/// rebased <see cref="Offsets"/> pins, or the LIVE addresses of an AnchorResolution). Fields initialize to the baked
 /// <see cref="Offsets"/> defaults -- today's fast path is untouched: a matching build key never
 /// calls <see cref="Apply"/>, so every field stays exactly the compiled-in constant. On a build-
 /// key mismatch that a signature re-resolve fixes, <see cref="Apply"/> overwrites all 10 fields

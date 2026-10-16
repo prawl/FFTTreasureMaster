@@ -519,8 +519,9 @@ internal sealed partial class TreasureMaster : ISignature
         {
             foreach (var (addr, _) in tile.Addrs)
             {
-                if (!_mem.Readable(addr, 1)) { unread++; continue; }
-                switch (ClassifyAddr(_mem.U8(addr)))
+                long live = ImageBase.At(addr);   // tile addrs are dataset space
+                if (!_mem.Readable(live, 1)) { unread++; continue; }
+                switch (ClassifyAddr(_mem.U8(live)))
                 {
                     case AddrState.Resting: rest++; break;
                     case AddrState.Held:    held++; break;
@@ -529,7 +530,7 @@ internal sealed partial class TreasureMaster : ISignature
             }
             if (tile.Addrs.Count > 0)
             {
-                long a0 = tile.Addrs[0].Addr;
+                long a0 = ImageBase.At(tile.Addrs[0].Addr);
                 string vv = _mem.Readable(a0, 1) ? _mem.U8(a0).ToString("X2") : "??";
                 samples.Add($"({tile.X},{tile.Y}):{vv}");
             }

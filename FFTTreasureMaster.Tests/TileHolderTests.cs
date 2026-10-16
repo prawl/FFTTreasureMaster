@@ -162,4 +162,68 @@ public class TileHolderTests
         Assert.False(mem.Written.ContainsKey(addrForeign));
         Assert.Equal(0x00, mem.Written[addrHeld]);
     }
+
+    // ── ASLR (TM-8): tile addresses are dataset-space; the write path must rebase them ─────────
+
+    // 0x140E8BC7B is a real R2 tile address from FFTTreasureMaster/treasure.json (dataset space).
+    private const long DatasetTileAddr = 0x140E8BC7BL;
+    private const long RelocatedBase = 0x7FF6_1234_0000L;
+
+    private static TreasureTile OneAddrTile(byte off) => new()
+    {
+        X = 1, Y = 2,
+        Addrs = new System.Collections.Generic.List<TreasureAddrEntry>
+        {
+            new() { Addr = DatasetTileAddr, Off = off },
+        },
+    };
+
+    [Fact]
+    public void Hold_writes_at_the_rebased_address_when_the_image_is_relocated()
+    {
+        try
+        {
+            Assert.True(ImageBase.Set(RelocatedBase));
+            long live = ImageBase.At(DatasetTileAddr);
+            var mem = new FakeSparseMemory();
+            mem.U8s[live] = 0x01;
+            mem.ReadableAddrs.Add(live);
+            mem.WritableAddrs.Add(live);   // the dataset address is deliberately NOT seeded
+            var map = new TreasureMap
+            {
+                MapId = 74, Name = "Test", TileCount = 1,
+                Tiles = new System.Collections.Generic.List<TreasureTile> { OneAddrTile(0x01) },
+            };
+
+            var (written, _) = new TileHolder(mem).Hold(map);
+
+            Assert.Equal(1, written);
+            Assert.True(mem.Written.ContainsKey(live), "the hold must write the LIVE address");
+            Assert.Equal(TreasureMaster.WantWrite(0x01), mem.Written[live]);
+            Assert.False(mem.Written.ContainsKey(DatasetTileAddr), "the dataset address must never be written");
+        }
+        finally { ImageBase.ResetForTests(); }
+    }
+
+    [Fact]
+    public void Unlight_reverts_at_the_rebased_address_when_the_image_is_relocated()
+    {
+        try
+        {
+            Assert.True(ImageBase.Set(RelocatedBase));
+            long live = ImageBase.At(DatasetTileAddr);
+            var mem = new FakeSparseMemory();
+            mem.U8s[live] = TreasureMaster.MarkValue;
+            mem.ReadableAddrs.Add(live);
+            mem.WritableAddrs.Add(live);   // the dataset address is deliberately NOT seeded
+
+            int n = new TileHolder(mem).Unlight(OneAddrTile(0x01));
+
+            Assert.Equal(1, n);
+            Assert.True(mem.Written.ContainsKey(live), "the revert must write the LIVE address");
+            Assert.Equal(0x01, mem.Written[live]);
+            Assert.False(mem.Written.ContainsKey(DatasetTileAddr), "the dataset address must never be written");
+        }
+        finally { ImageBase.ResetForTests(); }
+    }
 }

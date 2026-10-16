@@ -7,7 +7,7 @@ namespace FFTTreasureMaster;
 /// testable without a live process. Performs three evaluations:
 ///
 ///   ReadPeBuildKey  -- reads e_lfanew then TimeDateStamp + SizeOfImage from the PE header of the
-///                      mapped game image (base 0x140000000). Returns null on any failed read.
+///                      mapped game image (the LIVE base, ImageBase.Base). Returns null on any failed read.
 ///   FingerprintMatches -- TryReadBytes fpLen bytes at TerrainGrid; FNV-1a64 vs map.FpHash.
 ///   AuditAddrs      -- reads each tile address, classifies via TreasureMaster.ClassifyAddr,
 ///                      tallies ok/foreign/unreadable, calls TreasureMaster.DecideArm.
@@ -18,7 +18,6 @@ namespace FFTTreasureMaster;
 /// </summary>
 internal sealed class ArmAudit
 {
-    private const long ModuleBase = 0x140000000L;
     private const long ELfanewOff = 0x3C;
     private const long TimeDateStampOff = 8;
     private const long SizeOfImageOff   = 0x50;
@@ -42,14 +41,14 @@ internal sealed class ArmAudit
     /// </summary>
     public (uint TimeDateStamp, uint SizeOfImage)? ReadPeBuildKey()
     {
-        long elfanewAddr = ModuleBase + ELfanewOff;
+        long elfanewAddr = ImageBase.Base + ELfanewOff;
         if (!_mem.Readable(elfanewAddr, 4)) return null;
         uint eLfanew = ReadU32(_mem, elfanewAddr);
 
-        long tsAddr = ModuleBase + eLfanew + TimeDateStampOff;
+        long tsAddr = ImageBase.Base + eLfanew + TimeDateStampOff;
         if (!_mem.Readable(tsAddr, 4)) return null;
 
-        long szAddr = ModuleBase + eLfanew + SizeOfImageOff;
+        long szAddr = ImageBase.Base + eLfanew + SizeOfImageOff;
         if (!_mem.Readable(szAddr, 4)) return null;
 
         return (ReadU32(_mem, tsAddr), ReadU32(_mem, szAddr));
@@ -143,8 +142,9 @@ internal sealed class ArmAudit
             foreach (var (addr, _) in tile.Addrs)
             {
                 totalAddrs++;
-                if (!_mem.Readable(addr, 1)) { unreadableCount++; continue; }
-                var state = TreasureMaster.ClassifyAddr(_mem.U8(addr));
+                long live = ImageBase.At(addr);   // tile addrs are dataset space; read the LIVE image
+                if (!_mem.Readable(live, 1)) { unreadableCount++; continue; }
+                var state = TreasureMaster.ClassifyAddr(_mem.U8(live));
                 if      (state == TreasureMaster.AddrState.Foreign) foreignCount++;
                 else                                                 okCount++;
             }

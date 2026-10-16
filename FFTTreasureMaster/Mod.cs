@@ -130,6 +130,12 @@ public class Mod : IMod
                             ?? Environment.CurrentDirectory;
             ModLogger.Init(modDir);
             Flight.Init(modDir);
+            // TM-8: the Denuvo-free build loads at a random (ASLR) image base. Resolve it once here,
+            // before the Engine and its threads exist, so every pinned address rebases onto it.
+            if (ImageBase.TryResolveLive(out long liveBase) && ImageBase.Set(liveBase))
+                ModLogger.Event(LogVerb.Startup, $"Game image base 0x{ImageBase.Base:X} (preferred 0x{ImageBase.Preferred:X}, delta 0x{ImageBase.Delta:X}); every pinned address is rebased onto it.");
+            else
+                ModLogger.Warn(LogVerb.Startup, $"Could not read the game image base; using the preferred base 0x{ImageBase.Preferred:X}. If the game loaded elsewhere the treasure marks will never arm.");
             ModLogger.Event(LogVerb.Startup, "Treasure Master is starting inside fft_enhanced.exe.");
 
             // Load mod config fail-soft: any read failure falls back to the Tuning default (true).

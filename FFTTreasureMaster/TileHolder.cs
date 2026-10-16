@@ -34,13 +34,14 @@ internal sealed class TileHolder
         {
             foreach (var (addr, _) in tile.Addrs)
             {
-                if (!_mem.Writable(addr, 1)) continue;
-                byte cur = _mem.U8(addr);
+                long live = ImageBase.At(addr);   // tile addrs are dataset space; write the LIVE image
+                if (!_mem.Writable(live, 1)) continue;
+                byte cur = _mem.U8(live);
                 switch (TreasureMaster.ClassifyAddr(cur))
                 {
                     case TreasureMaster.AddrState.Resting:
                         byte want = TreasureMaster.WantWrite(cur);
-                        if (cur != want) { _mem.W8(addr, want); written++; }
+                        if (cur != want) { _mem.W8(live, want); written++; }
                         break;
                     case TreasureMaster.AddrState.Held:
                         break;
@@ -64,11 +65,12 @@ internal sealed class TileHolder
         int n = 0;
         foreach (var (addr, off) in tile.Addrs)
         {
-            if (!_mem.Writable(addr, 1)) continue;
-            byte cur = _mem.U8(addr);
+            long live = ImageBase.At(addr);   // tile addrs are dataset space; write the LIVE image
+            if (!_mem.Writable(live, 1)) continue;
+            byte cur = _mem.U8(live);
             if (TreasureMaster.ClassifyAddr(cur) == TreasureMaster.AddrState.Held)
             {
-                _mem.W8(addr, off);
+                _mem.W8(live, off);
                 n++;
             }
         }

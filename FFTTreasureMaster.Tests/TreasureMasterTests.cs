@@ -142,18 +142,49 @@ public class TreasureMasterTests
 
     // PE header read helper: seed the fake with what ArmAudit.ReadPeBuildKey reads.
     // ArmAudit reads U32 as 4 little-endian U8 reads.
-    private static void SeedPeHeader(FakeSparseMemory mem, uint timeDateStamp, uint sizeOfImage)
+    private static void SeedPeHeader(FakeSparseMemory mem, uint timeDateStamp, uint sizeOfImage,
+        long moduleBase = ImageBase.Preferred)
     {
-        // e_lfanew = U32 @ 0x140000000+0x3C
-        long elfanewAddr = 0x140000000L + 0x3C;
+        // e_lfanew = U32 @ moduleBase+0x3C
+        long elfanewAddr = moduleBase + 0x3C;
         uint eLfanew = 0x100; // a plausible e_lfanew offset
         mem.SeedU32(elfanewAddr, eLfanew);
         // timeDateStamp = U32 @ base+e_lfanew+8
-        long tsAddr = 0x140000000L + eLfanew + 8;
+        long tsAddr = moduleBase + eLfanew + 8;
         mem.SeedU32(tsAddr, timeDateStamp);
         // sizeOfImage = U32 @ base+e_lfanew+0x50
-        long szAddr = 0x140000000L + eLfanew + 0x50;
+        long szAddr = moduleBase + eLfanew + 0x50;
         mem.SeedU32(szAddr, sizeOfImage);
+    }
+
+    // ASLR (TM-8): the PE header lives at the LIVE image base, not the preferred one.
+    [Fact]
+    public void ReadPeBuildKey_reads_the_header_at_the_live_base()
+    {
+        const long relocated = 0x7FF6_1234_0000L;
+        try
+        {
+            Assert.True(ImageBase.Set(relocated));
+            var mem = new FakeSparseMemory();
+            SeedPeHeader(mem, 0x6A5E4A1B, 0x03F9E000, relocated);
+
+            var key = new ArmAudit(mem).ReadPeBuildKey();
+
+            Assert.NotNull(key);
+            Assert.Equal(0x6A5E4A1Bu, key!.Value.TimeDateStamp);
+            Assert.Equal(0x03F9E000u, key.Value.SizeOfImage);
+        }
+        finally { ImageBase.ResetForTests(); }
+    }
+
+    [Fact]
+    public void ReadPeBuildKey_returns_null_when_the_header_sits_at_a_base_the_mod_did_not_resolve()
+    {
+        // The player symptom: header at the relocated base, ImageBase still at Preferred.
+        var mem = new FakeSparseMemory();
+        SeedPeHeader(mem, 0x6A5E4A1B, 0x03F9E000, 0x7FF6_1234_0000L);
+
+        Assert.Null(new ArmAudit(mem).ReadPeBuildKey());
     }
 
     // ── tick helpers ─────────────────────────────────────────────────────────────

@@ -1,5 +1,9 @@
 using System.Runtime.CompilerServices;
 using FFTTreasureMaster;
+using Xunit;
+
+// ImageBase is process-wide static state that tests rebase (TM-8); run the assembly serially.
+[assembly: CollectionBehavior(DisableTestParallelization = true)]
 
 namespace FFTTreasureMaster.Tests;
 
