@@ -42,10 +42,10 @@ fixed addresses pointed at nothing and it never armed. This cut makes the mod fi
 wherever it lands and does nothing else. Version 1.6.0 so it sorts above the community fork's
 1.5.2 patch of the same break. Owner scope call 2026-10-16.
 
-- [ ] **ASLR rebase (TM-8)**: every address is resolved against the live image base; the dataset
+- [x] **ASLR rebase (TM-8)**: shipped cf8bc21. Every address is resolved against the live image base; the dataset
       keeps its capture key and the signature re-resolve confirms nothing moved.
-- [ ] **Owner live pass**: startup line names the resolved base, the anchor line reports the
-      re-resolve with all region deltas zero, treasure tiles glow on a treasure map.
-- [ ] Gates re-run at the cut: dotnet test green, gen_treasure_db.py self-test green.
-- [ ] Package built (FFTTreasureMaster-1.6.0 zip); ModVersion bumped to 1.6.0.
+- [x] **Owner live pass** (2026-10-16): base 0x7FF65E0F0000, 71 maps re-resolved with all region
+      deltas zero, Zeklaus Desert armed with 4 tiles, glow confirmed on screen.
+- [x] Gates re-run at the cut: dotnet test 383 green, gen_treasure_db.py self-test green.
+- [x] Package built (, 2026-10-16); ModVersion bumped to 1.6.0.
 - [ ] Tag v1.6.0 cut at the release commit and pushed (rides the owner's push word).

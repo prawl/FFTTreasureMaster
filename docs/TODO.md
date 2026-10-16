@@ -11,35 +11,6 @@ that checklist.
 
 ## Now (release: 1.6.0)
 
-- **[TM-8] Treasure tiles stopped lighting up after the game shed its copy protection; make the mod find the game wherever Windows puts it** (opened 2026-10-16) [AWAITING-LIVE]
-  - Plain language: in September the game publisher removed Denuvo. The game's code did not move,
-    but without the protection wrapper Windows now loads it at a different address every launch.
-    The mod assumed one fixed address, so on the new build it reads empty memory where the game's
-    header should be, treats that as "not ready yet" forever, and never lights a tile. Saves were
-    never at risk: nothing is written until the build check passes.
-  - The fix is the one the sibling Living Weapons mod shipped as v2.3.4 (LW-387): every address
-    the mod knows stays written as its documented number and is resolved against the real image
-    base the mod asks Windows for at startup. The treasure dataset keeps its honest capture key;
-    the existing signature re-resolve handles the key mismatch and finds every address unmoved.
-    A community fork (rexx-oss, v1.5.2) patched the same break by rebasing inside the memory
-    layer and deleting the whole test suite; this fix keeps the tests and the guarded design.
-    (Tech: ImageBase.At(pin), live base from GetModuleHandleW(null); Offsets pins become
-    properties; ArmAudit and AnchorResolver read the PE header at the live base; tile addresses
-    stay dataset-space and are rebased at the TileHolder, ArmAudit and diagnostic read sites;
-    AnchorResolver computes deltas in dataset space so the ASLR shift never counts as a move;
-    damage report for the build itself in FFTLivingWeapons docs/research/PORT_1.5.2_NODRM_OFFSETS.md.)
-  - Done means: on the Denuvo-free build (Steam buildid 24304444) the mod logs the resolved image
-    base at startup, re-resolves its dataset by signature with every region delta zero, arms on a
-    treasure map, and the treasure tiles glow; every existing test still passes unchanged because
-    the default base is the documented one.
-  - Owner live pass 2026-10-16 PASSED on buildid 24304444: base resolved 0x7FF65E0F0000, 71 maps
-    re-resolved by signature with every region delta 0, Zeklaus Desert armed with 4 tiles held
-    lit, glow confirmed on screen by the owner.
-  - Verify: suite green including the relocated-base hold test and the literal tripwire; owner
-    live pass from a fresh deploy: the startup line names a base other than 0x140000000, the
-    anchor line says the addresses were re-resolved by signature with all regions at 0, a battle
-    on a treasure map shows the glowing tiles. Owner only flips this row.
-
 - **[TM-2] Confirm live that a battle reset re-lights the refunded treasure tile** (opened 2026-07-21) [AWAITING-LIVE]
   - Done means: the owner has seen it happen on screen: claim a treasure, reset the battle so
     the item is taken back, and the tile's glow returns. The code path is built and unit-tested

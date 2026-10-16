@@ -6,6 +6,25 @@ Where docs/TODO.md items land when they ship, die, or retract; newest first with
 Entry first line: `- [TM-<n>] SHIPPED <hash> YYYY-MM-DD: <summary>`, or WONTFIX / RETRACTED
 with a date and no hash.
 
+## 1.6.0 cycle
+
+- [TM-8] SHIPPED cf8bc21 2026-10-16: Treasure tiles light up again on the game build that shed its
+  copy protection. Plain language: the September game update removed Denuvo, and the unprotected
+  game is loaded at a random address every launch. The mod assumed one fixed address, read empty
+  memory where the game's header should be, and waited forever, so no tile ever lit. No save was
+  at risk because nothing is written until the build check passes. Now every address the mod knows
+  stays written as its documented number and is resolved against the real image base the mod asks
+  Windows for at startup; the treasure dataset keeps its honest capture key and the existing
+  signature re-resolve confirms nothing moved. Owner live pass 2026-10-16 on Steam buildid
+  24304444: base resolved 0x7FF65E0F0000, 71 maps re-resolved with every region delta 0, Zeklaus
+  Desert armed with 4 tiles held lit, glow confirmed on screen. Version 1.6.0 so it sorts above
+  the community fork's 1.5.2 patch of the same break (that fork rebased inside the memory layer
+  and deleted the test suite; not adopted). (Tech: ImageBase.At(pin) over GetModuleHandleW(null);
+  Offsets pins as properties; AnchorResolver walks sections at the live base and removes the
+  ASLR shift before its delta math; tile addresses stay dataset space and rebase at TileHolder,
+  ArmAudit and the hold diagnostic; literal tripwire and no-bake ratchet tests; one adversarial
+  verify round, code 9 of 10; the same mechanism shipped first in FFTLivingWeapons v2.3.4.)
+
 ## 1.5.0 cycle
 
 - [TM-6] SHIPPED 5569e8e 2026-07-21: a ledger row accidentally pasted into the Walled or
