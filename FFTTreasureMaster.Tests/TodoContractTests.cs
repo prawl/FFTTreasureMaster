@@ -31,19 +31,6 @@ namespace FFTTreasureMaster.Tests;
 /// </summary>
 public class TodoContractTests
 {
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "docs", "TODO.md")) &&
-                Directory.Exists(Path.Combine(dir.FullName, "FFTTreasureMaster")))
-                return dir.FullName;
-            dir = dir.Parent;
-        }
-        throw new FileNotFoundException("repo root (docs/TODO.md + FFTTreasureMaster/) not found above the test bin dir");
-    }
-
     // --- Grammar regexes (pure; individually Theory-tested below) ---
 
     private static readonly Regex NowHeaderRegex = new(@"^## Now \(release: (.+)\)$", RegexOptions.Compiled);
@@ -220,7 +207,7 @@ public class TodoContractTests
     [Fact]
     public void TODO_has_exactly_the_four_required_headers_in_order()
     {
-        string path = Path.Combine(RepoRoot(), "docs", "TODO.md");
+        string path = Path.Combine(RepoRoot.Locate(), "docs", "TODO.md");
         var headers = File.ReadAllLines(path).Where(l => l.StartsWith("## ")).ToList();
         Assert.True(headers.Count == 4,
             $"TODO.md must have exactly 4 '## ' headers, found {headers.Count}: [{string.Join(" | ", headers)}]");
@@ -252,7 +239,7 @@ public class TodoContractTests
     [Fact]
     public void Every_Now_entry_matches_the_grammar_and_carries_exactly_one_Done_means_and_one_Verify()
     {
-        var now = NowSection(RepoRoot());
+        var now = NowSection(RepoRoot.Locate());
         var entries = GroupTopLevelEntries(now.Body);
         Assert.NotEmpty(entries);
 
@@ -282,7 +269,7 @@ public class TodoContractTests
     [Fact]
     public void Now_section_holds_at_most_five_entries()
     {
-        var now = NowSection(RepoRoot());
+        var now = NowSection(RepoRoot.Locate());
         var entries = GroupTopLevelEntries(now.Body);
         Assert.True(entries.Count <= 5,
             $"Now section holds {entries.Count} entries (cap is 5): [{string.Join(", ", entries.Select(e => e[0]))}]");
@@ -293,7 +280,7 @@ public class TodoContractTests
     [Fact]
     public void Every_Backlog_entry_matches_the_grammar()
     {
-        string repoRoot = RepoRoot();
+        string repoRoot = RepoRoot.Locate();
         var lines = File.ReadAllLines(Path.Combine(repoRoot, "docs", "TODO.md"));
         var sections = SplitSections(lines);
         var backlog = FindSection(sections, h => h == "## Backlog");
@@ -311,7 +298,7 @@ public class TodoContractTests
     [Fact]
     public void Every_CHANGELOG_entry_matches_the_grammar()
     {
-        string path = Path.Combine(RepoRoot(), "docs", "CHANGELOG.md");
+        string path = Path.Combine(RepoRoot.Locate(), "docs", "CHANGELOG.md");
         Assert.True(File.Exists(path), "docs/CHANGELOG.md does not exist");
         var entryLines = ChangelogEntryLines(File.ReadAllLines(path));
         Assert.NotEmpty(entryLines);
@@ -325,7 +312,7 @@ public class TodoContractTests
     [Fact]
     public void Every_TM_id_is_unique_across_TODO_and_CHANGELOG()
     {
-        string repoRoot = RepoRoot();
+        string repoRoot = RepoRoot.Locate();
         var todoLines = File.ReadAllLines(Path.Combine(repoRoot, "docs", "TODO.md"));
         string changelogPath = Path.Combine(repoRoot, "docs", "CHANGELOG.md");
         Assert.True(File.Exists(changelogPath), "docs/CHANGELOG.md does not exist");
@@ -367,7 +354,7 @@ public class TodoContractTests
     [Fact]
     public void Now_release_name_appears_in_RELEASE_SCOPE_md()
     {
-        string repoRoot = RepoRoot();
+        string repoRoot = RepoRoot.Locate();
         var now = NowSection(repoRoot);
         string releaseName = NowHeaderRegex.Match(now.Header).Groups[1].Value;
 
@@ -385,7 +372,7 @@ public class TodoContractTests
     [Fact]
     public void Neither_TODO_nor_CHANGELOG_contains_an_em_dash_or_a_double_dash_separator()
     {
-        string repoRoot = RepoRoot();
+        string repoRoot = RepoRoot.Locate();
         var violations = new List<string>();
         foreach (var (name, path) in new[]
         {
@@ -425,7 +412,7 @@ public class TodoContractTests
     [Fact]
     public void No_entry_shaped_line_hides_in_Walled_or_Format()
     {
-        var lines = File.ReadAllLines(Path.Combine(RepoRoot(), "docs", "TODO.md"));
+        var lines = File.ReadAllLines(Path.Combine(RepoRoot.Locate(), "docs", "TODO.md"));
         var strays = new List<string>();
         foreach (var (header, body) in SplitSections(lines))
         {

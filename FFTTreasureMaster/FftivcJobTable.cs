@@ -15,8 +15,6 @@ namespace FFTTreasureMaster;
 /// </summary>
 internal sealed class FftivcJobTable : IJobTable
 {
-    private const string OwnerModId = "prawl.fft.treasuremaster";
-
     private readonly IFFTOJobDataManager _mgr;
 
     private FftivcJobTable(IFFTOJobDataManager mgr) => _mgr = mgr;
@@ -49,7 +47,7 @@ internal sealed class FftivcJobTable : IJobTable
 
     /// <summary>Effective innate state: GetJob's snapshot overlaid with the audit values of
     /// this session's programmatic patches (ours and other mods'). GetJob alone is stale by
-    /// loader design after any ApplyTablePatch -- see InnateOverlay's doc.</summary>
+    /// loader design after any ApplyTablePatch; see AuditOverlay's doc.</summary>
     public ushort[]? GetInnates(int jobId)
     {
         try
@@ -64,8 +62,8 @@ internal sealed class FftivcJobTable : IJobTable
                 job.InnateAbilityId4 ?? 0,
             };
             var audit = _mgr.ChangedProperties;
-            return InnateOverlay.Apply(baseValues, slot =>
-                audit.TryGetValue((jobId, InnateOverlay.SlotPropertyNames[slot]), out var entry)
+            return AuditOverlay.Apply(baseValues, slot =>
+                audit.TryGetValue((jobId, AuditOverlay.InnatePropertyNames[slot]), out var entry)
                     ? entry.Difference?.NewValue
                     : null);
         }
@@ -85,7 +83,7 @@ internal sealed class FftivcJobTable : IJobTable
                 case 3: patch.InnateAbilityId4 = abilityId; break;
                 default: return false;
             }
-            _mgr.ApplyTablePatch(OwnerModId, patch);
+            _mgr.ApplyTablePatch(Tuning.OwnerModId, patch);
             return true;
         }
         catch { return false; }

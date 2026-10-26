@@ -3,22 +3,29 @@ using System;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Pure effective-view helper for FftivcJobTable. The modloader's GetJob serves a managed
-/// snapshot cloned once at its startup scan; a programmatic ApplyTablePatch writes game
-/// memory and the ChangedProperties audit but never refreshes that snapshot, so GetJob is
-/// permanently stale for this session's patches (loader source verified 2026-07-21,
-/// FFTOJobDataManager.cs: Init clones at lines 53-60, ApplyTablePatch lines 99-191 never
-/// touch _moddedTable). The audit is the only truthful surface: laying its values over the
-/// stale base yields the row's real innate state.
+/// Pure effective-view helper for the loader table adapters. The loader serves reads from a
+/// snapshot taken at its startup, and a programmatic patch never refreshes it, so a read
+/// right after a write would show the old value. The loader's changed-properties audit does
+/// record every patch, so laying its values over the stale base gives the row's real state.
 /// </summary>
-internal static class InnateOverlay
+internal static class AuditOverlay
 {
-    /// <summary>The Job model's innate property names, index-aligned with the slot order
-    /// used across the grant (0 = InnateAbilityId1). These are the audit dictionary's
-    /// PropertyName keys.</summary>
-    public static readonly string[] SlotPropertyNames =
+    /// <summary>Job model innate property names, in slot order. Slot 0 is suffix 1.</summary>
+    public static readonly string[] InnatePropertyNames =
     {
         "InnateAbilityId1", "InnateAbilityId2", "InnateAbilityId3", "InnateAbilityId4",
+    };
+
+    /// <summary>Trap formation model common item property names, in slot order.</summary>
+    public static readonly string[] CommonItemPropertyNames =
+    {
+        "CommonItemId1", "CommonItemId2", "CommonItemId3", "CommonItemId4",
+    };
+
+    /// <summary>Trap formation model rare item property names, in slot order.</summary>
+    public static readonly string[] RareItemPropertyNames =
+    {
+        "RareItemId1", "RareItemId2", "RareItemId3", "RareItemId4",
     };
 
     /// <summary>Returns a copy of <paramref name="baseValues"/> with each slot replaced by

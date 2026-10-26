@@ -113,20 +113,11 @@ internal sealed class TreasureHunterGrant
     /// <summary>Polls readiness on the injected sleep until ready or the cap elapses.</summary>
     private bool WaitForReady()
     {
-        int elapsed = 0;
-        while (!_table!.IsReady())
-        {
-            if (elapsed >= _retryCapMs)
-            {
-                _log("The 'All units gain Treasure Hunter' setting is on, but the mod " +
-                     "loader's job table never became ready, so no jobs were changed this " +
-                     $"session. (Tech: readiness probe timed out after {_retryCapMs} ms.)");
-                return false;
-            }
-            _sleep(_retryIntervalMs);
-            elapsed += _retryIntervalMs;
-        }
-        return true;
+        if (ReadinessWait.Until(_table!.IsReady, _sleep, _retryIntervalMs, _retryCapMs)) return true;
+        _log("The 'All units gain Treasure Hunter' setting is on, but the mod " +
+             "loader's job table never became ready, so no jobs were changed this " +
+             $"session. (Tech: readiness probe timed out after {_retryCapMs} ms.)");
+        return false;
     }
 
     /// <summary>Re-reads every granted row after a delay and re-applies the ability where
