@@ -6,6 +6,23 @@ Where docs/TODO.md items land when they ship, die, or retract; newest first with
 Entry first line: `- [TM-<n>] SHIPPED <hash> YYYY-MM-DD: <summary>`, or WONTFIX / RETRACTED
 with a date and no hash.
 
+## 1.7.0 cycle
+
+- [TM-10] SHIPPED 6cd5e6f 2026-10-26: A new setting, "Rare treasure only" (off by default), makes
+  every Move-Find treasure tile hand out its rare item instead of the common one, the same effect
+  as the community mod Rare Treasure Only by Avarath, without installing anything beyond the FFT
+  Ivalice Chronicles Mod Loader the Treasure Hunter grant already uses. Toggle off changes
+  nothing. Owner live pass 2026-10-26 on Zeklaus Desert: log reported 317 tiles patched and 27
+  already rare, claims gave the rare items. Side effect to know: the Treasure Hunter grant's
+  never-verified hot-load timer is gone (a timer could fire inside the mod loader's own table
+  merge), so a mod loaded into a running game waits for the next launch (TM-11 in Backlog), and
+  the grant now provably runs after that merge. (Tech: Config.RareTreasureOnly; one sparse
+  ApplyTablePatch per map through IFFTOMapTrapFormationDataManager setting CommonItemIdN :=
+  RareItemIdN on the 317 of 344 slots where they differ; LoaderGrantHost subscribes after
+  fftivc.utility.modloader so our writes follow its merge; AuditOverlay read-back; three staged
+  commits 0bb686c, 44c2365, 6cd5e6f; plan approved by an independent outside reviewer and two adversarial verifiers,
+  code 9 of 10, spec 9 of 10, 420 tests.)
+
 ## 1.6.0 cycle
 
 - [TM-8] SHIPPED cf8bc21 2026-10-16: Treasure tiles light up again on the game build that shed its

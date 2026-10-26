@@ -9,7 +9,7 @@ file only through docs/CHANGELOG.md, moved there in the commit that ships or kil
 release ship gate lives in docs/RELEASE_SCOPE.md; Now is the in-flight subset, not a mirror of
 that checklist.
 
-## Now (release: 1.6.0)
+## Now (release: 1.7.0)
 
 - **[TM-2] Confirm live that a battle reset re-lights the refunded treasure tile** (opened 2026-07-21) [AWAITING-LIVE]
   - Done means: the owner has seen it happen on screen: claim a treasure, reset the battle so
@@ -30,22 +30,6 @@ that checklist.
     Verify-Package fails on any backslash, the same fix ColorCustomizer already carries.)
   - Verify: Publish.ps1 run locally produces a zip whose raw central-directory names all use
     '/'; Nexus 1.6.0 file replaced with that zip; the reporter confirms the folder appears.
-- **[TM-10] Every treasure tile gives its rare item, behind an off-by-default toggle** (opened 2026-10-26) [AWAITING-LIVE]
-  - Done means: a player who turns on the new "Rare treasure only" setting gets the rare item
-    from every Move-Find treasure tile instead of the common one, the same effect as the
-    community mod Rare Treasure Only by Avarath, without installing anything extra beyond
-    the FFT Ivalice Chronicles Mod Loader the Treasure Hunter grant already uses. Toggle
-    off (the default) changes nothing. Side effect to note at ship: the Treasure Hunter
-    grant's never-verified hot-load timer goes away, so a mod loaded into a running game
-    waits for the next launch. (Tech: Config.RareTreasureOnly; one runtime ApplyTablePatch
-    per map through IFFTOMapTrapFormationDataManager setting CommonItemIdN := RareItemIdN on
-    the 317 of 344 slots where they differ; shared LoaderGrantHost subscribes after the
-    loader so our writes follow its table merge; audit-overlay read-back; premise ledger in
-    the session plan.)
-  - Verify: owner-only live pass: log shows 317 tiles patched and 27 already rare on the
-    vanilla table, two high-Brave claims on The Siedge Weald yield Bowgun and Escutcheon,
-    toggle off yields a common drop again, tile still un-lights on claim.
-
 ## Backlog
 
 - [TM-11] 2026-10-26: A mod loaded into an already running game cannot run its loader-backed

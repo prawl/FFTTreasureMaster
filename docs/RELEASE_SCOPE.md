@@ -48,4 +48,21 @@ wherever it lands and does nothing else. Version 1.6.0 so it sorts above the com
       deltas zero, Zeklaus Desert armed with 4 tiles, glow confirmed on screen.
 - [x] Gates re-run at the cut: dotnet test 383 green, gen_treasure_db.py self-test green.
 - [x] Package built (, 2026-10-16); ModVersion bumped to 1.6.0.
-- [ ] Tag v1.6.0 cut at the release commit and pushed (rides the owner's push word).
+- [x] Tag v1.6.0 cut at the release commit and pushed (the tag exists on the repo).
+
+## 1.7.0 cut (2026-10-26): Rare treasure only
+
+One new feature, chosen by the owner 2026-10-26: the retired community mod "Rare Treasure Only"
+rebuilt as a config toggle (default off) on the same loader path the Treasure Hunter grant uses.
+The plan was approved by an independent outside reviewer and the in-house review panel before
+code, and the finished work by the same outside reviewer and two adversarial verifiers after. The 1.6.0 text above is kept as shipped.
+
+- [x] **Rare treasure only (TM-10)**: shipped 6cd5e6f (stages 0bb686c, 44c2365, 6cd5e6f). One
+      sparse table patch per map through the mod loader, 317 of 344 slots; no re-assert pass,
+      no hot-load watchdog, deterministic ordering after the loader's own merge.
+- [x] **Owner live pass** (2026-10-26, Zeklaus Desert): log reported 317 patched, 27 already
+      rare, 0 unreadable, 0 failed; claims gave the rare items.
+- [x] Gates at the cut: dotnet test 420 green, gen_treasure_db.py self-test green, Release build
+      clean.
+- [x] ModVersion bumped to 1.7.0; ModDescription now names all four toggles.
+- [ ] Tag v1.7.0 cut at the release commit and pushed (rides the owner's push word).
