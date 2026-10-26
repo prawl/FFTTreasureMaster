@@ -30,7 +30,7 @@ that checklist.
     Verify-Package fails on any backslash, the same fix ColorCustomizer already carries.)
   - Verify: Publish.ps1 run locally produces a zip whose raw central-directory names all use
     '/'; Nexus 1.6.0 file replaced with that zip; the reporter confirms the folder appears.
-- **[TM-10] Every treasure tile gives its rare item, behind an off-by-default toggle** (opened 2026-10-26) [BUILDING]
+- **[TM-10] Every treasure tile gives its rare item, behind an off-by-default toggle** (opened 2026-10-26) [AWAITING-LIVE]
   - Done means: a player who turns on the new "Rare treasure only" setting gets the rare item
     from every Move-Find treasure tile instead of the common one, the same effect as the
     community mod Rare Treasure Only by Avarath, without installing anything extra beyond

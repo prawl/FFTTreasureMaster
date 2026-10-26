@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -10,115 +11,51 @@ namespace FFTTreasureMaster;
 
 /// <summary>
 /// Reloaded-II entry point. Runs in-process inside FFT_enhanced.exe. Reloaded instantiates
-/// this type (the constructor starts the engine) and then calls StartEx -- the real IModV2
+/// this type (the constructor starts the engine) and then calls StartEx, the real IModV2
 /// entry, which hands over the loader instance. The loader is needed only by the optional
-/// Treasure Hunter grant; the engine itself never touches it.
+/// loader-backed features; the engine itself never touches it.
 /// </summary>
 public class Mod : IMod
 {
     private Engine? _engine;
     private bool _started;
     private bool _grantEnabled;
+    private bool _rareOnlyEnabled;
+    private LoaderGrantHost? _loaderHost;
 
     public Mod() => StartEngine();
 
     /// <summary>IModV1 entry. Some hosts call this instead of StartEx.</summary>
-    public void Start(IModLoaderV1 modLoader) => HookInnateGrant(modLoader);
+    public void Start(IModLoaderV1 modLoader) => ArmLoaderJobs(modLoader);
 
-    /// <summary>IModV2 entry -- what current Reloaded actually calls after the ctor.</summary>
-    public void StartEx(IModLoaderV1 modLoader, IModConfigV1 modConfig) => HookInnateGrant(modLoader);
+    /// <summary>IModV2 entry, what current Reloaded actually calls after the ctor.</summary>
+    public void StartEx(IModLoaderV1 modLoader, IModConfigV1 modConfig) => ArmLoaderJobs(modLoader);
 
     /// <summary>
-    /// Arms the "All units gain Treasure Hunter" grant: when the toggle is on, subscribe to
-    /// the after-all-mods-loaded moment and run the grant on a background thread from there
-    /// (the modloader finds the job table with an async signature scan, so the grant polls
-    /// readiness instead of assuming order). Toggle off: returns immediately -- no
-    /// subscription, no controller traffic, no log lines. Guarded so no failure here can
-    /// disturb the running engine.
+    /// Hands the jobs for the switched-on loader features to the host. All switches off, or no
+    /// loader handle, arms nothing and logs nothing. Both entry points land here and the host
+    /// arms only once.
     /// </summary>
-    /// <summary>0 until the grant hook has armed once / the grant thread has started once.
-    /// Both Start and StartEx route here, and the watchdog races the loader event, so both
-    /// steps are once-latched.</summary>
-    private int _grantArmed;
-    private int _grantStarted;
-
-    private void HookInnateGrant(IModLoaderV1? modLoader)
+    private void ArmLoaderJobs(IModLoaderV1? loader)
     {
-        if (modLoader == null || !_grantEnabled) return;
-        if (Interlocked.Exchange(ref _grantArmed, 1) != 0) return;
-        try
-        {
-            ModLogger.Event(LogVerb.Config,
-                "Treasure Hunter grant armed: waiting for all mods to finish loading. " +
-                "(Tech: loader captured in StartEx; grant runs after OnModLoaderInitialized.)");
-            modLoader.OnModLoaderInitialized += () => StartGrantThread(modLoader);
-            // Hot-load safety net: loaded into an already-running game, the event above has
-            // already fired and will never call us. The watchdog starts the latched grant
-            // after a delay; in a normal launch the event wins and the watchdog no-ops.
-            var watchdog = new Thread(() =>
-            {
-                Thread.Sleep(Tuning.GrantWatchdogDelayMs);
-                StartGrantThread(modLoader);
-            }) { IsBackground = true, Name = "TreasureMaster.GrantWatchdog" };
-            watchdog.Start();
-        }
-        catch (Exception ex)
-        {
-            try { ModLogger.Warn(LogVerb.Config, $"The Treasure Hunter grant could not be armed: {ex.Message}"); } catch { }
-        }
+        if (loader == null || (!_rareOnlyEnabled && !_grantEnabled)) return;
+
+        var events = new ReloadedLoaderEvents(loader);
+        var jobs = new List<(string Name, Action Job)>();
+        if (_rareOnlyEnabled)
+            jobs.Add(("Rare treasure only", () => LoaderJobs.RunRareTreasure(
+                () => FftivcTrapTable.TryCreate(loader), events.IsLoaderActive, Info, Warn, Thread.Sleep)));
+        if (_grantEnabled)
+            jobs.Add(("All units gain Treasure Hunter", () => LoaderJobs.RunTreasureHunter(
+                () => FftivcJobTable.TryCreate(loader), events.IsLoaderActive, Info, Warn, Thread.Sleep)));
+
+        _loaderHost ??= new LoaderGrantHost(jobs, Info, Warn, work =>
+            new Thread(() => work()) { IsBackground = true, Name = "TreasureMaster.LoaderJobs" }.Start());
+        _loaderHost.Arm(events);
     }
 
-    private void StartGrantThread(IModLoaderV1 modLoader)
-    {
-        if (Interlocked.Exchange(ref _grantStarted, 1) != 0) return;
-        try
-        {
-            var t = new Thread(() => RunGrant(modLoader)) { IsBackground = true, Name = "TreasureMaster.Grant" };
-            t.Start();
-        }
-        catch (Exception ex)
-        {
-            try { ModLogger.Warn(LogVerb.Config, $"The Treasure Hunter grant thread could not start: {ex.Message}"); } catch { }
-        }
-    }
-
-    /// <summary>Background: acquire the modloader's job-table controller and run the grant.
-    /// A null controller while the modloader is active means an interfaces version mismatch:
-    /// that case warns once and stops (the grant's "not installed" line would be wrong).</summary>
-    private static void RunGrant(IModLoaderV1 modLoader)
-    {
-        try
-        {
-            var table = FftivcJobTable.TryCreate(modLoader);
-            if (table == null && ModLoaderActive(modLoader))
-            {
-                ModLogger.Warn(LogVerb.Config,
-                    "The FFT Ivalice Chronicles Mod Loader is installed, but its job-table " +
-                    "controller could not be acquired, so the Treasure Hunter grant is off " +
-                    "this session. (Tech: GetController returned null while " +
-                    "fftivc.utility.modloader is active; likely an interfaces version mismatch.)");
-                return;   // one accurate line; the grant's "not installed" line would be wrong here
-            }
-            new TreasureHunterGrant(enabled: true, table, Tuning.TreasureHunterGrantJobIds,
-                                    msg => ModLogger.Event(LogVerb.Config, msg),
-                                    Thread.Sleep).Run();
-        }
-        catch (Exception ex)
-        {
-            try { ModLogger.Warn(LogVerb.Config, $"The Treasure Hunter grant failed; the game runs normally without it: {ex.Message}"); } catch { }
-        }
-    }
-
-    private static bool ModLoaderActive(IModLoaderV1 modLoader)
-    {
-        try
-        {
-            foreach (var mod in modLoader.GetActiveMods())
-                if (mod.Generic?.ModId == "fftivc.utility.modloader") return true;
-        }
-        catch { }
-        return false;
-    }
+    private static void Info(string msg) => ModLogger.Event(LogVerb.Config, msg);
+    private static void Warn(string msg) => ModLogger.Warn(LogVerb.Config, msg);
 
     private void StartEngine()
     {
@@ -145,6 +82,7 @@ public class Mod : IMod
             bool enabled        = Tuning.TreasureEnabled;                 // documented default
             bool claimDetection = Tuning.ClaimDetectionEnabled;           // documented default
             _grantEnabled       = Tuning.AllUnitsTreasureHunterEnabled;   // documented default (false)
+            _rareOnlyEnabled    = Tuning.RareTreasureOnlyEnabled;         // documented default (false)
             try
             {
                 var configPath = ResolveConfigPath(modDir);
@@ -152,14 +90,15 @@ public class Mod : IMod
                 enabled        = cfg.Enabled;
                 claimDetection = cfg.HideClaimedTiles;
                 _grantEnabled  = cfg.AllUnitsTreasureHunter;
+                _rareOnlyEnabled = cfg.RareTreasureOnly;
                 ModLogger.EventWithTrace(LogVerb.Config,
-                    $"Configuration loaded: Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_grantEnabled}.",
+                    $"Configuration loaded: Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_grantEnabled} RareTreasureOnly={_rareOnlyEnabled}.",
                     $"config source {configPath}");
             }
             catch (Exception cfgEx)
             {
                 ModLogger.Warn(LogVerb.Config,
-                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_grantEnabled}: {cfgEx.Message}");
+                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_grantEnabled} RareTreasureOnly={_rareOnlyEnabled}: {cfgEx.Message}");
             }
 
             _engine = new Engine(modDir, enabled, claimDetection);
@@ -170,9 +109,6 @@ public class Mod : IMod
             try { ModLogger.Error(LogVerb.Startup, "Startup failed; Treasure Master will not run.", ex); } catch { }
         }
     }
-
-    /// <summary>The mod namespace -- the folder name under both Mods/ and User/Mods/.</summary>
-    private const string ModId = "prawl.fft.treasuremaster";
 
     /// <summary>
     /// The config the DLL should read. The Reloaded launcher saves user edits to
@@ -187,7 +123,7 @@ public class Mod : IMod
             var reloadedRoot = Directory.GetParent(modDir)?.Parent?.FullName;
             if (reloadedRoot != null)
             {
-                var userConfig = Path.Combine(reloadedRoot, "User", "Mods", ModId, "Config.json");
+                var userConfig = Path.Combine(reloadedRoot, "User", "Mods", Tuning.OwnerModId, "Config.json");
                 if (File.Exists(userConfig)) return userConfig;
             }
         }
