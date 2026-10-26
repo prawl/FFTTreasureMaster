@@ -97,7 +97,7 @@ brackets at Info tier):
 
 ```
 [Treasure Master] [12:01:03.114] [INFO] Treasure Master is starting inside fft_enhanced.exe.
-[Treasure Master] [12:01:03.120] [INFO] Configuration loaded: Enabled=True HideClaimedTiles=True.
+[Treasure Master] [12:01:03.120] [INFO] Configuration loaded: Enabled=True HideClaimedTiles=True AllUnitsTreasureHunter=False RareTreasureOnly=False.
 [Treasure Master] [12:01:03.140] [INFO] The runtime loop has started; battles are being watched.
 ```
 

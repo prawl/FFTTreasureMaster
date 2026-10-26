@@ -30,8 +30,33 @@ that checklist.
     Verify-Package fails on any backslash, the same fix ColorCustomizer already carries.)
   - Verify: Publish.ps1 run locally produces a zip whose raw central-directory names all use
     '/'; Nexus 1.6.0 file replaced with that zip; the reporter confirms the folder appears.
+- **[TM-10] Every treasure tile gives its rare item, behind an off-by-default toggle** (opened 2026-10-26) [BUILDING]
+  - Done means: a player who turns on the new "Rare treasure only" setting gets the rare item
+    from every Move-Find treasure tile instead of the common one, the same effect as the
+    community mod Rare Treasure Only by Avarath, without installing anything extra beyond
+    the FFT Ivalice Chronicles Mod Loader the Treasure Hunter grant already uses. Toggle
+    off (the default) changes nothing. Side effect to note at ship: the Treasure Hunter
+    grant's never-verified hot-load timer goes away, so a mod loaded into a running game
+    waits for the next launch. (Tech: Config.RareTreasureOnly; one runtime ApplyTablePatch
+    per map through IFFTOMapTrapFormationDataManager setting CommonItemIdN := RareItemIdN on
+    the 317 of 344 slots where they differ; shared LoaderGrantHost subscribes after the
+    loader so our writes follow its table merge; audit-overlay read-back; premise ledger in
+    the session plan.)
+  - Verify: owner-only live pass: log shows 317 tiles patched and 27 already rare on the
+    vanilla table, two high-Brave claims on The Siedge Weald yield Bowgun and Escutcheon,
+    toggle off yields a common drop again, tile still un-lights on claim.
+
 ## Backlog
 
+- [TM-11] 2026-10-26: A mod loaded into an already running game cannot run its loader-backed
+  extras (Rare treasure only, the Treasure Hunter grant) until the next launch, because
+  Reloaded never re-fires its all-mods-loaded event and a timer cannot be made safe against
+  the loader's own table merge. (Tech: needs a loader-side initialized signal or a Reloaded
+  API that says initialization already happened.)
+- [TM-12] 2026-10-26: Log lines written through the pure grants and the loader host are not
+  checked by the logging contract test, so a future edit could slip a badly shaped player
+  message past the build. (Tech: LogContractTests scans only ModLogger facade calls; extend
+  its literal scan to the _log, log, warn, Info and Warn delegate call sites.)
 - [TM-3] 2026-07-21: The release zip cannot be uploaded to Nexus yet because the mod has no
   Nexus id in its filename, so Vortex would show it with a warning and no version. (Tech:
   Publish.ps1's NexusModId parameter is still the placeholder 0; register the mod on Nexus and

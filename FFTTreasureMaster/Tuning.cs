@@ -101,6 +101,25 @@ internal static class Tuning
     /// changes battle balance, so the player opts in.</summary>
     public const bool AllUnitsTreasureHunterEnabled = false;
 
+    // --- rare treasure only (loader trap-table patch) ---
+
+    /// <summary>Fallback for Config.RareTreasureOnly when the config file cannot be read.
+    /// Default OFF so the player opts in.</summary>
+    public const bool RareTreasureOnlyEnabled = false;
+
+    /// <summary>Map ids in the game's trap formation table, 0 through 127.</summary>
+    public const int TrapTableMapCount = 128;
+
+    /// <summary>Treasure slots per map in the trap formation table.</summary>
+    public const int TrapSlots = 4;
+
+    /// <summary>Reloaded mod id of the FFTIVC Mod Loader.</summary>
+    public const string LoaderModId = "fftivc.utility.modloader";
+
+    /// <summary>This mod's own Reloaded id, the folder name under Mods and User/Mods and the owner
+    /// stamped on every table patch. Must match ModConfig.json.</summary>
+    public const string OwnerModId = "prawl.fft.treasuremaster";
+
     /// <summary>JOB_DATA row ids covered by the Treasure Hunter grant: Ramza's three story
     /// jobs (1, 2, 3), the joined special characters with a free innate slot (13 Orlandeau,
     /// 22 Mustadio, 25 Rapha, 26 Marach, 30 Agrias, 50 Cloud, 72 Reis as Holy Dragon), and

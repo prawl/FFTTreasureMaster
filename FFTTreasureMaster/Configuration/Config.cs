@@ -34,4 +34,16 @@ public class Config : Configurable<Config>
                  "time the game is launched. Default: off.")]
     [DefaultValue(false)]
     public bool AllUnitsTreasureHunter { get; set; } = false;
+
+    [DisplayName("Rare treasure only")]
+    [Description("Every Move-Find treasure tile gives its rare item instead of its common one, so " +
+                 "you never have to reload for the good drop. The same effect as the community Rare " +
+                 "Treasure Only mod, built in. Requires the separately installed FFT: The Ivalice " +
+                 "Chronicles Mod Loader (by Nenkai); without it this setting quietly does nothing. " +
+                 "If you also have the Rare Treasure Only mod enabled you can disable it; the two do " +
+                 "the same thing. Other mods that change treasure items still load; this setting " +
+                 "just takes the rare for every tile. Changes apply the next time the game is " +
+                 "launched. Default: off.")]
+    [DefaultValue(false)]
+    public bool RareTreasureOnly { get; set; } = false;
 }

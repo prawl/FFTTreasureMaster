@@ -23,6 +23,8 @@ namespace FFTTreasureMaster.Tests;
 ///  (11) FromFile on a missing path returns AllUnitsTreasureHunter == false.
 ///  (12) A Config.json written with AllUnitsTreasureHunter=true  round-trips back as true.
 ///  (13) A Config.json written with AllUnitsTreasureHunter=false round-trips back as false.
+///  (14) RareTreasureOnly follows the same four checks as AllUnitsTreasureHunter (default off).
+///  (15) Every toggle default equals its Tuning fallback constant.
 /// </summary>
 public class ModConfigTests
 {
@@ -84,6 +86,7 @@ public class ModConfigTests
         {
             var c = Configurable<Config>.FromFile(path, "Test");
             Assert.True(c.Enabled);   // corrupt load falls back to default (true)
+            Assert.False(c.RareTreasureOnly);
         });
         Assert.Null(ex);
     }
@@ -172,5 +175,58 @@ public class ModConfigTests
 
         var loaded = Configurable<Config>.FromFile(path, "Test");
         Assert.False(loaded.AllUnitsTreasureHunter);
+    }
+
+    // ── RareTreasureOnly invariants (default OFF) ──
+
+    [Fact]
+    public void DefaultConfig_RareTreasureOnlyIsFalse()
+    {
+        var c = new Config();
+        Assert.False(c.RareTreasureOnly);
+    }
+
+    [Fact]
+    public void FromFile_MissingPath_RareTreasureOnlyDefaultFalse()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        var c    = Configurable<Config>.FromFile(path, "Test");
+        Assert.False(c.RareTreasureOnly);
+    }
+
+    [Fact]
+    public void RoundTrip_RareTreasureOnly_TrueValue()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+
+        var written = Configurable<Config>.FromFile(path, "Test");
+        written.RareTreasureOnly = true;
+        written.Save();
+
+        var loaded = Configurable<Config>.FromFile(path, "Test");
+        Assert.True(loaded.RareTreasureOnly);
+    }
+
+    [Fact]
+    public void RoundTrip_RareTreasureOnly_FalseValue()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+
+        var written = Configurable<Config>.FromFile(path, "Test");
+        written.RareTreasureOnly = false;
+        written.Save();
+
+        var loaded = Configurable<Config>.FromFile(path, "Test");
+        Assert.False(loaded.RareTreasureOnly);
+    }
+
+    [Fact]
+    public void DefaultConfig_AllFourToggles_MatchTuningDefaults()
+    {
+        var c = new Config();
+        Assert.Equal(Tuning.TreasureEnabled, c.Enabled);
+        Assert.Equal(Tuning.ClaimDetectionEnabled, c.HideClaimedTiles);
+        Assert.Equal(Tuning.AllUnitsTreasureHunterEnabled, c.AllUnitsTreasureHunter);
+        Assert.Equal(Tuning.RareTreasureOnlyEnabled, c.RareTreasureOnly);
     }
 }
