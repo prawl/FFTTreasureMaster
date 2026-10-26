@@ -19,6 +19,17 @@ that checklist.
     non-vacuous per handoff.md.)
   - Verify: owner-only flip after seeing the re-light in a live session; note the map and item
     used.
+- **[TM-9] Make the release zip unpack into a real mod folder on Linux** (opened 2026-10-19) [BUILDING]
+  - Done means: a player on Linux who unzips the Nexus download gets a prawl.fft.treasuremaster
+    folder with the mod inside, the same as a Windows player, and the packager refuses to
+    produce a zip that would not. A Linux player reported 2026-10-19 that the 1.6.0 Nexus zip
+    unpacked as eight flat files named "prawl.fft.treasuremaster\..." so Reloaded never saw the
+    mod; the GitHub release zip was fine. (Tech: Windows PowerShell 5.1's
+    ZipFile.CreateFromDirectory writes backslash separators into entry names, the CI zip is
+    built by pwsh and gets forward slashes; Publish.ps1 now writes entries by hand with '/' and
+    Verify-Package fails on any backslash, the same fix ColorCustomizer already carries.)
+  - Verify: Publish.ps1 run locally produces a zip whose raw central-directory names all use
+    '/'; Nexus 1.6.0 file replaced with that zip; the reporter confirms the folder appears.
 ## Backlog
 
 - [TM-3] 2026-07-21: The release zip cannot be uploaded to Nexus yet because the mod has no

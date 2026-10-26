@@ -123,8 +123,16 @@ function Create-Package {
     if (-not (Test-Path $OutputPath)) { New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null }
     if (-not (Test-Path $BuildOutputPath)) { Write-ErrorMessage "Build output directory not found: $BuildOutputPath" }
 
-    try { Add-Type -Assembly System.IO.Compression.FileSystem -ErrorAction Stop }
-    catch { [Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null }
+    # ZipArchiveMode lives in System.IO.Compression, which the FileSystem assembly
+    # does not pull in for a bare type expression, so both loads are needed.
+    try {
+        Add-Type -Assembly System.IO.Compression.FileSystem -ErrorAction Stop
+        Add-Type -Assembly System.IO.Compression -ErrorAction Stop
+    }
+    catch {
+        [Reflection.Assembly]::LoadWithPartialName("System.IO.Compression.FileSystem") | Out-Null
+        [Reflection.Assembly]::LoadWithPartialName("System.IO.Compression") | Out-Null
+    }
 
     try {
         $absoluteBuildPath   = (Get-Item $BuildOutputPath).FullName
@@ -132,11 +140,26 @@ function Create-Package {
         Write-Host "  -> Source: $absoluteBuildPath"
         Write-Host "  -> Target: $absolutePackagePath"
 
-        # includeBaseDirectory: $true wraps the contents in a folder named after the
-        # build folder (the ModId), the layout Reloaded / Vortex expect.
-        [System.IO.Compression.ZipFile]::CreateFromDirectory(
-            $absoluteBuildPath, $absolutePackagePath,
-            [System.IO.Compression.CompressionLevel]::Optimal, $true)
+        # Hand rolled instead of ZipFile.CreateFromDirectory. Under Windows PowerShell
+        # 5.1 that call writes backslashes into entry names, which Windows tolerates but
+        # Linux unzip keeps as literal file names, so the mod folder never appears.
+        # The 1.6.0 Nexus upload shipped that way. The wrapper folder named after the
+        # build dir is what Reloaded and the Vortex FFT IC extension expect.
+        $wrapperName = Split-Path $absoluteBuildPath -Leaf
+        $archive = [System.IO.Compression.ZipFile]::Open(
+            $absolutePackagePath, [System.IO.Compression.ZipArchiveMode]::Create)
+        try {
+            foreach ($item in Get-ChildItem -LiteralPath $absoluteBuildPath -Recurse -File) {
+                $relative  = $item.FullName.Substring($absoluteBuildPath.Length).TrimStart('\', '/')
+                $entryName = "$wrapperName/" + ($relative -replace '\\', '/')
+                [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+                    $archive, $item.FullName, $entryName,
+                    [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
+            }
+        }
+        finally {
+            $archive.Dispose()
+        }
 
         if (Test-Path $absolutePackagePath) {
             $sizeMB = [math]::Round((Get-Item $absolutePackagePath).Length / 1MB, 2)
@@ -164,6 +187,17 @@ function Verify-Package {
     $missingCount = 0
     try {
         $zip = [System.IO.Compression.ZipFile]::OpenRead($PackagePath)
+
+        # Checked on the raw names before the normalization below would hide it. A
+        # backslash in an entry name is the Linux flat-extract bug coming back.
+        $backslashEntries = @($zip.Entries | Where-Object { $_.FullName -match '\\' })
+        if ($backslashEntries.Count -gt 0) {
+            Write-Host ("  [FAIL] {0} entries use backslash separators; Linux unzips them as flat literal names." -f $backslashEntries.Count) -ForegroundColor Red
+            Write-Host ("         first offender: {0}" -f $backslashEntries[0].FullName) -ForegroundColor Red
+            $zip.Dispose()
+            return $false
+        }
+
         # Normalize entry paths and strip the single wrapper folder.
         $entryPaths = @($zip.Entries | ForEach-Object { $_.FullName -replace '\\', '/' })
         $firstSegments = @($entryPaths | ForEach-Object { ($_ -split '/')[0] } | Sort-Object -Unique)
