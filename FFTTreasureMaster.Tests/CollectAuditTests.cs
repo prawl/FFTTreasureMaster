@@ -1,5 +1,7 @@
 using Xunit;
+
 namespace FFTTreasureMaster.Tests;
+
 public class CollectAuditTests
 {
     // Worked example (spec): map 74, slot 0 -> idx = 296, addr = 0x1411A7680 + 37 = 0x1411A76A5, bit = 7.
