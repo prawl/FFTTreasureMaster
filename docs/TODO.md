@@ -11,7 +11,18 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-- **[TM-2] Confirm live that a battle reset re-lights the refunded treasure tile** (opened 2026-07-21) [AWAITING-LIVE]
+- **[TM-18] Take the shared rulebook so this mod builds under the same rules as the others** (opened 2026-11-02) [QUEUED]
+  - Done means: the mod carries gates/ as a subtree with its rules.json, compiles the shared logger
+    and tests in, imports the shared build settings and style file, and every gate runs green
+    locally and in CI with today's numbers recorded as the floor. No gameplay code changes. (Tech:
+    the hookup steps in gates/README.md; rules.json names prod, tests, projects and the TM prefix;
+    floor.json and the comment budget baseline come from today's files.)
+  - Verify: BuildLinked.ps1 and CI green on the hookup commit; the health numbers equal what the
+    repo's own copy printed before the swap; the build log names the rulebook version.
+
+## Backlog
+
+- [TM-2] 2026-07-21: Confirm live that a battle reset re-lights the refunded treasure tile. Parked 2026-11-02 by the owner's quality pause; it was AWAITING-LIVE in Now.
   - Done means: the owner has seen it happen on screen: claim a treasure, reset the battle so
     the item is taken back, and the tile's glow returns. The code path is built and unit-tested
     but has never been watched working live. (Tech: the refund re-light in
@@ -19,7 +30,8 @@ that checklist.
     non-vacuous per handoff.md.)
   - Verify: owner-only flip after seeing the re-light in a live session; note the map and item
     used.
-- **[TM-9] Make the release zip unpack into a real mod folder on Linux** (opened 2026-10-19) [BUILDING]
+
+- [TM-9] 2026-10-19: Make the release zip unpack into a real mod folder on Linux. Parked 2026-11-02 by the owner's quality pause; it was BUILDING in Now.
   - Done means: a player on Linux who unzips the Nexus download gets a prawl.fft.treasuremaster
     folder with the mod inside, the same as a Windows player, and the packager refuses to
     produce a zip that would not. A Linux player reported 2026-10-19 that the 1.6.0 Nexus zip
@@ -30,7 +42,6 @@ that checklist.
     Verify-Package fails on any backslash, the same fix ColorCustomizer already carries.)
   - Verify: Publish.ps1 run locally produces a zip whose raw central-directory names all use
     '/'; Nexus 1.6.0 file replaced with that zip; the reporter confirms the folder appears.
-## Backlog
 
 - [TM-11] 2026-10-26: A mod loaded into an already running game cannot run its loader-backed
   extras (Rare treasure only, the Treasure Hunter grant) until the next launch, because
