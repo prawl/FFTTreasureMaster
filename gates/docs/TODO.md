@@ -8,29 +8,14 @@ being worked for the current release (hard cap 5, each entry carries Done means 
 through docs/CHANGELOG.md, moved there in the commit that ships or kills them. The release ship
 gate lives in docs/RELEASE_SCOPE.md.
 
-## Now (release: 0.1)
-
-- **[MG-11] Pin what a mod takes to a tagged version** (opened 2026-11-02) [QUEUED]
-  - Done means: a mod vendors the rulebook at a tag, never at whatever main holds today, so two
-    mods on one tag run the same rules and a change here reaches a mod only when it pulls the
-    next tag. (Tech: tag v0.1.0 once Treasure Master runs green on it, the README's subtree lines
-    name the tag; CI already runs Check.ps1 under both PowerShells since 6276a6f.)
-  - Verify: a fresh Treasure Master clone takes the tag with git subtree add, builds, passes its
-    own check, and gates/VERSION prints the number the tag carries.
+## Now (release: 0.2)
 
 ## Backlog
 
-- [MG-5] 2026-11-02: Let the style contract's em dash ban take a per-repo scope list, since data
-  files hold design notes with em dashes that are not game text.
-- [MG-6] 2026-11-02: Have the shared setup's /gates status print the rulebook version a repo is
-  on, so one screen shows both the session gates and the build gates.
-- [MG-7] 2026-11-02: Track which mods are on the shared rules, so the paydown can start when all
-  five are. Order after this repo: Treasure Master, Living Weapons, Offensive Chemist, Color
-  Customizer, and the private mod once its open branch lands. The per-file ratchet (MG-3) lands
-  before the first hookup, so no mod migrates twice.
-- [MG-14] 2026-11-02: Have the pre-commit hook write the file rows, so nobody runs floor --write
-  by hand and a shrink is never left for the ratchet to ask about. (Tech: the shared pre-commit in
-  the setup repo runs health.py floor --write when rules.json is present and stages files.json.)
+- [MG-24] 2026-11-03: Move the four mods onto rulebook v0.2.0 and fill their rows in the README's
+  Who is on it table, with Offensive Chemist opting its tools Python into the health gate on the
+  way, so every mod runs the same rules again. (Tech: git subtree pull at v0.2.0 in each mod;
+  Offensive Chemist adds pythonProd to its rules.json and Invoke-HealthGate to its pipeline.)
 
 ## Walled (blocked by engine / external)
 
@@ -40,7 +25,8 @@ gate lives in docs/RELEASE_SCOPE.md.
 
 - Sections, in this order and no others: Now (with the release name in the header), Backlog,
   Walled, Format.
-- Now: at most 5 entries. Entry first line: `- **[MG-<n>] <title>** (opened YYYY-MM-DD) [STATUS]`
+- Now: at most 5 entries, and it may stand empty between cards. Entry first line:
+  `- **[MG-<n>] <title>** (opened YYYY-MM-DD) [STATUS]`
   where STATUS is QUEUED, BUILDING, AWAITING-LIVE, or BLOCKED(reason). Every entry carries a
   `- Done means:` and a `- Verify:` sub-bullet. Promote from Backlog by filling those in; if Now
   is at cap, demote something first.
