@@ -8,6 +8,13 @@ with a date and no hash.
 
 ## 1.7.0 cycle
 
+- [TM-18] SHIPPED b8287c9 2026-11-03: Treasure Master now builds under the shared rulebook, the
+  same quality checks every FFT mod will run, and today's numbers are the floor nothing may fall
+  below. Comments were cut down to plain words to pass the shared rules, and the tests now delete
+  the scratch folders they used to leak. No gameplay code changed. (Tech: gates/ subtree at
+  v0.1.0, which is 3da7098; rules.json; the shared logger and contract tests as linked source;
+  the shared build targets and style files; docs/health floor.json, files.json and style.json;
+  follow-ups 204b6b7 and 72b4791; CI run 41582500395 green.)
 - [TM-10] SHIPPED 6cd5e6f 2026-10-26: A new setting, "Rare treasure only" (off by default), makes
   every Move-Find treasure tile hand out its rare item instead of the common one, the same effect
   as the community mod Rare Treasure Only by Avarath, without installing anything beyond the FFT

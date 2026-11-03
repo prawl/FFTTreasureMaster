@@ -11,29 +11,21 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-- **[TM-18] Take the shared rulebook so this mod builds under the same rules as the others** (opened 2026-11-02) [BUILDING]
-  - Done means: the mod carries gates/ as a subtree with its rules.json, compiles the shared logger
-    and tests in, imports the shared build settings and style file, and every gate runs green
-    locally and in CI with today's numbers recorded as the floor. No gameplay code changes. (Tech:
-    the hookup steps in gates/README.md; rules.json names prod, tests, projects and the TM prefix;
-    floor.json and the comment budget baseline come from today's files.)
-  - Verify: BuildLinked.ps1 and CI green on the hookup commit; today's numbers sit in
-    docs/health as the floor; the build log names the rulebook version.
-
-## Backlog
-
-- [TM-19] 2026-11-02: Every battle on default settings logs a false warning that enhanced markers
-  could not be written, so a player reading the log thinks the mod is broken when it is fine. The
-  marker path behind the warning was abandoned and is switched off, so delete it rather than fix
-  the message. (Tech: MarkerWriter.cs, the EnhancedMarkingUtilityPtr offset in Offsets.cs,
-  MarkerWriterTests.cs, Tuning.EnhancedMarkersEnabled, and WriteMarkers with _markers and
-  _lastMarkerProbe in TreasureMaster.cs; with the gate off, Write returns 0 and takes the warning
-  branch at TreasureMaster.cs:782. Take out the six leftover TEMP (RetryDiagnostics) blocks in
-  TreasureMaster.cs and Engine.cs in the same pass if nothing still needs them. About 200 lines go.)
+- **[TM-19] Delete the dead marker path so a normal battle logs no false warning** (opened 2026-11-02) [QUEUED]
   - Done means: a battle on default settings logs no marker line at all, and no code for the
-    abandoned marker path is left in the mod or its tests.
+    abandoned marker path is left in the mod or its tests. Today every battle logs a false
+    warning that enhanced markers could not be written, so a player reading the log thinks the
+    mod is broken when it is fine; the path behind it was abandoned and is switched off, so it
+    goes rather than getting a nicer message. (Tech: MarkerWriter.cs, the EnhancedMarkingUtilityPtr
+    offset in Offsets.cs, MarkerWriterTests.cs, Tuning.EnhancedMarkersEnabled, and WriteMarkers
+    with _markers and _lastMarkerProbe in TreasureMaster.cs; with the gate off, Write returns 0
+    and takes the warning branch. Take out the six leftover TEMP (RetryDiagnostics) blocks in
+    TreasureMaster.cs and Engine.cs in the same pass if nothing still needs them. About 200 lines
+    go; the pins in rules.json and the rows in docs/health/files.json shrink with them.)
   - Verify: a new test runs a default settings battle through TreasureMaster and asserts nothing is
     logged at warning level; suite green; one live battle's log shows no marker warning.
+
+## Backlog
 
 - [TM-20] 2026-11-02: Nothing tests how the mod reacts to a real battle from start to finish,
   because Engine builds its own live memory reader and BattleState has no tests of its own. Open
