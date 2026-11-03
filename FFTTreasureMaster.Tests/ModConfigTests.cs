@@ -26,14 +26,11 @@ namespace FFTTreasureMaster.Tests;
 ///  (14) RareTreasureOnly follows the same four checks as AllUnitsTreasureHunter (default off).
 ///  (15) Every toggle default equals its Tuning fallback constant.
 /// </summary>
-public class ModConfigTests
+public class ModConfigTests : IDisposable
 {
-    private static string TempDir()
-    {
-        var d = Path.Combine(Path.GetTempPath(), "tm_cfg_" + Path.GetRandomFileName());
-        Directory.CreateDirectory(d);
-        return d;
-    }
+    private static string TempDir() => Scratch.Dir("tm_cfg_");
+
+    public void Dispose() => Scratch.Sweep();
 
     [Fact]
     public void DefaultConfig_EnabledIsTrue()

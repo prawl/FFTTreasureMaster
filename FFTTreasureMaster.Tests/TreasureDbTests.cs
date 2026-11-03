@@ -13,14 +13,11 @@ namespace FFTTreasureMaster.Tests;
 /// loader: module span 0x140000000..0x143000000 (inclusive low, exclusive high),
 /// UI-render-arena rejection 0x140C63000..0x140CC5000.
 /// </summary>
-public class TreasureDbTests
+public class TreasureDbTests : IDisposable
 {
-    private static string TempDir()
-    {
-        var d = Path.Combine(Path.GetTempPath(), "td_" + Path.GetRandomFileName());
-        Directory.CreateDirectory(d);
-        return d;
-    }
+    private static string TempDir() => Scratch.Dir("td_");
+
+    public void Dispose() => Scratch.Sweep();
 
     // ── fail-soft trio ───────────────────────────────────────────────────────
 

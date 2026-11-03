@@ -39,16 +39,13 @@ namespace FFTTreasureMaster.Tests;
 /// Plus one PinnedBuf fact through LiveMemory: hold a 6-byte tile against pinned
 /// process memory, assert MarkValue (0xCC) lands at the target offset and neighbors are untouched.
 /// </summary>
-public class TreasureMasterTests
+public class TreasureMasterTests : IDisposable
 {
     // ── test-db helpers ──────────────────────────────────────────────────────────
 
-    private static string TempDir()
-    {
-        var d = Path.Combine(Path.GetTempPath(), "tm_" + Path.GetRandomFileName());
-        Directory.CreateDirectory(d);
-        return d;
-    }
+    private static string TempDir() => Scratch.Dir("tm_");
+
+    public void Dispose() => Scratch.Sweep();
 
     /// <summary>
     /// A tile address inside the module span but outside the UI arena, guaranteed
