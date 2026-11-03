@@ -22,6 +22,31 @@ that checklist.
 
 ## Backlog
 
+- [TM-19] 2026-11-02: Every battle on default settings logs a false warning that enhanced markers
+  could not be written, so a player reading the log thinks the mod is broken when it is fine. The
+  marker path behind the warning was abandoned and is switched off, so delete it rather than fix
+  the message. (Tech: MarkerWriter.cs, the EnhancedMarkingUtilityPtr offset in Offsets.cs,
+  MarkerWriterTests.cs, Tuning.EnhancedMarkersEnabled, and WriteMarkers with _markers and
+  _lastMarkerProbe in TreasureMaster.cs; with the gate off, Write returns 0 and takes the warning
+  branch at TreasureMaster.cs:782. Take out the six leftover TEMP (RetryDiagnostics) blocks in
+  TreasureMaster.cs and Engine.cs in the same pass if nothing still needs them. About 200 lines go.)
+  - Done means: a battle on default settings logs no marker line at all, and no code for the
+    abandoned marker path is left in the mod or its tests.
+  - Verify: a new test runs a default settings battle through TreasureMaster and asserts nothing is
+    logged at warning level; suite green; one live battle's log shows no marker warning.
+
+- [TM-20] 2026-11-02: Nothing tests how the mod reacts to a real battle from start to finish,
+  because Engine builds its own live memory reader and BattleState has no tests of its own. Record
+  a few real battles as tapes and replay them through Engine and BattleState, the way Living
+  Weapons and Battle Brain already test against tapes, so a change to battle detection fails the
+  build before a player meets it. (Tech: pass IGameMemory into Engine instead of building
+  LiveMemory inside its constructor; a tape is the per tick reads of slot0, slot9, battleMode,
+  pause and event id plus the treasure tile bytes; start with a plain battle, an in-battle Retry
+  and a quit to the world map.)
+  - Done means: at least three recorded battles replay through Engine and BattleState in the
+    suite, and each one checks when the battle starts and ends and which tiles light up.
+  - Verify: the replay tests go red when the battle exit debounce or the enter signal is broken on
+    purpose, and green again on revert; suite green.
 - [TM-2] 2026-07-21: Confirm live that a battle reset re-lights the refunded treasure tile. Parked 2026-11-02 by the owner's quality pause; it was AWAITING-LIVE in Now.
   - Done means: the owner has seen it happen on screen: claim a treasure, reset the battle so
     the item is taken back, and the tile's glow returns. The code path is built and unit-tested
