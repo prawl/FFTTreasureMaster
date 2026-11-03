@@ -32,8 +32,6 @@ function Get-Rule {
     return $Default
 }
 
-Write-Host "[gates] shared rules $GatesVersion, repo $GatesRepoRoot"
-
 function Get-Confession {
     # The row a refused gate asks for. It names the next free ledger id, so the paper trail of
     # every rule that got in the way piles up in one place.
@@ -52,13 +50,16 @@ function Get-Confession {
 }
 
 function Invoke-ManifestGate {
-    # The copy of the rulebook must match what was published, file for file. Runs first. There is
-    # no override; a fix to the rules goes upstream, and the confession row records that it had to.
+    # The copy of the rulebook must match what was published, file for file. Runs first and names
+    # the rulebook version, so the build log says which rules it ran under. There is no override; a
+    # fix to the rules goes upstream, and the confession row records that it had to. Loading this
+    # file prints nothing, since a mod's tests may dot-source it and read the output.
     param(
         [Parameter(Mandatory = $true)][ValidateSet('DEPLOY', 'PACKAGE', 'CHECK')]
         [string]$FailVerb
     )
 
+    Write-Host "[gates] shared rules $GatesVersion, repo $GatesRepoRoot"
     & python (Join-Path $GatesDir 'tools\manifest.py') verify --dir $GatesDir
     if ($LASTEXITCODE -ne 0) {
         throw "REFUSING TO ${FailVerb}: the rulebook copy under $GatesDir does not match its fingerprint list (see above). $(Get-Confession)"
@@ -125,9 +126,66 @@ function Invoke-HealthGate {
     if ($LASTEXITCODE -ne 0) {
         throw "REFUSING TO ${FailVerb}: the code health ratchet found a measure worse than the best record (see above)."
     }
+    Invoke-WarningRatchet -FailVerb $FailVerb
     $statusArgs = @('status')
     if ($env:GITHUB_ACTIONS) { $statusArgs += '--committed' }
     & python $health --repo $GatesRepoRoot @statusArgs
+}
+
+function Test-WarningsRatcheted {
+    # A repo that turns the shared warnings as errors switch off in its root targets file pays
+    # its warnings down under a ratchet instead. The switch is the opt in and nothing else is.
+    $targets = Join-Path $GatesRepoRoot 'Directory.Build.targets'
+    if (-not (Test-Path -LiteralPath $targets)) { return $false }
+    return ((Get-Content -LiteralPath $targets -Raw) -match '<ModGatesWarningsAsErrors>\s*false\s*</ModGatesWarningsAsErrors>')
+}
+
+function Get-WarningCount {
+    # Distinct compiler warnings across the production projects. A full rebuild, since an
+    # incremental one skips every file that did not change and reports nothing for it.
+    $tests = @($Rules.testProjects)
+    $seen = @{}
+    foreach ($proj in @($Rules.projects)) {
+        if ($tests -contains $proj) { continue }
+        $lines = & dotnet build (Join-Path $GatesRepoRoot $proj) --no-incremental -nologo -v q -clp:NoSummary
+        if ($LASTEXITCODE -ne 0) { throw "dotnet build $proj failed while counting its warnings (see above)." }
+        foreach ($line in @($lines)) {
+            $text = "$line".Trim()
+            if ($text -match ': warning [A-Z]+\d+:') { $seen[$text] = $true }
+        }
+    }
+    return $seen.Count
+}
+
+function Invoke-WarningRatchet {
+    # Holds the warning count to docs/health/warnings.json. The first run writes the record and a
+    # lower count moves it; a higher count is refused. The owner raises the record by hand and
+    # names the ledger row in its card field.
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('DEPLOY', 'PACKAGE', 'CHECK')]
+        [string]$FailVerb
+    )
+
+    if (-not (Test-WarningsRatcheted)) { return }
+    $path = Join-Path $GatesRepoRoot 'docs\health\warnings.json'
+    $record = $null
+    if (Test-Path -LiteralPath $path) { $record = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json }
+    $count = Get-WarningCount
+    if ($record -and $count -gt [int]$record.warnings) {
+        throw "REFUSING TO ${FailVerb}: the build has $count warning(s), the record allows $($record.warnings). Fix the new ones, or raise the count in docs/health/warnings.json and name the ledger row in its card field. $(Get-Confession)"
+    }
+    if ($record -and $count -eq [int]$record.warnings) {
+        Write-Host "[gates] warnings $count, at the record."
+        return
+    }
+    $new = [ordered]@{ since = (Get-Date -Format 'yyyy-MM-dd'); warnings = $count }
+    if ($record) {
+        $new.since = $record.since
+        if ($record.card) { $new.card = $record.card }
+    }
+    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $path) | Out-Null
+    (($new | ConvertTo-Json) + "`n") | Set-Content -LiteralPath $path -Encoding ascii -NoNewline
+    Write-Host "[gates] warnings $count, the record moved; commit docs/health/warnings.json."
 }
 
 # The compiler server and MSBuild's kept nodes outlive a build and would hold files in the gates'
