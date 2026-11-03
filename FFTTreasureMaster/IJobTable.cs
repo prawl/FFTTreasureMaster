@@ -1,11 +1,9 @@
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Seam over the FFTIVC modloader's job-table controller (IFFTOJobDataManager) so the
-/// Treasure Hunter grant algorithm is unit-testable without the live loader. This path never
-/// touches game memory: it talks to a managed API that the modloader exposes, and the
-/// modloader does the actual table write. Production adapter: FftivcJobTable (live-only,
-/// untested by design, like LiveMemory over Mem).
+/// Seam over the modloader's job table controller, so the Treasure Hunter grant is unit testable.
+/// This path never touches game memory. It talks to the managed API the modloader exposes, and
+/// the modloader does the table write. FftivcJobTable is the live adapter.
 /// </summary>
 internal interface IJobTable
 {

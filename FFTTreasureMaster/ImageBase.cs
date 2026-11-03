@@ -5,13 +5,12 @@ using System.Runtime.InteropServices;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// The live image base of fft_enhanced.exe. Every pinned game address in this mod is documented and stored as
-/// a PREFERRED-BASE absolute (image base 0x140000000, the only base the game ever had while Denuvo-wrapped).
-/// The Denuvo-free build (2026-10-15, Steam buildid 24304444) turned ASLR on, so the image now loads at a
-/// random base each launch; At(pin) rebases a documented pin onto the live image. Default Base is Preferred
-/// so unit tests and tools keep reading the documented numbers unchanged. Mod.StartEngine resolves the live
-/// base ONCE before the Engine (and its background thread) exists; nothing else writes it (TM-8; mechanism proven live in
-/// FFTLivingWeapons v2.3.4 (LW-387)). Dependency-free by design: no Mem, no ModLogger, no Reloaded types.
+/// The live image base of fft_enhanced.exe, so every documented address can be rebased onto it.
+/// Every pin in this mod is stored at the preferred base 0x140000000, the only base the game had
+/// while Denuvo wrapped. The Denuvo free build turned ASLR on, so the image loads at a random
+/// base each launch and At(pin) rebases a pin onto it. Base defaults to Preferred, so unit tests
+/// and tools keep reading the documented numbers. Mod.StartEngine resolves the live base once,
+/// before the Engine exists, and nothing else writes it. Depends on nothing else in the mod.
 /// </summary>
 internal static class ImageBase
 {
@@ -26,8 +25,8 @@ internal static class ImageBase
     /// <summary>Rebase a documented preferred-base absolute onto the live image.</summary>
     public static long At(long preferredAbsolute) => preferredAbsolute + Delta;
 
-    /// <summary>Accepts a plausible module base (positive, 64KB-aligned: the PE section/allocation
-    /// granularity); returns false and leaves Base untouched otherwise.</summary>
+    /// <summary>Accepts a plausible module base, positive and 64KB aligned the way PE allocations
+    /// are. Returns false and leaves Base untouched otherwise.</summary>
     public static bool Set(long liveBase)
     {
         if (liveBase <= 0 || (liveBase & 0xFFFF) != 0) return false;
@@ -39,10 +38,9 @@ internal static class ImageBase
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)]
     private static extern IntPtr GetModuleHandleW(string? lpModuleName);
 
-    /// <summary>Resolves the live exe base. Primary: GetModuleHandleW(null), which is the exe base by
-    /// definition, needs no module enumeration and has no transient failure mode. Fallback:
-    /// Process.GetCurrentProcess().MainModule?.BaseAddress (precedent: FFTColorCustomizer
-    /// ModInitializer). False on a zero/null result or any exception; never throws, liveBase is 0 then.</summary>
+    /// <summary>Resolves the live exe base. GetModuleHandleW(null) is the exe base by definition
+    /// and has no transient failure mode. The fallback is the main module's BaseAddress. False on
+    /// a zero result or any exception, and liveBase is 0 then.</summary>
     public static bool TryResolveLive(out long liveBase)
     {
         liveBase = 0;
@@ -67,6 +65,6 @@ internal static class ImageBase
         }
     }
 
-    /// <summary>Test seam: restores Preferred.</summary>
+    /// <summary>Test seam that restores Preferred.</summary>
     internal static void ResetForTests() => Base = Preferred;
 }

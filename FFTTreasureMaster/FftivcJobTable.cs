@@ -7,11 +7,10 @@ using Reloaded.Mod.Interfaces.Internal;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Live adapter over the FFTIVC modloader's IFFTOJobDataManager controller -- the production
-/// IJobTable. Live-only and untested by design, exactly like LiveMemory over Mem: all logic
-/// worth testing lives in TreasureHunterGrant behind the seam. Every member is exception-
-/// proof; a missing or incompatible modloader surfaces as null / false, never as a throw
-/// that could reach the engine.
+/// The live IJobTable over the FFTIVC modloader's IFFTOJobDataManager controller.
+/// Live only and untested, like LiveMemory over Mem, since every testable decision lives in
+/// TreasureHunterGrant behind the seam. Every member catches its own exceptions, so a missing
+/// or incompatible modloader surfaces as null or false and never reaches the engine.
 /// </summary>
 internal sealed class FftivcJobTable : IJobTable
 {
@@ -27,9 +26,9 @@ internal sealed class FftivcJobTable : IJobTable
         catch { return null; }   // FileNotFound/TypeLoad when the loader mod is absent
     }
 
-    // NoInlining is load-bearing: TryCreate must stay JITtable when the foreign interfaces
-    // assembly is unresolvable, so only this method may mention the foreign types -- the
-    // resolution failure then surfaces as an exception inside TryCreate's catch.
+    // NoInlining keeps TryCreate JITtable when the foreign interfaces assembly is missing. Only
+    // this method may mention the foreign types, so the resolution failure surfaces as an
+    // exception inside TryCreate's catch.
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static IJobTable? Create(IModLoaderV1 loader)
     {
@@ -45,9 +44,9 @@ internal sealed class FftivcJobTable : IJobTable
         catch { return false; }
     }
 
-    /// <summary>Effective innate state: GetJob's snapshot overlaid with the audit values of
-    /// this session's programmatic patches (ours and other mods'). GetJob alone is stale by
-    /// loader design after any ApplyTablePatch; see AuditOverlay's doc.</summary>
+    /// <summary>The effective innate state, which is GetJob's snapshot overlaid with the audit
+    /// values of this session's patches, ours and other mods'. GetJob alone is stale after any
+    /// ApplyTablePatch, see AuditOverlay.</summary>
     public ushort[]? GetInnates(int jobId)
     {
         try

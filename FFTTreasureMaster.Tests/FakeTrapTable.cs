@@ -25,7 +25,6 @@ internal sealed class FakeTrapTable : ITrapTable
 
     private bool _nullNext;
 
-
     public bool IsReady()
     {
         IsReadyCalls++;

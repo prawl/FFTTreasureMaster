@@ -4,15 +4,14 @@ using System.Collections.Generic;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// The result of a successful signature re-resolve (<see cref="AnchorResolver.TryResolve"/>,
-/// driven from TreasureMaster.CheckGlobalIdle on a build-key mismatch). <see cref="RegionDeltas"/>
-/// feeds <see cref="AnchorRemap.Remap"/> directly. The ten singleton fields are already final
-/// resolved addresses (bakedAddr + delta) -- or the baked <see cref="Offsets"/> default when an
-/// OPTIONAL singleton's own sig(s) failed to resolve, in which case the matching *Ok flag is
-/// false and gates the feature so that stale address is never actually read.
+/// The result of a successful signature re-resolve, driven from TreasureMaster.CheckGlobalIdle.
+/// <see cref="RegionDeltas"/> feeds <see cref="AnchorRemap.Remap"/> directly. The ten singleton
+/// fields are final resolved addresses, or the baked <see cref="Offsets"/> default when an
+/// optional singleton's own sig failed to resolve, in which case the matching Ok flag is false
+/// and keeps that feature off.
 ///
-/// Plain settable properties (not a record) so tests can build a canned instance with an object
-/// initializer without needing every constructor argument in one call.
+/// Plain settable properties rather than a record, so tests can build a canned instance with
+/// an object initializer.
 /// </summary>
 internal sealed class AnchorResolution
 {

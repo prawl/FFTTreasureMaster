@@ -3,27 +3,26 @@
   <PropertyGroup>
     <TargetFramework>net9.0-windows</TargetFramework>
     <OutputType>Library</OutputType>
-    <LangVersion>latest</LangVersion>
-    <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
-    <NoWarn>MSB3277</NoWarn>
     <ReloadedILLink>false</ReloadedILLink>
     <AssemblyName>FFTTreasureMaster</AssemblyName>
     <RootNamespace>FFTTreasureMaster</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="..\gates\Logging\*.cs" Link="Gates\Logging\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Reloaded.Mod.Interfaces" Version="2.4.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <!-- Compile-time only (ExcludeAssets=runtime): at runtime the FFTIVC modloader's own
-         copy of this assembly is the one Reloaded shares into our load context (via the
-         OptionalDependencies entry in ModConfig.json). Shipping a second copy would risk a
-         silent type-identity mismatch where GetController returns null. Pinned low: never
-         request a newer version than the loader ships. -->
+    <!-- Compile time only. At runtime the loader shares its own copy of this assembly into our
+         load context, and shipping a second copy could make GetController return null. Pinned
+         low so we never ask for a newer version than the loader ships. -->
     <PackageReference Include="fftivc.utility.modloader.Interfaces" Version="1.6.0" ExcludeAssets="runtime" />
   </ItemGroup>
 

@@ -3,21 +3,18 @@ using System.Collections.Generic;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Stateless read-path for claim detection. No state of its own (the per-battle state lives in
-/// TreasureMaster, exactly as ArmAudit). Provides the two reads the claim decision needs:
+/// Reads what the claim decision needs and holds no state, exactly like ArmAudit.
+/// <see cref="CollectOccupied"/> scans the battle unit array at its fixed stride and collects
+/// every live unit's grid position, which says which treasure tile a unit stands on.
+/// <see cref="ReadCount"/> reads one item's inventory count.
 ///
-///   <see cref="CollectOccupied"/> -- scans the battle unit array (fixed 0x200 stride in the stable
-///     0x14185xxxx segment; the LIVE grid position tracks there) and collects every live unit's
-///     grid (x,y). Used to know WHICH treasure tile a unit is standing on.
-///   <see cref="ReadCount"/> -- reads an item's inventory count (u8 @ InventoryCountBase + itemId).
+/// TreasureMaster calls a tile claimed when a unit stands on it and its item count has risen.
+/// The count only rises on a real claim by an eligible unit, and the position pins the exact
+/// tile, so no eligibility byte is needed and maps that reuse a rare item id across tiles are
+/// told apart by position.
 ///
-/// TreasureMaster decides a tile is claimed when a unit stands on it AND its item count has risen:
-/// the count only rises on an actual claim by an eligible unit (a Chemist, or a unit with Treasure
-/// Hunter equipped), and the occupancy pins the exact tile -- so no per-unit eligibility byte is
-/// needed, and maps that reuse a rare item id across tiles are disambiguated by position.
-///
-/// Every read is Readable-guarded; an unreadable slot/address is skipped (fail-safe). When the
-/// caller leaves claim detection gated off, these are never called, so no game memory is read.
+/// Every read is Readable guarded and an unreadable slot is skipped. With claim detection off
+/// these are never called, so no game memory is read.
 /// </summary>
 internal sealed class ClaimAudit
 {

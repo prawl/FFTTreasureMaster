@@ -3,27 +3,19 @@ using System.Collections.Generic;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Stateless masked byte-pattern scanner over caller-supplied memory ranges (sections), plus the
-/// RIP-relative resolve formula. Knows nothing about regions/singletons/deltas -- that policy
-/// lives in AnchorResolver. Every <see cref="AnchorSig"/> pattern arrives already parsed (see
-/// AnchorDb.ParsePattern); this class only searches for it.
+/// Searches memory ranges for masked byte patterns and resolves RIP relative targets.
+/// It knows nothing about regions, singletons or deltas, which is AnchorResolver's job. Every
+/// <see cref="AnchorSig"/> pattern arrives already parsed by AnchorDb.ParsePattern.
 ///
-/// Scan mechanics (see the update-hardening design doc for the full rationale):
-///   - Each section is scanned independently in fixed <see cref="Tuning.AnchorScanChunkBytes"/>
-///     steps; a pattern never matches across a section boundary.
-///   - Each chunk read is <c>chunkBytes + overlap</c> long (overlap = longest pattern - 1) so a
-///     match that starts near the end of the chunk's "primary" range can still be verified in
-///     full; a candidate match start is only ever accepted when it falls inside the CURRENT
-///     chunk's primary range (<c>[0, chunkBytes)</c> relative to that chunk, clamped to the
-///     section's remaining length on the last chunk). Because consecutive chunks' primary
-///     ranges exactly partition the section, every absolute match-start position is considered
-///     by exactly one chunk -- a hit in the overlap tail of chunk N is rejected there and picked
-///     up by chunk N+1, so it is counted exactly once with no separate de-dup pass needed.
-///   - Hits aggregate across chunks AND across sections before any uniqueness judgement is made
-///     by the caller; a per-pattern hit list is capped at <see cref="Tuning.AnchorScanHitCap"/>.
-///   - ANY failed chunk read, or exceeding <see cref="Tuning.AnchorScanMaxTotalBytes"/> total
-///     scanned across every section, aborts the WHOLE scan (null) -- a missed duplicate can
-///     never be ruled out otherwise.
+/// Each section is scanned on its own in fixed <see cref="Tuning.AnchorScanChunkBytes"/> steps,
+/// so a pattern never matches across a section boundary. Each chunk read is one overlap longer
+/// than the chunk, so a match near the end can still be verified in full, but a match is only
+/// accepted when it starts inside the current chunk. The chunks partition the section, so every
+/// match start is seen by exactly one chunk and counted once with no separate dedup pass. Hits
+/// aggregate across chunks and sections before the caller judges uniqueness, and each pattern's
+/// hit list is capped at <see cref="Tuning.AnchorScanHitCap"/>. Any failed chunk read, or
+/// passing <see cref="Tuning.AnchorScanMaxTotalBytes"/> in total, aborts the whole scan with
+/// null, because a missed duplicate could never be ruled out otherwise.
 /// </summary>
 internal sealed class AnchorScan
 {
@@ -79,9 +71,8 @@ internal sealed class AnchorScan
     }
 
     /// <summary>
-    /// Reads the 4-byte displacement at <c>siteVa + sig.DispOff</c>, sign-extends it, and applies
-    /// the RIP-resolve formula: <c>siteVa + dispOff + 4 + endAdjust + signExtend(disp32)</c>.
-    /// Returns null on a failed (guarded) read.
+    /// Reads the 4 byte displacement at <c>siteVa + sig.DispOff</c>, sign extends it, and
+    /// resolves <c>siteVa + dispOff + 4 + endAdjust + disp32</c>. Null on a failed guarded read.
     /// </summary>
     public long? ResolveTarget(long siteVa, AnchorSig sig)
     {
@@ -96,7 +87,7 @@ internal sealed class AnchorScan
         byte[] buf, int?[] pattern, long windowVa, long primaryLen, List<long> hitList)
     {
         var (runOff, runLen) = LongestLiteralRun(pattern);
-        if (runLen == 0) return;   // an all-wildcard pattern can never anchor -- nothing to find
+        if (runLen == 0) return;   // an all wildcard pattern can never anchor anything
         byte first = (byte)pattern[runOff]!;
         int patLen = pattern.Length;
         int maxStart = (int)System.Math.Min(primaryLen, buf.Length - patLen + 1);

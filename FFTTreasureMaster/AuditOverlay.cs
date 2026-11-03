@@ -42,8 +42,8 @@ internal static class AuditOverlay
         return result;
     }
 
-    /// <summary>Defensive unboxing: the audit's ModelDiff.NewValue is a plain object whose
-    /// boxed type the loader does not contract. Accept any numeric that fits a ushort.</summary>
+    /// <summary>Unboxes the audit's NewValue defensively, since the loader does not promise which
+    /// numeric type it boxes. Any numeric that fits a ushort is accepted.</summary>
     internal static bool TryToUShort(object boxed, out ushort value)
     {
         switch (boxed)

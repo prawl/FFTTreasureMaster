@@ -34,6 +34,8 @@ param (
     [switch]$SkipGenerate
 )
 
+$ErrorActionPreference = "Stop"
+
 ## => Configuration <= ##
 # The build folder's NAME becomes the wrapper folder INSIDE the zip so Vortex's FFT IC
 # extension treats the archive as well-formed and doesn't double-nest the install.
@@ -48,7 +50,7 @@ if (-not $OutputPath) {
     else { $OutputPath = "C:\Users\ptyRa\Downloads" }
 }
 
-## => Shared pipeline (bake/gate, test gate, DLL publish, $RequiredModFiles) <= ##
+## => Shared pipeline (the bake, the shared gates, the DLL publish, $RequiredModFiles) <= ##
 . "$PSScriptRoot\tools\pipeline.ps1"
 
 ## => Functions <= ##
@@ -226,6 +228,27 @@ function Verify-Package {
     return $true
 }
 
+function Write-HealthReport {
+    # The release's code health record. Runs after the package is verified, so only a shippable
+    # package gets one. In GitHub Actions it runs for tag pushes only. A failure here warns and
+    # never fails the release; the build reminder chases it later.
+    param([string]$ModVersion)
+
+    if ($env:GITHUB_ACTIONS -and $env:IS_RELEASE -ne 'true') { return }
+    Write-Status "Writing the code health report..." "Cyan"
+    $healthArgs = @('report', '--version', $ModVersion, '--write')
+    if ($env:GITHUB_STEP_SUMMARY) { $healthArgs += @('--summary', $env:GITHUB_STEP_SUMMARY) }
+    & python "$PSScriptRoot\gates\tools\health.py" @healthArgs
+    if ($LASTEXITCODE -ne 0) {
+        $msg = "The code health report for $ModVersion could not be written (exit $LASTEXITCODE). Run: python gates/tools/health.py report --version $ModVersion --write"
+        Write-Host "[WARN] $msg" -ForegroundColor Yellow
+        if ($env:GITHUB_ACTIONS) { Write-Host "::warning title=Code health::$msg" }
+    }
+    elseif (-not $env:GITHUB_ACTIONS) {
+        Write-Host "  -> Commit docs/HEALTH.md and docs/health/v$ModVersion.json with the release." -ForegroundColor Yellow
+    }
+}
+
 ## => Main Script <= ##
 Write-Host "`n=====================================" -ForegroundColor Magenta
 Write-Host "    FFT Treasure Master - Publisher   " -ForegroundColor Magenta
@@ -248,8 +271,16 @@ try {
         Write-Host "  -> -SkipGenerate set; packaging committed treasure.json as-is." -ForegroundColor Yellow
     }
 
-    Write-Status "Running unit tests (FFTTreasureMaster.Tests)..." "Cyan"
-    Invoke-UnitTestGate -FailVerb PACKAGE
+    Write-Status "Running the shared gates..." "Cyan"
+    $gateTemp = Enter-GateTemp
+    try {
+        Invoke-ManifestGate -FailVerb PACKAGE
+        Invoke-FormatGate -FailVerb PACKAGE
+        Invoke-UnitTestGate -FailVerb PACKAGE
+        Invoke-HealthGate -FailVerb PACKAGE
+        Invoke-TempLeftoverGate -FailVerb PACKAGE -GateTemp $gateTemp
+    }
+    finally { Exit-GateTemp -State $gateTemp }
 
     Clean-BuildDirectories
 
@@ -281,6 +312,8 @@ try {
             Write-Host "Package ready at: $packagePath" -ForegroundColor Yellow
             Write-Host "Version: $finalVersion" -ForegroundColor Yellow
             $exitCode = 0
+
+            Write-HealthReport -ModVersion $finalVersion
         }
     }
     else {

@@ -46,7 +46,7 @@ public class ModConfigTests
     public void FromFile_MissingPath_ReturnsDefaultTrue()
     {
         var path = Path.Combine(TempDir(), "Config.json");
-        var c    = Configurable<Config>.FromFile(path, "Test");
+        var c = Configurable<Config>.FromFile(path, "Test");
         Assert.True(c.Enabled);
     }
 
@@ -104,7 +104,7 @@ public class ModConfigTests
     public void FromFile_MissingPath_HideClaimedTilesDefaultTrue()
     {
         var path = Path.Combine(TempDir(), "Config.json");
-        var c    = Configurable<Config>.FromFile(path, "Test");
+        var c = Configurable<Config>.FromFile(path, "Test");
         Assert.True(c.HideClaimedTiles);
     }
 
@@ -147,7 +147,7 @@ public class ModConfigTests
     public void FromFile_MissingPath_AllUnitsTreasureHunterDefaultFalse()
     {
         var path = Path.Combine(TempDir(), "Config.json");
-        var c    = Configurable<Config>.FromFile(path, "Test");
+        var c = Configurable<Config>.FromFile(path, "Test");
         Assert.False(c.AllUnitsTreasureHunter);
     }
 
@@ -190,7 +190,7 @@ public class ModConfigTests
     public void FromFile_MissingPath_RareTreasureOnlyDefaultFalse()
     {
         var path = Path.Combine(TempDir(), "Config.json");
-        var c    = Configurable<Config>.FromFile(path, "Test");
+        var c = Configurable<Config>.FromFile(path, "Test");
         Assert.False(c.RareTreasureOnly);
     }
 

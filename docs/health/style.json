@@ -1,0 +1,27 @@
+{
+  "docs": {
+    "docs/CHANGELOG.md": 1,
+    "docs/RELEASE_SCOPE.md": 4,
+    "docs/TODO.md": 2,
+    "docs/treasure_master_prototype.md": 39
+  },
+  "comments": {
+    "ArmAudit.cs": 1,
+    "BattleState.cs": 2,
+    "Engine.cs": 1,
+    "FftivcTrapTable.cs": 1,
+    "Flight.cs": 1,
+    "FlightRecorder.cs": 3,
+    "GameMemory.cs": 1,
+    "ILoaderEvents.cs": 2,
+    "ImageBase.cs": 2,
+    "ITrapTable.cs": 1,
+    "Mem.cs": 3,
+    "Mod.cs": 1,
+    "Offsets.cs": 1,
+    "TreasureDb.cs": 3,
+    "TreasureMaster.cs": 8,
+    "TreasureMaster.Policy.cs": 1,
+    "Tuning.cs": 4
+  }
+}

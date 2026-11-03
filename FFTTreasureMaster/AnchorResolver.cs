@@ -4,26 +4,25 @@ using System.Linq;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Stateless driver for a signature re-resolve: PE section walk, one AnchorScan pass over every
-/// sig, then the per-entity delta cross-checks + mirror-set invariant + R2/R4 derivation +
-/// required-set/feature-flag policy described in the update-hardening design. Runs from
-/// TreasureMaster.CheckGlobalIdle, at most once per build-key mismatch (the existing
-/// _globalIdleChecked latch already guarantees that).
+/// Re-resolves the game addresses by signature when the build key does not match.
+/// It walks the PE sections, runs one AnchorScan pass over every sig, then checks the deltas
+/// per entity, holds the mirror regions to one shared delta, derives R2 and R4, and applies
+/// the required set and feature flag policy. TreasureMaster.CheckGlobalIdle calls it at most
+/// once per mismatch.
 ///
-/// THE CORE MATH: for any sig that resolves at a unique site, delta = resolvedTarget -
-/// sig.Target (its OWN baked target, never the entity's base/addr) -- an alternate sig resolves
-/// a DIFFERENT VA than the region base/singleton addr it anchors, so the entity's resolved
-/// value is always bakedBase-or-bakedAddr + delta, never the alternate's own resolvedTarget.
+/// The core math. For a sig that resolves at a unique site, the delta is the resolved target
+/// minus the sig's own baked target, never the entity's base. An alternate sig anchors a
+/// different address than the entity it stands for, so the entity's resolved value is always
+/// its own baked address plus the delta.
 ///
-/// ADDRESS SPACES (TM-8, ASLR): sig targets, region bases and singleton addrs are DATASET space
-/// (preferred base 0x140000000). The section walk and the scan run over the LIVE image
-/// (<see cref="ImageBase.Base"/>), so a resolved target is LIVE and the ASLR shift is removed
-/// before any delta is taken. AnchorResolution: addresses LIVE, RegionDeltas dataset-space.
+/// Address spaces. Sig targets, region bases and singleton addresses are dataset space, at
+/// the preferred base. The section walk and the scan run over the live image, so a resolved
+/// target is live and the ASLR shift comes off before any delta is taken. In the result the
+/// addresses are live and the region deltas are dataset space.
 /// </summary>
 internal sealed class AnchorResolver
 {
     private static readonly string[] RequiredIndependentRegions = { "R0", "R5", "R6" };
-    private static readonly string[] MirrorRegions = { "R1", "R2", "R3", "R4" };
 
     private readonly IGameMemory _mem;
 
@@ -67,7 +66,7 @@ internal sealed class AnchorResolver
         {
             var singleton = table.Singletons.FirstOrDefault(s => s.Name == name);
             if (singleton is null || !singletonDelta.TryGetValue(name, out long d)) return null;
-            return ImageBase.At(singleton.Addr + d);   // LIVE: dataset addr + RVA delta, rebased
+            return ImageBase.At(singleton.Addr + d);   // dataset addr plus RVA delta, rebased live
         }
 
         long? slot0 = Resolve("Slot0"), slot9 = Resolve("Slot9"), eventId = Resolve("EventId");
@@ -86,8 +85,12 @@ internal sealed class AnchorResolver
         {
             RegionDeltas = regionDelta,
             DerivedRegions = derived,
-            Slot0 = slot0.Value, Slot9 = slot9.Value, EventId = eventId.Value,
-            BattleMode = battleMode.Value, PauseFlag = pauseFlag.Value, LiveBattleMapId = liveMapId.Value,
+            Slot0 = slot0.Value,
+            Slot9 = slot9.Value,
+            EventId = eventId.Value,
+            BattleMode = battleMode.Value,
+            PauseFlag = pauseFlag.Value,
+            LiveBattleMapId = liveMapId.Value,
             TerrainGrid = terrainGrid ?? Offsets.TerrainGrid,
             UnitArrayBaseX = unitArrayX ?? Offsets.UnitArrayBaseX,
             InventoryCountBase = invCount ?? Offsets.InventoryCountBase,
@@ -99,9 +102,9 @@ internal sealed class AnchorResolver
     }
 
     /// <summary>
-    /// Mirror-set invariant: every RESOLVED member of {R1,R2,R3,R4} must share one delta. R1 and
-    /// R3 are required directly (no derivation); if R2 and/or R4 are unresolved, they take the
-    /// shared delta as a DERIVED value (only reachable here because R1/R3 already agree).
+    /// Every resolved member of the mirror set {R1,R2,R3,R4} must share one delta. R1 and R3
+    /// are required directly. When R2 or R4 did not resolve, it takes the shared delta as a
+    /// derived value, which is only reachable once R1 and R3 agree.
     /// </summary>
     private static bool ApplyMirrorSetAndDerive(Dictionary<string, long> regionDelta, out List<string> derived)
     {
@@ -127,11 +130,10 @@ internal sealed class AnchorResolver
     }
 
     /// <summary>
-    /// Resolves one entity's (region or singleton) delta from its own sig(s). A sig with 2+ hits
-    /// is ambiguous and fails the WHOLE resolution (never ignorable); sigs with 0 hits are
-    /// simply ignored. Two or more sigs that DO resolve must agree, else the whole resolution
-    /// fails. Returns (failed: true) for either hard-fail case; (failed: false, delta: null)
-    /// when the entity legitimately has no resolving sig this pass.
+    /// Resolves one entity's delta from its own sigs. A sig with two or more hits is ambiguous
+    /// and fails the whole resolution. A sig with no hits is ignored. Two sigs that both resolve
+    /// must agree, else the whole resolution fails. Returns failed for either hard case, and a
+    /// null delta when the entity simply has no resolving sig this pass.
     /// </summary>
     private static (bool failed, long? delta) ResolveEntityDelta(
         IReadOnlyList<AnchorSig> sigs, Dictionary<string, List<long>> hits, AnchorScan scan)
@@ -143,9 +145,9 @@ internal sealed class AnchorResolver
             if (list.Count >= 2) return (true, null);
 
             long? resolved = scan.ResolveTarget(list[0], sig);
-            if (resolved is null) continue;   // guarded disp32 read failed -- contributes nothing
-            // The scan returns a LIVE target while sig.Target is dataset space: remove the ASLR
-            // shift first so the delta is RVA-only and AnchorMaxDeltaBytes keeps its meaning.
+            if (resolved is null) continue;   // the guarded disp32 read failed, so it adds nothing
+            // The scan returns a live target while sig.Target is dataset space. Remove the ASLR
+            // shift first so the delta is RVA only and AnchorMaxDeltaBytes keeps its meaning.
             deltas.Add((resolved.Value - ImageBase.Delta) - sig.Target);
         }
         if (deltas.Count == 0) return (false, null);

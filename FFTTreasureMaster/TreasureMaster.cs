@@ -5,29 +5,20 @@ using System.Linq;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Treasure Master: auto-holds the highlight value (0xCC -- cyan border, yellow fill) on each
-/// treasure tile's render-flag bytes, keeping treasure tiles marked on the battlefield map.
-/// Gated by a single config toggle
-/// (Config.Enabled, default on); when disabled the module is permanently idle and reads
-/// no game memory.
+/// Keeps every treasure tile marked by holding the highlight value on its render flag bytes.
+/// One config toggle gates it, and when disabled the module is permanently idle and reads no
+/// game memory.
 ///
-/// Containment -- L0/L1/L3 gate writes; L2 is ADVISORY (LIVE INCIDENT #5):
-///   L0 build key:  dataset PE key vs live header (global disarm on mismatch).
-///   L1 map id:     guarded U8 @ LiveBattleMapId, valid 1..127, present in the dataset.
-///   L2 identity:   ADVISORY ONLY -- FNV-1a64 over the terrain prefix is logged on mismatch
-///                  (per-battle weather perturbs the hashed fields) but never blocks arming.
-///   L3 per-write:  per-addr Writable guard + ClassifyAddr check; Foreign bytes (off-screen
-///                  render bytes from camera pan / action camera) are never written. At arm
-///                  time, a quorum of TreasureMinPlausibleAddrs ok addrs is required; below
-///                  quorum the module polls indefinitely rather than disarming permanently.
+/// Containment. L0 compares the dataset's PE build key with the live header and disarms
+/// globally on a mismatch. L1 reads the map id behind a guard and needs it valid and present in
+/// the dataset. L2, the terrain fingerprint, is advisory only, logged on mismatch and never a
+/// block, because per battle weather perturbs the hashed fields. L3 guards every write with
+/// Writable and ClassifyAddr, so Foreign bytes are never written, and arming needs a quorum of
+/// TreasureMinPlausibleAddrs ok addresses, below which the module polls rather than disarming.
 ///
-/// Set-only by construction: the module has no Clear path. Release = stop writing; the
-/// engine clears marks itself (LIVE_LEDGER). Writes are CharmLock.Force-idiom: Writable
-/// guard -> U8 read -> write MarkValue (0xCC) only on difference.
-///
-/// The stateless gate evaluations (PE key, fingerprint, per-addr audit) live in ArmAudit.cs
-/// (a separate class -- a partial would be same-state-machine evasion per the house rules).
-/// The pure policy statics (ClassifyAddr, Fnv1a64, DecideArm, etc.) live in TreasureMaster.Policy.cs.
+/// Set only by construction. Release means stop writing, and the engine clears marks itself.
+/// The stateless gate evaluations live in ArmAudit.cs as a separate class, and the pure policy
+/// statics live in TreasureMaster.Policy.cs.
 /// </summary>
 internal sealed partial class TreasureMaster : ISignature
 {
@@ -37,23 +28,23 @@ internal sealed partial class TreasureMaster : ISignature
 
     private enum Phase { Disarmed, Arming, Armed }
 
-    private TreasureDb            _db;
-    private readonly Func<TreasureDb>    _load;
-    private readonly Func<DateTime?>     _datasetStamp;
-    private readonly IGameMemory  _mem;
-    private readonly AddrMap      _addrs;
+    private TreasureDb _db;
+    private readonly Func<TreasureDb> _load;
+    private readonly Func<DateTime?> _datasetStamp;
+    private readonly IGameMemory _mem;
+    private readonly AddrMap _addrs;
     private readonly Func<TreasureDb, AnchorResolution?>? _resolver;
-    private readonly ArmAudit     _audit;
-    private readonly TileHolder   _holder;
+    private readonly ArmAudit _audit;
+    private readonly TileHolder _holder;
     private readonly MarkerWriter _markers;   // native yellow-diamond path (dark until verified)
-    private readonly ClaimAudit   _claims;
-    private readonly bool         _claimDetection;
+    private readonly ClaimAudit _claims;
+    private readonly bool _claimDetection;
 
     private readonly bool _enabled;
     private readonly FastHold _fastHold;
 
     private readonly CollectAudit _collect;
-    private readonly bool         _collectDetection;
+    private readonly bool _collectDetection;
     private readonly Func<int, TreasureTile, bool>? _collectedOracle;
     private readonly HashSet<(int, int)> _collected = new();   // tiles collected+won in a PRIOR battle (persistent; outlives refunds)
 
@@ -66,32 +57,32 @@ internal sealed partial class TreasureMaster : ISignature
 
     private readonly HashSet<(int, int)> _claimed = new();
     private readonly Dictionary<int, int> _lastCount = new();   // itemId -> inventory count last tick
-    private readonly Dictionary<int, int> _armCount  = new();   // itemId -> count at arm (immutable refund baseline)
+    private readonly Dictionary<int, int> _armCount = new();   // itemId -> count at arm (immutable refund baseline)
     private readonly Dictionary<(int, int), int> _claimItem = new();   // claimed tile -> item id that triggered the claim
-    private string?   _lastClaimDiag   = null;    // last logged scan diagnostic (log on change)
-    private string?   _lastStateDiag   = null;    // TEMP (RetryDiagnostics): dedupe inLive/phase logs
-    private string?   _lastHoldDiag    = null;    // TEMP (RetryDiagnostics): dedupe hold-breakdown logs
+    private string? _lastClaimDiag = null;    // last logged scan diagnostic (log on change)
+    private string? _lastStateDiag = null;    // TEMP (RetryDiagnostics): dedupe inLive/phase logs
+    private string? _lastHoldDiag = null;    // TEMP (RetryDiagnostics): dedupe hold-breakdown logs
 
-    private Phase     _phase          = Phase.Disarmed;
-    private TreasureMap? _map         = null;    // the full map (identity/audit/fingerprint)
-    private TreasureMap? _activeMap   = null;    // the hold/publish view (claimed tiles excluded)
-    private int       _stableTicks    = 0;       // consecutive ticks with the same valid map id
-    private byte      _stableMapId    = 0;
-    private int       _armAttempts    = 0;
-    private int       _revalidateTick = 0;
-    private int       _badMapTicks    = 0;       // consecutive bad-map-id ticks while ARMED
-    private bool      _globalIdle     = false;   // permanent disarm set at first tick
-    private bool      _globalIdleChecked = false;
-    private bool      _naggedThisBattle  = false; // stub/missing nag once per battle
-    private bool      _capLoggedThisBattle = false;
-    private bool      _foreignLoggedThisBattle = false; // armed off-screen log once per battle
-    private bool      _markersLoggedThisBattle = false; // enhanced-marker first-write log once per battle
-    private string?   _lastMarkerProbe = null;           // last logged marker failure-probe (dedupe)
-    private bool      _flapLoggedThisBattle = false;    // fingerprint-mismatch log once per battle (arm or mid-battle)
+    private Phase _phase = Phase.Disarmed;
+    private TreasureMap? _map = null;    // the full map (identity/audit/fingerprint)
+    private TreasureMap? _activeMap = null;    // the hold/publish view (claimed tiles excluded)
+    private int _stableTicks = 0;       // consecutive ticks with the same valid map id
+    private byte _stableMapId = 0;
+    private int _armAttempts = 0;
+    private int _revalidateTick = 0;
+    private int _badMapTicks = 0;       // consecutive bad-map-id ticks while ARMED
+    private bool _globalIdle = false;   // permanent disarm set at first tick
+    private bool _globalIdleChecked = false;
+    private bool _naggedThisBattle = false; // stub/missing nag once per battle
+    private bool _capLoggedThisBattle = false;
+    private bool _foreignLoggedThisBattle = false; // armed off-screen log once per battle
+    private bool _markersLoggedThisBattle = false; // enhanced-marker first-write log once per battle
+    private string? _lastMarkerProbe = null;           // last logged marker failure-probe (dedupe)
+    private bool _flapLoggedThisBattle = false;    // fingerprint-mismatch log once per battle (arm or mid-battle)
 
-    private int       _stampCheckCountdown = 0;   // ticks until the next stamp comparison
+    private int _stampCheckCountdown = 0;   // ticks until the next stamp comparison
     private DateTime? _lastStamp = null;           // stamp seen at the last check (null = not yet checked)
-    private bool      _stampInitialized = false;   // false until the first load has run
+    private bool _stampInitialized = false;   // false until the first load has run
 
     /// <param name="enabled">Master on/off gate; null = use Tuning.TreasureEnabled (the documented
     /// default). When false the module is permanently idle and never reads game memory.</param>
@@ -103,7 +94,8 @@ internal sealed partial class TreasureMaster : ISignature
         Func<TreasureDb, AnchorResolution?>? resolver = null, AddrMap? addrs = null)
         : this(load: () => db, datasetStamp: () => null, mem: mem, enabled: enabled,
                claimDetection: claimDetection, collectDetection: collectDetection,
-               collectedOracle: collectedOracle, resolver: resolver, addrs: addrs) { }
+               collectedOracle: collectedOracle, resolver: resolver, addrs: addrs)
+    { }
 
     /// <summary>
     /// Injectable seam ctor used by tests and Engine alike.
@@ -122,24 +114,24 @@ internal sealed partial class TreasureMaster : ISignature
         Func<TreasureDb, AnchorResolution?>? resolver = null,
         AddrMap? addrs = null)
     {
-        _load           = load;
-        _datasetStamp   = datasetStamp;
-        _db             = TreasureDb.MakeEmpty();   // placeholder; replaced on first Tick
-        _mem            = mem ?? new LiveMemory();
-        _addrs          = addrs ?? new AddrMap();
-        _resolver       = resolver;
-        _audit          = new ArmAudit(_mem, _addrs);
-        _holder         = new TileHolder(_mem);
-        _markers        = new MarkerWriter(_mem);   // Tuning.EnhancedMarkersEnabled gates it (off)
-        _claims         = new ClaimAudit(_mem, _addrs);
-        _collect        = new CollectAudit(_mem, _addrs);
-        _enabled        = enabled ?? Tuning.TreasureEnabled;
+        _load = load;
+        _datasetStamp = datasetStamp;
+        _db = TreasureDb.MakeEmpty();   // placeholder; replaced on first Tick
+        _mem = mem ?? new LiveMemory();
+        _addrs = addrs ?? new AddrMap();
+        _resolver = resolver;
+        _audit = new ArmAudit(_mem, _addrs);
+        _holder = new TileHolder(_mem);
+        _markers = new MarkerWriter(_mem);   // Tuning.EnhancedMarkersEnabled gates it (off)
+        _claims = new ClaimAudit(_mem, _addrs);
+        _collect = new CollectAudit(_mem, _addrs);
+        _enabled = enabled ?? Tuning.TreasureEnabled;
         _claimDetection = claimDetection ?? Tuning.ClaimDetectionEnabled;
         _collectDetection = collectDetection ?? Tuning.CollectDetectionEnabled;
-        _collectedOracle  = collectedOracle
+        _collectedOracle = collectedOracle
             ?? (_collectDetection ? (Func<int, TreasureTile, bool>)_collect.IsCollected : null);
-        _fastHold       = new FastHold(_holder, Tuning.TreasureFastHoldMs);
-        // Thread not started here -- tests must not spawn OS threads; Engine calls StartFastHold().
+        _fastHold = new FastHold(_holder, Tuning.TreasureFastHoldMs);
+        // The thread is not started here, since tests must not spawn OS threads. Engine starts it.
     }
 
     /// <summary>Starts the fast-hold background thread. Called by Engine after construction.</summary>
@@ -152,30 +144,30 @@ internal sealed partial class TreasureMaster : ISignature
 
     public void ResetBattle()
     {
-        _phase           = Phase.Disarmed;
-        _map             = null;
-        _activeMap       = null;
-        _stableTicks     = 0;
-        _stableMapId     = 0;
-        _armAttempts     = 0;
-        _revalidateTick  = 0;
-        _badMapTicks     = 0;
-        _naggedThisBattle           = false;
-        _capLoggedThisBattle        = false;
-        _foreignLoggedThisBattle    = false;
-        _markersLoggedThisBattle    = false;
-        _lastMarkerProbe            = null;
-        _flapLoggedThisBattle       = false;
+        _phase = Phase.Disarmed;
+        _map = null;
+        _activeMap = null;
+        _stableTicks = 0;
+        _stableMapId = 0;
+        _armAttempts = 0;
+        _revalidateTick = 0;
+        _badMapTicks = 0;
+        _naggedThisBattle = false;
+        _capLoggedThisBattle = false;
+        _foreignLoggedThisBattle = false;
+        _markersLoggedThisBattle = false;
+        _lastMarkerProbe = null;
+        _flapLoggedThisBattle = false;
         _claimed.Clear();
         _collected.Clear();
         _lastCount.Clear();
         _armCount.Clear();
         _claimItem.Clear();
-        _lastClaimDiag              = null;
-        _lastStateDiag              = null;
-        _lastHoldDiag               = null;
-        // _globalIdle and _globalIdleChecked persist -- the L0 check is startup-once.
-        _fastHold.Publish(null);    // immediacy on battle-exit: stop holding before Tick runs again
+        _lastClaimDiag = null;
+        _lastStateDiag = null;
+        _lastHoldDiag = null;
+        // _globalIdle and _globalIdleChecked persist, since the L0 check runs once per startup.
+        _fastHold.Publish(null);    // stop holding right away, before Tick runs again
     }
 
     // ── entry point ───────────────────────────────────────────────────────────────
@@ -185,9 +177,9 @@ internal sealed partial class TreasureMaster : ISignature
         // Eager initial load + periodic stamp-change hot-reload (runs regardless of phase or inLive).
         if (!_stampInitialized)
         {
-            _db               = _load();
+            _db = _load();
             _stampInitialized = true;
-            _lastStamp        = _datasetStamp();
+            _lastStamp = _datasetStamp();
             _stampCheckCountdown = Tuning.TreasureStampCheckTicks;
         }
         else
@@ -201,10 +193,10 @@ internal sealed partial class TreasureMaster : ISignature
                     _lastStamp = current;
                     _db = _load();
                     // Full state reset so L0 re-evaluates against the new dataset.
-                    _globalIdle        = false;
+                    _globalIdle = false;
                     _globalIdleChecked = false;
-                    _claimOkForBuild       = true;
-                    _collectOkForBuild     = true;
+                    _claimOkForBuild = true;
+                    _collectOkForBuild = true;
                     _fingerprintOkForBuild = true;
                     ResetBattle();
                     var mapCount = 0;
@@ -216,9 +208,9 @@ internal sealed partial class TreasureMaster : ISignature
             }
         }
 
-        // L0: one-time global idle check (config disabled, dataset empty, or key mismatch).
-        // If CheckGlobalIdle defers (PE header not yet readable), _globalIdleChecked resets
-        // to false -- return immediately so the phase switch cannot run before L0 resolves.
+        // The one time L0 global idle check (config off, dataset empty, or key mismatch). When
+        // CheckGlobalIdle defers because the PE header is not readable yet, _globalIdleChecked
+        // resets to false, so return now and keep the phase switch from running before L0 resolves.
         if (!_globalIdleChecked)
         {
             CheckGlobalIdle();
@@ -243,12 +235,12 @@ internal sealed partial class TreasureMaster : ISignature
 
         switch (_phase)
         {
-            case Phase.Disarmed:      TickDisarmed(); break;
-            case Phase.Arming:        TickArming();   break;
-            case Phase.Armed:         TickArmed();    break;
+            case Phase.Disarmed: TickDisarmed(); break;
+            case Phase.Arming: TickArming(); break;
+            case Phase.Armed: TickArmed(); break;
         }
 
-        // Single publish point: hold exactly when phase==Armed AND inLive.
+        // The single publish point. Hold exactly when the phase is Armed and inLive.
         _fastHold.Publish(_phase == Phase.Armed ? (_activeMap ?? _map) : null);
     }
 
@@ -268,7 +260,7 @@ internal sealed partial class TreasureMaster : ISignature
         if (_db.Maps.Count == 0)
         {
             _globalIdle = true;
-            return;   // silent: no dataset, no output
+            return;   // no dataset, so stay silent
         }
 
         // If the dataset has a build key, compare it to the live PE header.
@@ -277,7 +269,7 @@ internal sealed partial class TreasureMaster : ISignature
             var live = _audit.ReadPeBuildKey();
             if (live is null)
             {
-                // Can't read the header yet -- don't mark global idle, retry next tick.
+                // The header is not readable yet, so do not mark global idle and retry next tick.
                 _globalIdleChecked = false;
                 return;
             }
@@ -305,8 +297,8 @@ internal sealed partial class TreasureMaster : ISignature
 
                 _addrs.Apply(res);
                 _db = AnchorRemap.Remap(_db, res.RegionDeltas);
-                _claimOkForBuild       = res.ClaimOk;
-                _collectOkForBuild     = res.CollectOk;
+                _claimOkForBuild = res.ClaimOk;
+                _collectOkForBuild = res.CollectOk;
                 _fingerprintOkForBuild = res.FingerprintOk;
 
                 var mapCount = 0;
@@ -318,10 +310,10 @@ internal sealed partial class TreasureMaster : ISignature
                     $"anchor regions=[{regions}] derived=[{derived}] claim={_claimOkForBuild} " +
                     $"collect={_collectOkForBuild} fingerprint={_fingerprintOkForBuild} ({mismatchDetail})");
                 Flight.Record("anchor", $"resolved regions=[{regions}] derived=[{derived}]");
-                // Fall through: proceed to arm against the remapped dataset.
+                // Fall through and arm against the remapped dataset.
             }
         }
-        // Build key null (stub-only dataset) or matches: proceed.
+        // The build key is null (a stub only dataset) or matches, so proceed.
     }
 
     // ── DISARMED tick ─────────────────────────────────────────────────────────────
@@ -340,18 +332,18 @@ internal sealed partial class TreasureMaster : ISignature
 
         if (_stableTicks < Tuning.TreasureArmStableTicks) return;
 
-        // Stable: look up the db.
+        // Stable, so look up the db.
         TreasureMap? found = null;
         foreach (var m in _db.Maps)
         {
             if (m.MapId == mapId) { found = m; break; }
         }
 
-        if (found is null) return;   // unknown map: silent
+        if (found is null) return;   // unknown map, stay silent
 
         if (found.Tiles.Count == 0)
         {
-            // Stub (no tiles) -- nag once per battle.
+            // A stub with no tiles, so nag once per battle.
             if (!_naggedThisBattle)
             {
                 _naggedThisBattle = true;
@@ -363,9 +355,9 @@ internal sealed partial class TreasureMaster : ISignature
         }
 
         // Has tiles + module enabled (checked once at startup in CheckGlobalIdle): transition to ARMING.
-        _map         = found;
+        _map = found;
         _armAttempts = 0;
-        _phase       = Phase.Arming;
+        _phase = Phase.Arming;
     }
 
     // ── ARMING tick ───────────────────────────────────────────────────────────────
@@ -374,13 +366,12 @@ internal sealed partial class TreasureMaster : ISignature
     {
         var map = _map!;
 
-        // Advisory fingerprint check -- TELEMETRY ONLY, never blocks arming (LIVE INCIDENT #5).
-        // Terrain fingerprints proved unreliable as a gate: per-battle weather (rain) perturbs
-        // the hashed terrain fields, so a map captured in one weather state fails to match in
-        // another -- and there is no data to know which maps can weather. Containment is carried
-        // by the build key (L0), the per-tick map-id match (L1, unique per map) and the per-tile
-        // resting-byte audit + quorum below (L3). A mismatch is logged once per battle as a drift
-        // census but does NOT disarm. Map-id-only maps have no fingerprint to check.
+        // The advisory fingerprint check is telemetry only and never blocks arming. Terrain
+        // fingerprints proved unreliable as a gate, because per battle weather such as rain
+        // perturbs the hashed fields, so a map captured in one weather state fails to match in
+        // another, and no data says which maps can weather. Containment is carried by the build
+        // key, the per tick map id match, and the per tile resting byte audit and quorum below.
+        // A mismatch is logged once per battle as a drift census. Map id only maps skip this.
         if (_fingerprintOkForBuild && !map.IsMapIdOnly && !_flapLoggedThisBattle && !_audit.FingerprintMatches(map))
         {
             _flapLoggedThisBattle = true;
@@ -395,9 +386,9 @@ internal sealed partial class TreasureMaster : ISignature
         switch (verdict)
         {
             case ArmVerdict.Arm:
-                _phase          = Phase.Armed;
+                _phase = Phase.Armed;
                 _revalidateTick = 0;
-                SeedCollected(map);                          // persistent: hide tiles looted+won in a prior battle
+                SeedCollected(map);                          // hide tiles looted and won in a prior battle
                 if (_claimDetection && _claimOkForBuild) InitClaimBaseline(map);
                 RebuildActiveMap();                          // _activeMap = map minus _collected (and _claimed, empty here)
                 var armMap = _activeMap ?? map;
@@ -428,7 +419,7 @@ internal sealed partial class TreasureMaster : ISignature
     {
         var map = _map!;
 
-        // Re-check map id every tick (single read -- two reads can disagree mid-frame).
+        // Re-check the map id every tick with one read, since two reads can disagree mid frame.
         bool mapOk = _audit.TryReadMapId(out byte currentMapId) && currentMapId == map.MapId;
 
         if (!mapOk)
@@ -436,7 +427,7 @@ internal sealed partial class TreasureMaster : ISignature
             _badMapTicks++;
             if (_badMapTicks >= Tuning.TreasureMapIdBadTicksToReset)
             {
-                // Map changed (chained battle) or something went wrong -- full reset.
+                // The map changed (a chained battle) or something went wrong, so reset fully.
                 ModLogger.Event(LogVerb.Treasure, $"The map changed from {map.MapId} mid-battle (a chained battle); resetting for the new map.");
                 ResetBattle();
             }
@@ -444,17 +435,16 @@ internal sealed partial class TreasureMaster : ISignature
         }
         _badMapTicks = 0;
 
-        // Mid-battle fingerprint check -- INFORMATIONAL ONLY (skipped for map-id-only maps,
-        // and once the first drift has been logged this battle).
+        // The mid battle fingerprint check is informational only. It is skipped for map id only
+        // maps, and once the first drift has been logged this battle.
         //
-        // Terrain identity was already proven at ARM time (TickArming); the per-tick map-id
-        // re-check above is the live "still in this battle" guard, and the per-addr ClassifyAddr
-        // gate in the hold loop backstops stray writes. A fingerprinted map whose "static"
-        // terrain fields drift mid-battle (LIVE INCIDENT #4: Siedge Weald map 74 -- fields
-        // {2,3,4,5} changed ~26 s into the SAME battle) must NOT disarm: the old behavior
-        // dropped to ARMING, stopped holding, and -- when the new terrain state persisted --
-        // permanently disarmed for the battle, killing the marks for the rest of the fight. We
-        // log the first drift per battle (a free in-the-wild drift census) and keep holding.
+        // Terrain identity was already proven at arm time. The per tick map id re-check above is
+        // the live still in this battle guard, and the ClassifyAddr gate in the hold loop
+        // backstops stray writes. A map whose static terrain fields drift mid battle, seen live on
+        // Siedge Weald where fields 2 to 5 changed 26 seconds into the same battle, must not
+        // disarm. The old behavior dropped to Arming, stopped holding, and once the new terrain
+        // state persisted disarmed for the rest of the fight, killing the marks. We log the first
+        // drift per battle as a free in the wild census and keep holding.
         if (_fingerprintOkForBuild && !map.IsMapIdOnly && !_flapLoggedThisBattle
                 && ++_revalidateTick >= Tuning.TreasureRevalidateEveryNTicks)
         {
@@ -467,12 +457,13 @@ internal sealed partial class TreasureMaster : ISignature
             }
         }
 
-        // Claim detection: a tile is claimed when a unit stands on it AND its item count has risen
-        // (the count rises only on a real claim by an eligible unit; the occupancy pins the exact
-        // tile). Un-light every claimed tile every tick (survives a stale ~8ms FastHold pass).
+        // Claim detection. A tile is claimed when a unit stands on it and its item count has
+        // risen, since the count rises only on a real claim by an eligible unit and the occupancy
+        // pins the exact tile. Un-light every claimed tile every tick, which outlives a stale
+        // FastHold pass.
         if (_claimDetection && _claimOkForBuild)
         {
-            bool grew   = DetectClaims(map);
+            bool grew = DetectClaims(map);
             bool shrank = DetectRefunds(map);
             RefreshClaimCounts(map);   // refresh per-tick baselines AFTER both decisions read them
             if (grew || shrank)
@@ -491,9 +482,8 @@ internal sealed partial class TreasureMaster : ISignature
             }
         }
 
-        // Hold loop: per addr, OR in MarkValue only on a Resting byte.
-        // Foreign bytes (off-screen tiles: camera pan, action camera) are skipped by the
-        // per-addr ClassifyAddr check inside TileHolder.Hold -- no separate veto needed.
+        // The hold loop writes the mark on Resting bytes only. Foreign bytes, off screen tiles
+        // from a camera pan, are skipped by the ClassifyAddr check inside TileHolder.Hold.
         var holdMap = _activeMap ?? map;
         var (wrote, foreign) = _holder.Hold(holdMap);
         WriteMarkers(holdMap);
@@ -506,11 +496,10 @@ internal sealed partial class TreasureMaster : ISignature
         if (Tuning.RetryDiagnostics) LogHoldDiag(holdMap, wrote, foreign);
     }
 
-    /// <summary>TEMP (RetryDiagnostics): logs a per-armed-tick breakdown of the held map's render
-    /// bytes -- write count this tick, and resting/held/foreign/unreadable totals across all addrs,
-    /// with each tile's first-addr byte value sampled. Deduped on change. Shows, after a Retry,
-    /// whether the bytes are Foreign (skipped -> no marks) vs Resting (would paint) vs Held (already
-    /// lit). All reads guarded.</summary>
+    /// <summary>Temporary retry diagnostics. Logs a per armed tick breakdown of the held map's
+    /// render bytes, the write count this tick and the resting, held, foreign and unreadable
+    /// totals, with each tile's first byte sampled, deduped on change. After a Retry it shows
+    /// whether the bytes are Foreign, Resting or Held. All reads guarded.</summary>
     private void LogHoldDiag(TreasureMap map, int wrote, int foreign)
     {
         int rest = 0, held = 0, frgn = 0, unread = 0;
@@ -524,7 +513,7 @@ internal sealed partial class TreasureMaster : ISignature
                 switch (ClassifyAddr(_mem.U8(live)))
                 {
                     case AddrState.Resting: rest++; break;
-                    case AddrState.Held:    held++; break;
+                    case AddrState.Held: held++; break;
                     case AddrState.Foreign: frgn++; break;
                 }
             }
@@ -560,27 +549,26 @@ internal sealed partial class TreasureMaster : ISignature
         }
         _activeMap = new TreasureMap
         {
-            MapId     = fullMap.MapId,
-            Name      = fullMap.Name,
+            MapId = fullMap.MapId,
+            Name = fullMap.Name,
             TileCount = fullMap.TileCount,
-            FpVer     = fullMap.FpVer,
-            FpLen     = fullMap.FpLen,
+            FpVer = fullMap.FpVer,
+            FpLen = fullMap.FpLen,
             FpHashHex = fullMap.FpHashHex,
-            Tiles     = filteredTiles,
+            Tiles = filteredTiles,
         };
     }
 
-    // ── claim detection: occupancy + inventory-count rise ──────────────────────────
+    // ── claim detection, occupancy plus an inventory count rise ────────────────────
 
-    /// <summary>Seeds <see cref="_collected"/> from the persistent collected-treasure oracle once at
-    /// arm: every tile the game records as already collected (picked up + battle won in a PRIOR
-    /// battle). Excluded from the lit set for the whole battle and -- unlike <see cref="_claimed"/> --
-    /// NOT cleared by an in-battle refund (a prior-battle collection does not un-happen mid-battle).
-    /// No-op, and reads no game memory, when no oracle is wired (the dark/default state).</summary>
+    /// <summary>Seeds <see cref="_collected"/> once at arm from the persistent oracle with every
+    /// tile the game records as collected in a prior battle. Those tiles stay out of the lit set
+    /// for the whole battle and, unlike <see cref="_claimed"/>, an in battle refund does not
+    /// clear them. A no-op that reads no memory when no oracle is wired.</summary>
     private void SeedCollected(TreasureMap map)
     {
         _collected.Clear();
-        if (!_collectOkForBuild) return;   // signature re-resolve gate: table addr didn't resolve
+        if (!_collectOkForBuild) return;   // the table address did not re-resolve for this build
         if (_collectedOracle is not { } oracle) return;
         foreach (var tile in map.Tiles)
             if (oracle(map.MapId, tile)) _collected.Add((tile.X, tile.Y));
@@ -605,9 +593,9 @@ internal sealed partial class TreasureMaster : ISignature
     }
 
     /// <summary>Captures <paramref name="itemId"/>'s count into the immutable arm baseline, once.
-    /// Self-guards on ContainsKey, so it is cheap to call every tick: if the count was unreadable at
-    /// arm it is captured lazily on the first tick it becomes readable (before any claim, since a
-    /// claim also needs a readable count to be detected). Never overwritten once set.</summary>
+    /// Self guards on ContainsKey, so it is cheap to call every tick. A count unreadable at arm
+    /// is captured on the first tick it becomes readable, which is before any claim, since a
+    /// claim also needs a readable count. Never overwritten once set.</summary>
     private void TrackArmCount(int itemId)
     {
         if (itemId <= 0 || _armCount.ContainsKey(itemId)) return;
@@ -631,14 +619,13 @@ internal sealed partial class TreasureMaster : ISignature
     }
 
     /// <summary>
-    /// Latches each unclaimed tile that (a) has a unit standing on it AND (b) had one of its item
-    /// counts rise since last tick, recording WHICH item id rose (preferring the rare item) so a
-    /// later refund can be classified. The count rises only on a real claim by an eligible unit, so
-    /// this needs no per-unit eligibility byte; occupancy pins the exact tile (so maps that reuse an
-    /// item id across tiles do not over-latch). Logs the occupied-treasure-tile set on change ONLY
-    /// when Tuning.ClaimDiagnostics is on (default OFF -- it spams a moving battle otherwise).
-    /// Returns true if any new tile latched. The caller refreshes the tracked counts
-    /// (RefreshClaimCounts) after this AND DetectRefunds have read the prior values.
+    /// Latches each unclaimed tile that has a unit standing on it and had one of its item counts
+    /// rise since last tick, recording which item id rose, preferring the rare one, so a later
+    /// refund can be classified. The count rises only on a real claim by an eligible unit, so no
+    /// eligibility byte is needed, and the occupancy pins the exact tile, so maps that reuse an
+    /// item id across tiles do not over latch. Logs the occupied tile set on change only when
+    /// Tuning.ClaimDiagnostics is on. Returns true if any new tile latched. The caller refreshes
+    /// the tracked counts after this and DetectRefunds have read the prior values.
     /// </summary>
     private bool DetectClaims(TreasureMap map)
     {
@@ -646,9 +633,9 @@ internal sealed partial class TreasureMaster : ISignature
         _claims.CollectOccupied(occupied);
 
         bool grew = false;
-        // Diagnostic-only: the occupied-tile dump is gated behind Tuning.ClaimDiagnostics (default
-        // OFF) -- it re-fires on every step onto/off a treasure tile, so it spams a moving battle.
-        // Null when off, which also short-circuits the per-tile ReadCount game-memory reads below.
+        // The occupied tile dump is gated behind Tuning.ClaimDiagnostics, off by default, because
+        // it re-fires on every step onto or off a treasure tile and spams a moving battle. Null
+        // when off, which also skips the per tile ReadCount game memory reads below.
         var occDiag = Tuning.ClaimDiagnostics ? new System.Collections.Generic.List<string>() : null;
         foreach (var tile in map.Tiles)
         {
@@ -682,35 +669,27 @@ internal sealed partial class TreasureMaster : ISignature
     }
 
     /// <summary>
-    /// Detects a battle RESET from the inventory refund it produces, and on detection clears EVERY
-    /// claim so all tiles re-light. This is the fix for the in-battle "restart from the start" path,
-    /// which produces no sustained out-of-live window, so the battle-exit edge never fires and
-    /// ResetBattle never runs -- yet the restart refunds claimed items (their inventory counts drop
-    /// back to the arm baseline). Returns true if any claim was cleared.
+    /// Detects a battle reset from the inventory refund it produces, and clears every claim so
+    /// all tiles re-light. An in battle restart produces no sustained out of live window, so the
+    /// exit edge never fires and ResetBattle never runs, yet it refunds the claimed items and
+    /// their counts drop back to the arm baseline. Returns true if any claim was cleared.
     ///
-    /// A reset refunds ALL claims together, so detection keys off signals a single legitimate action
-    /// cannot fake:
-    ///   * a RARE-claimed tile back at its arm baseline. A rare count cannot drop mid-battle (FFT
-    ///     has no in-battle equip, and rare Move-Find items are not consumables), so a rare refund
-    ///     is an unambiguous reset. Clearing ALL claims on it also re-lights common-claimed tiles
-    ///     whose refunds straggle across ticks.
-    ///   * >= 2 DISTINCT item ids dropping to baseline in the SAME tick (edge-triggered). A lone
-    ///     consumable use drops one item count; two unrelated uses never land on one 33ms tick.
-    /// Counting DISTINCT item ids (not tiles) is load-bearing: maps reuse a single item id across
-    /// several tiles (see ClaimAudit), so a single use of a shared id edge-trips every tile claimed
-    /// via it -- counting tiles would fake a reset, counting item ids correctly sees one drop.
-    /// Edge-triggering (the drop happened THIS tick) is equally load-bearing: a level check would let
-    /// two staggered consumable uses -- each leaving a different count sitting at baseline -- co-occur
-    /// and fake a reset. Counts keyed by global item id mean we cannot do better per-tile; an
-    /// ALL-common claim set whose refunds straggle across ticks (or a single common claim) is a
-    /// documented limitation -- still strictly better than the pre-fix dark-after-restart.
+    /// A reset refunds all claims together, so detection keys off signals one legitimate action
+    /// cannot fake. A rare claimed tile back at its baseline is definitive, since a rare count
+    /// cannot drop mid battle. Two or more distinct item ids dropping to baseline in the same tick
+    /// is the other signal, since one consumable use drops one count and two unrelated uses never
+    /// land on one tick. Counting item ids rather than tiles matters, because maps reuse one item
+    /// id across several tiles and a single use would trip every tile claimed through it. Edge
+    /// triggering matters too, because a level check would let two staggered uses co-occur at
+    /// baseline. Counts are keyed by global item id, so a set of only common claims whose refunds
+    /// straggle across ticks is a known limitation, still better than dark after a restart.
     /// </summary>
     private bool DetectRefunds(TreasureMap map)
     {
         if (_claimed.Count == 0) return false;
 
-        bool rareRefund = false;                 // a rare-claimed tile back at baseline: definitive reset
-        var  edgeDropItems = new HashSet<int>(); // DISTINCT item ids that fell to <= baseline THIS tick
+        bool rareRefund = false;                 // a rare claimed tile back at baseline, a definitive reset
+        var edgeDropItems = new HashSet<int>(); // DISTINCT item ids that fell to <= baseline THIS tick
         foreach (var tile in map.Tiles)
         {
             var key = (tile.X, tile.Y);
@@ -720,13 +699,13 @@ internal sealed partial class TreasureMaster : ISignature
             int cur = _claims.ReadCount(item);
             if (cur < 0 || cur > baseCount) continue;   // not at or below the arm baseline
 
-            // Rare slot only: when a tile's rare and common ids coincide we cannot tell which slot
-            // dropped, so treat it as common (conservative -- a lone drop must not fake a reset).
+            // Rare slot only. When a tile's rare and common ids coincide we cannot tell which slot
+            // dropped, so treat it as common, since a lone drop must not fake a reset.
             if (item == tile.RareItemId && tile.RareItemId != tile.CommonItemId) rareRefund = true;
             if (_lastCount.TryGetValue(item, out int prev) && prev > baseCount) edgeDropItems.Add(item);
         }
 
-        if (!rareRefund && edgeDropItems.Count < 2) return false;   // not a reset: leave claims latched
+        if (!rareRefund && edgeDropItems.Count < 2) return false;   // not a reset, so leave claims latched
 
         _claimed.Clear();
         _claimItem.Clear();
@@ -754,10 +733,10 @@ internal sealed partial class TreasureMaster : ISignature
     // ── enhanced-marker write (native yellow diamonds) ─────────────────────────────
 
     /// <summary>
-    /// Drives the EnhancedMarker write path and logs the first successful write per battle so a
-    /// live test isn't blind: the "active" line means the utility pointer resolved and markers
-    /// were written; its ABSENCE (no diamonds + no line) means the pointer never resolved
-    /// (Offsets.EnhancedMarkingUtilityPtr wrong/null). No-op + silent while the path is gated off.
+    /// Drives the native marker write path and logs the first successful write per battle, so a
+    /// live test is not blind. The active line means the utility pointer resolved and markers were
+    /// written, and its absence with no diamonds means the pointer never resolved. A silent no-op
+    /// while the path is gated off.
     /// </summary>
     private void WriteMarkers(TreasureMap map)
     {
@@ -772,7 +751,7 @@ internal sealed partial class TreasureMaster : ISignature
             return;
         }
 
-        // Wrote nothing: log WHY (which guard failed), de-duped so a stable state logs once.
+        // Wrote nothing, so log which guard failed, deduped so a stable state logs once.
         var (readable, basePtr, writable) = _markers.Resolve();
         string probe = $"readable={readable} base=0x{basePtr:X} writable={writable}";
         if (probe != _lastMarkerProbe)

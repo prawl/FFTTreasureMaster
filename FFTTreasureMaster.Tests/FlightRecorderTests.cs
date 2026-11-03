@@ -173,7 +173,7 @@ public class FlightRecorderTests
             Flight.Reset();
             Flight.Init(dir);
             Flight.Record("battle", "enter");
-            var logger = new FileConsoleLogger(_ => { }, _ => { });
+            var logger = new FileConsoleLogger(_ => { }, _ => { }, errorFlush: () => Flight.RequestFlush("error"));
             logger.LogError(LogVerb.Engine, "The engine tick failed.");
             Flight.DrainPending();
 

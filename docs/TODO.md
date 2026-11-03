@@ -11,14 +11,14 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-- **[TM-18] Take the shared rulebook so this mod builds under the same rules as the others** (opened 2026-11-02) [QUEUED]
+- **[TM-18] Take the shared rulebook so this mod builds under the same rules as the others** (opened 2026-11-02) [BUILDING]
   - Done means: the mod carries gates/ as a subtree with its rules.json, compiles the shared logger
     and tests in, imports the shared build settings and style file, and every gate runs green
     locally and in CI with today's numbers recorded as the floor. No gameplay code changes. (Tech:
     the hookup steps in gates/README.md; rules.json names prod, tests, projects and the TM prefix;
     floor.json and the comment budget baseline come from today's files.)
-  - Verify: BuildLinked.ps1 and CI green on the hookup commit; the health numbers equal what the
-    repo's own copy printed before the swap; the build log names the rulebook version.
+  - Verify: BuildLinked.ps1 and CI green on the hookup commit; today's numbers sit in
+    docs/health as the floor; the build log names the rulebook version.
 
 ## Backlog
 

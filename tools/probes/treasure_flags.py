@@ -127,6 +127,7 @@ FNV_BASIS = 0xCBF29CE484222325
 FNV_PRIME = 0x00000100000001B3
 FNV_MASK  = 0xFFFFFFFFFFFFFFFF
 
+
 # ---------------------------------------------------------------------------
 # FNV-1a 64-bit
 # ---------------------------------------------------------------------------
@@ -311,7 +312,6 @@ def clean_hits(off_snap: dict[int, bytes], on_snap: dict[int, bytes]) -> list[tu
                 if (ob & MARK_BIT) == 0 and nb == (ob | MARK_BIT):
                     hits.append((base + i, ob, nb))
     return hits
-
 
 
 def _buf_at(snap: dict[int, bytes], addr: int):

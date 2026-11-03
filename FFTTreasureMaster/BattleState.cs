@@ -2,23 +2,22 @@ using System;
 
 namespace FFTTreasureMaster;
 
-/// <summary>The edge an engine tick crossed: a fresh battle Entered, a battle Exited, or neither.</summary>
+/// <summary>The edge an engine tick crossed, a fresh battle Entered, a battle Exited, or neither.</summary>
 internal enum BattleEdge { None, Entered, Exited }
 
 /// <summary>
-/// The battle in/out state machine, pure (no Mem) so it's fully unit-tested. Enter is INSTANT;
-/// exit is DEBOUNCED, which is the load-bearing fix:
-///   * battleMode is a cursor-tile-class encoder, NOT an "on battlefield" flag -- move-browsing
-///     reads 1 for seconds every turn, Paused reads 0, and mid-battle dialogue reads 0 with a real
-///     eventId. So a momentary out-of-live read is normal mid-combat and must NOT end the battle.
-///   * the slot9 sentinel both STICKS on the post-battle world map (so it can't mark the end) and
-///     can DROP mid-battle (so its loss can't mark the end either).
-/// Enter fires the instant any enter signal appears; exit needs SUSTAINED out-of-live time
-/// (<see cref="ExitDebounceSeconds"/>), with pause and real-event ticks SUSPENDING the timer (a
-/// pause mid-world-map must not reset progress; a pause mid-battle must never accumulate). An
-/// in-live tick zeroes the accumulator. The stuck-sentinel world map is sustained out-of-live, so
-/// exit fires there -- giving the next battle a clean Enter + reset. Time comes only from the
-/// passed-in DateTime (tests feed synthetic clocks; the machine never reads the wall clock).
+/// The pure battle in and out state machine, unit tested with no memory access.
+/// Enter is instant and exit is debounced, because battleMode is a cursor tile class and not an
+/// on battlefield flag. Move browsing reads 1 for seconds every turn, pausing reads 0, and mid
+/// battle dialogue reads 0 with a real eventId, so one out of live read mid combat is normal
+/// and must not end the battle. The slot9 sentinel sticks on the post battle world map and can
+/// drop mid battle, so it cannot mark the end either.
+///
+/// Enter fires the instant any enter signal appears. Exit needs sustained out of live time
+/// (<see cref="ExitDebounceSeconds"/>), and pause and real event ticks suspend the timer without
+/// resetting it. An in live tick zeroes the accumulator. The stuck sentinel world map counts as
+/// sustained out of live, so exit fires there and the next battle gets a clean Enter. Time comes
+/// only from the passed in DateTime, so tests feed synthetic clocks.
 /// </summary>
 internal sealed class BattleState
 {
@@ -30,53 +29,48 @@ internal sealed class BattleState
     private bool _haveLastTick;
     private bool _pairWasArmed;                    // last observed sentinel-pair state (for the edge)
 
-    /// <summary>Both battle sentinels armed at once. A LEVEL read of this pair cannot mean
-    /// "a battle is starting": BOTH sentinels stick on the post-quit world map (slot0 stays
-    /// 0xFF after a battle QUIT, probe-verified 2026-06-10; slot9 always sticks), which made a
-    /// level-triggered pair re-enter instantly after every exit -- a 4-second enter/exit
-    /// metronome. Only the disarmed->armed EDGE of the pair enters; live modes stay level
-    /// signals (a real battle reads mode 2/4 the moment the battlefield loads).</summary>
+    /// <summary>Both battle sentinels armed at once. A level read of this pair cannot mean a
+    /// battle is starting, because both sentinels stick on the post quit world map and a level
+    /// trigger re-entered instantly after every exit. Only the disarmed to armed edge of the
+    /// pair enters. Live modes stay level signals, since a real battle reads mode 2 or 4 the
+    /// moment the battlefield loads.</summary>
     internal static bool PairArmed(uint slot0, uint slot9) =>
         slot0 == 0xFF && slot9 == 0xFFFFFFFF;
 
-    /// <summary>The instant battle-enter signal: a fresh sentinel-pair arm (edge, computed by
-    /// the caller) OR a live battleMode level.</summary>
+    /// <summary>The instant battle enter signal. Either a fresh sentinel pair arm, an edge the
+    /// caller computes, or a live battleMode level.</summary>
     internal static bool EnterSignal(bool pairRisingEdge, uint slot0, int battleMode) =>
         pairRisingEdge || battleMode == 2 || battleMode == 4
         || (battleMode == 3 && slot0 == 0xFF);
 
-    /// <summary>A genuine in-battle frame, for feeding the charm heartbeat and gating every module
-    /// that writes battle memory. battleMode 2/3/4 covers active-turn frames. The slot0==0xFF
-    /// in-battle marker stays set through cast/attack targeting (battleMode 1/5) where gating on
-    /// {2,3,4} alone starves the beat -- but the marker CANNOT be trusted alone: QUITTING a battle
-    /// leaves slot0 STUCK at 0xFF on the world map (probe-verified 2026-06-10; a normal victory
-    /// clears it to 0x66), which kept battles "live" forever -- no exit edge, endless charm holds.
-    /// So a marker-only frame counts as live only with an EXCUSE for battleMode reading 0:
-    /// targeting modes 1/5, the pause flag, or a real event id (mid-battle dialogue).</summary>
+    /// <summary>A genuine in battle frame, which gates every module that writes battle memory.
+    /// battleMode 2, 3 or 4 covers active turn frames. The slot0 marker stays set through
+    /// targeting (modes 1 and 5), where gating on 2 to 4 alone starves the beat. The marker
+    /// cannot be trusted alone, because quitting a battle leaves it stuck on the world map, which
+    /// once kept battles live forever. So a marker only frame counts as live only with an excuse
+    /// for battleMode reading 0, which is a targeting mode, the pause flag, or a real event
+    /// id.</summary>
     public static bool InLiveBattle(uint slot0, int battleMode, bool paused, int eventId) =>
         battleMode == 2 || battleMode == 3 || battleMode == 4
         || (slot0 == 0xFF && (battleMode == 1 || battleMode == 5
                               || paused || IsRealEvent(eventId)));
 
-    /// <summary>A battle map is currently on screen -- the broad gate used by the Treasure Master
-    /// module. True when slot9 is the stuck in-battle sentinel AND battleMode is non-zero.
-    /// Covers the formation/unit-placement screen (mode 1), your turn (modes 2/3/4), enemy turns
-    /// and animations (mode 1), and cast targeting (mode 5). False on the world map / party menu
-    /// (mode 0) regardless of whether slot9 is still stuck from a prior battle.
-    /// Preferred over InLiveBattle for the treasure gate: avoids the mode-1 flicker that
-    /// previously reset the stability counter on every enemy turn.</summary>
+    /// <summary>A battle map is on screen, the broad gate the Treasure Master module uses. True
+    /// when slot9 is the stuck in battle sentinel and battleMode is not zero. Covers the formation
+    /// screen, your turn, enemy turns, animations and cast targeting. False on the world map and
+    /// the party menu even while slot9 is still stuck from a prior battle. Preferred over
+    /// InLiveBattle for the treasure gate because the mode 1 flicker on enemy turns used to reset
+    /// the stability counter.</summary>
     public static bool BattleDisplayed(uint slot9, int battleMode) =>
         slot9 == 0xFFFFFFFFu && battleMode != 0;
 
-    /// <summary>A real story event/cutscene suspends the exit timer. Contract: any nonzero id except
-    /// 0xFFFF is a real event. The 0xFFFF sentinel is present on every confirmed real battle exit
-    /// (log 2026-06-10: both exits show event=65535); it is NOT a story event. Zero is excluded --
-    /// unknown semantics, preserves existing behavior. The old 1..399 band was guesswork: live
-    /// evidence on 2026-06-10 showed event 401 mid-battle -- with NO visible dialogue, so some
-    /// special screen or animation carries it -- defeating the band, faking an exit, and dropping
-    /// a kill credit. The nameId alias only occurs DURING combat (in-live), which already zeroes
-    /// the accumulator before the event check, so any out-of-live nonzero id that reaches here is
-    /// a genuine event screen of some kind.</summary>
+    /// <summary>A real story event or cutscene suspends the exit timer. Any nonzero id except
+    /// 0xFFFF is a real event. 0xFFFF is present on every confirmed battle exit, so it is not an
+    /// event. Zero is excluded. The old 1 to 399 band was guesswork, because live evidence showed
+    /// event 401 mid battle with no visible dialogue, which faked an exit and dropped a kill
+    /// credit. The nameId alias only occurs during combat, which already zeroes the accumulator
+    /// before this check, so any out of live nonzero id reaching here is a genuine event
+    /// screen.</summary>
     internal static bool IsRealEvent(int e) => e >= 1 && e != 0xFFFF;
 
     /// <summary>Step once per engine tick with raw reads; returns the edge that fired this tick.</summary>
@@ -95,8 +89,8 @@ internal sealed class BattleState
             return BattleEdge.Entered;
         }
 
-        // In: an in-live tick zeroes the accumulator; out-of-live ticks accumulate ONLY when neither
-        // paused nor in a real event (both suspend without resetting). Delta comes from the clock param.
+        // An in live tick zeroes the accumulator. Out of live ticks accumulate only when neither
+        // paused nor in a real event, since both suspend without resetting.
         TimeSpan delta = _haveLastTick && now > _lastTick ? now - _lastTick : TimeSpan.Zero;
         _lastTick = now;
         _haveLastTick = true;
@@ -111,8 +105,8 @@ internal sealed class BattleState
         {
             In = false;
             _haveLastTick = false;
-            // Snapshot the pair state AT the exit: a pair that armed mid-battle and is still
-            // stuck must not read as a fresh edge on the next out-of-battle tick.
+            // Snapshot the pair state at the exit. A pair that armed mid battle and is still
+            // stuck must not read as a fresh edge on the next out of battle tick.
             _pairWasArmed = PairArmed(slot0, slot9);
             return BattleEdge.Exited;
         }

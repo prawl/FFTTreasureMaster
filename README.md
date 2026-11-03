@@ -42,11 +42,13 @@ the runtime detects a build mismatch and stays idle rather than writing to the w
 
 ```powershell
 python tools\gen_treasure_db.py   # data/treasure_addrs.json -> FFTTreasureMaster/treasure.json (+ self-test gate)
-dotnet test FFTTreasureMaster.Tests\FFTTreasureMaster.Tests.csproj   # the unit-test gate
-.\BuildLinked.ps1                 # DEV: bake + test + build the DLL + deploy into the Reloaded Mods folder
-.\Publish.ps1                     # PROD: bake + test + build the DLL + package the release zip
+dotnet test FFTTreasureMaster.Tests\FFTTreasureMaster.Tests.csproj   # the unit-test gate, shared contract tests included
+.\BuildLinked.ps1                 # DEV: bake + the shared gates + build the DLL + deploy into the Reloaded Mods folder
+.\Publish.ps1                     # PROD: bake + the shared gates + build the DLL + package the release zip
 ```
 
 Both `BuildLinked.ps1` (local deploy) and `Publish.ps1` (release zip) share their prefix
-(bake -> unit tests -> DLL publish, plus the required-file manifest) via `tools/pipeline.ps1`.
-Two gates are enforced by both and by CI: the bake self-test and the xUnit suite.
+(bake -> shared gates -> DLL publish, plus the required-file manifest) via `tools/pipeline.ps1`.
+The gates come from the shared rulebook vendored under `gates/` (prawl/FFTModGates): the bake
+self-test, the manifest check on that copy, `dotnet format`, the xUnit suite with the shared
+contract tests, and the code health ratchet against `docs/health`. CI runs the same set.

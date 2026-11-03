@@ -14,9 +14,9 @@ public class Configurator : IConfiguratorV3
 {
     private static readonly ConfiguratorMixin _mixin = new();
 
-    public string?              ModFolder   { get; private set; }
-    public string?              ConfigFolder { get; private set; }
-    public ConfiguratorContext  Context      { get; private set; }
+    public string? ModFolder { get; private set; }
+    public string? ConfigFolder { get; private set; }
+    public ConfiguratorContext Context { get; private set; }
 
     public IUpdatableConfigurable[] Configurations => _configurations ?? MakeConfigurations();
     private IUpdatableConfigurable[]? _configurations;
@@ -67,8 +67,8 @@ public class Configurator : IConfiguratorV3
 
     // ── IConfiguratorV1 ───────────────────────────────────────────────────────
 
-    public IConfigurable[]          GetConfigurations()              => Configurations;
-    void IConfiguratorV1.SetModDirectory(string d)                   => ModFolder = d;
+    public IConfigurable[] GetConfigurations() => Configurations;
+    void IConfiguratorV1.SetModDirectory(string d) => ModFolder = d;
 
     /// <summary>
     /// Returns false so Reloaded-II uses its built-in property grid.

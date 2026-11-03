@@ -1,0 +1,20 @@
+{
+ "sha": "4a304cd",
+ "date": "2026-11-02",
+ "dirty": true,
+ "snapshot": {
+  "prod_files": 44,
+  "prod_lines": 4716,
+  "code_lines": 3011,
+  "test_files": 26,
+  "test_lines": 7221,
+  "test_ratio": 1.53,
+  "comment_share": 0.237,
+  "empty_catches": 12,
+  "catches": 40,
+  "methods": 139,
+  "long_methods": 2,
+  "long_files": 1,
+  "duplication": 0.0
+ }
+}

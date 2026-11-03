@@ -11,33 +11,33 @@ namespace FFTTreasureMaster;
 /// <summary>One (addr, off) pair for a treasure tile flag byte.</summary>
 internal sealed class TreasureAddrEntry
 {
-    // Populated by TreasureDb.Load after parsing — never by JSON directly.
+    // Populated by TreasureDb.Load after parsing, never by JSON directly.
     public long Addr { get; internal set; }
-    public byte Off  { get; internal set; }
-    /// <summary>Schema v2: the anchor region id (e.g. "R1") this addr was tagged with at
-    /// bake time, or null for a v1 (2-element) entry / a regionless entry. Used by
-    /// AnchorRemap to compute addr' = addr + regionDeltas[Region] on a build-key mismatch.</summary>
+    public byte Off { get; internal set; }
+    /// <summary>The anchor region id this addr was tagged with at bake time, such as "R1", or
+    /// null for a v1 entry. AnchorRemap adds the region's delta to the addr on a build key
+    /// mismatch.</summary>
     public string? Region { get; internal set; }
 
     /// <summary>Supports foreach (var (addr, off) in tile.Addrs) deconstruction.</summary>
     public void Deconstruct(out long addr, out byte off) { addr = Addr; off = Off; }
 }
 
-/// <summary>Raw JSON shape for one tile: x, y, addrs as array-of-2-string-arrays.</summary>
+/// <summary>Raw JSON shape for one tile, with x, y and addrs as pairs of hex strings.</summary>
 internal sealed class TreasureTileJson
 {
-    [JsonProperty("x")]     public int X { get; set; }
-    [JsonProperty("y")]     public int Y { get; set; }
-    /// <summary>Each element is a 2-element string array: [addrHex, offHex].</summary>
+    [JsonProperty("x")] public int X { get; set; }
+    [JsonProperty("y")] public int Y { get; set; }
+    /// <summary>Each element is a pair of hex strings, the address then the offset.</summary>
     [JsonProperty("addrs")] public List<string[]> Addrs { get; set; } = new();
-    /// <summary>ItemData id of the rare Move-Find item on this tile (0 if absent). Used by claim
-    /// detection: when this item's inventory count rises while a unit is on the tile, it is claimed.</summary>
-    [JsonProperty("rareItemId")]   public int RareItemId   { get; set; }
+    /// <summary>ItemData id of the rare Move-Find item on this tile, 0 if absent. Claim detection
+    /// calls the tile claimed when this item's count rises while a unit is on the tile.</summary>
+    [JsonProperty("rareItemId")] public int RareItemId { get; set; }
     /// <summary>ItemData id of the common Move-Find item on this tile (0 if absent).</summary>
     [JsonProperty("commonItemId")] public int CommonItemId { get; set; }
     /// <summary>0-based slot index in the map's treasure list (native X1..X4 file order). Used by
     /// collect detection to index into the persistent collected-treasure bitfield. -1 = unknown.</summary>
-    [JsonProperty("slot")]         public int Slot         { get; set; } = -1;
+    [JsonProperty("slot")] public int Slot { get; set; } = -1;
 }
 
 /// <summary>One treasure tile with its validated flag-byte addresses.</summary>
@@ -48,40 +48,40 @@ internal sealed class TreasureTile
     public List<TreasureAddrEntry> Addrs { get; internal set; } = new();
     /// <summary>Rare / common Move-Find item ids on this tile (0 = none). The claim detector
     /// watches their inventory counts.</summary>
-    public int RareItemId   { get; internal set; }
+    public int RareItemId { get; internal set; }
     public int CommonItemId { get; internal set; }
     /// <summary>0-based slot index in the map's treasure list (native X1..X4 file order). Used by
     /// collect detection to index into the persistent collected-treasure bitfield. -1 = unknown.</summary>
     public int Slot { get; internal set; } = -1;
 }
 
-/// <summary>Build key: PE TimeDateStamp + SizeOfImage from the captured game binary.</summary>
+/// <summary>The build key, PE TimeDateStamp and SizeOfImage from the captured game binary.</summary>
 internal sealed class TreasureBuildKey
 {
     [JsonProperty("timeDateStamp")] public int TimeDateStamp { get; set; }
-    [JsonProperty("sizeOfImage")]   public int SizeOfImage   { get; set; }
+    [JsonProperty("sizeOfImage")] public int SizeOfImage { get; set; }
 }
 
 /// <summary>Raw JSON shape for one map entry.</summary>
 internal sealed class TreasureMapJson
 {
-    [JsonProperty("mapId")]     public int              MapId     { get; set; }
-    [JsonProperty("name")]      public string           Name      { get; set; } = "";
-    [JsonProperty("tileCount")] public int              TileCount { get; set; }
-    [JsonProperty("fpVer")]     public int?             FpVer     { get; set; }
-    [JsonProperty("fpLen")]     public int?             FpLen     { get; set; }
-    [JsonProperty("fpHash")]    public string?          FpHashHex { get; set; }
-    [JsonProperty("tiles")]     public List<TreasureTileJson> Tiles { get; set; } = new();
+    [JsonProperty("mapId")] public int MapId { get; set; }
+    [JsonProperty("name")] public string Name { get; set; } = "";
+    [JsonProperty("tileCount")] public int TileCount { get; set; }
+    [JsonProperty("fpVer")] public int? FpVer { get; set; }
+    [JsonProperty("fpLen")] public int? FpLen { get; set; }
+    [JsonProperty("fpHash")] public string? FpHashHex { get; set; }
+    [JsonProperty("tiles")] public List<TreasureTileJson> Tiles { get; set; } = new();
 }
 
 /// <summary>One map's tile set (or a stub entry with no tiles for uncaptured maps).</summary>
 internal sealed class TreasureMap
 {
-    public int     MapId     { get; internal set; }
-    public string  Name      { get; internal set; } = "";
-    public int     TileCount { get; internal set; }
-    public int?    FpVer     { get; internal set; }
-    public int?    FpLen     { get; internal set; }
+    public int MapId { get; internal set; }
+    public string Name { get; internal set; } = "";
+    public int TileCount { get; internal set; }
+    public int? FpVer { get; internal set; }
+    public int? FpLen { get; internal set; }
     public string? FpHashHex { get; internal set; }
     public List<TreasureTile> Tiles { get; internal set; } = new();
 
@@ -92,15 +92,12 @@ internal sealed class TreasureMap
             ? v : (ulong?)null;
 
     /// <summary>
-    /// True when this map is in map-id-only mode: <see cref="FpHash"/> is null and
-    /// <see cref="FpVer"/> is exactly 0.  The runtime arms on map-id + address quorum
-    /// alone, with no terrain fingerprint gate and no periodic terrain revalidation.
-    /// Used for water/lava maps whose terrain grid fields animate on every re-entry and
-    /// cannot produce a stable hash across instances.
-    ///
-    /// Stub maps (uncaptured) have <see cref="FpVer"/> null, not 0, so they do NOT satisfy
-    /// this predicate.  Dry maps keep their v2/v3 fingerprint; map-id-only is an explicit
-    /// per-map decision made via the 'nofp' verb in the capture tool.
+    /// True when this map arms on map id alone, with <see cref="FpHash"/> null and
+    /// <see cref="FpVer"/> exactly 0. There is then no terrain fingerprint gate and no periodic
+    /// revalidation. Used for water and lava maps whose terrain fields animate on every re-entry
+    /// and cannot hash stably. A stub map has a null <see cref="FpVer"/>, not 0, so it does not
+    /// satisfy this. Map id only is an explicit per map decision made with the 'nofp' verb in the
+    /// capture tool.
     /// </summary>
     public bool IsMapIdOnly => FpHash is null && FpVer == 0;
 }
@@ -109,33 +106,32 @@ internal sealed class TreasureMap
 
 internal sealed class TreasureDbJson
 {
-    [JsonProperty("schema")]   public int?                Schema   { get; set; }
-    [JsonProperty("buildKey")] public TreasureBuildKey?    BuildKey { get; set; }
-    [JsonProperty("anchors")]  public AnchorTableJson?     Anchors  { get; set; }
-    [JsonProperty("maps")]     public List<TreasureMapJson> Maps   { get; set; } = new();
+    [JsonProperty("schema")] public int? Schema { get; set; }
+    [JsonProperty("buildKey")] public TreasureBuildKey? BuildKey { get; set; }
+    [JsonProperty("anchors")] public AnchorTableJson? Anchors { get; set; }
+    [JsonProperty("maps")] public List<TreasureMapJson> Maps { get; set; } = new();
 }
 
 // ── public loader ─────────────────────────────────────────────────────────────
 
 /// <summary>
-/// Fail-soft loader for treasure.json.  Missing file or parse failure yields an empty
-/// dataset (no marks painted, silent no-op in every map) rather than a crash.
-/// PURE FILE LOADER — no live memory access of any kind.
+/// Fail soft loader for treasure.json. A missing file or a parse failure yields an empty
+/// dataset, so no marks are painted, rather than a crash. It never touches live memory.
 /// </summary>
 internal sealed class TreasureDb
 {
     // Internal (not private): AnchorRemap.cs reuses these bounds to drop a remapped
     // addr that lands outside the module or inside the UI render arena.
     internal const long ModuleBase = 0x140000000L;
-    internal const long ModuleEnd  = 0x143000000L;   // exclusive
-    internal const long UiArenaLo  = 0x140C63000L;
-    internal const long UiArenaHi  = 0x140CC5000L;   // exclusive
+    internal const long ModuleEnd = 0x143000000L;   // exclusive
+    internal const long UiArenaLo = 0x140C63000L;
+    internal const long UiArenaHi = 0x140CC5000L;   // exclusive
 
     public TreasureBuildKey? BuildKey { get; }
     public IReadOnlyList<TreasureMap> Maps { get; }
-    /// <summary>Schema v2 anchor table (7 region bases + 10 singleton sig anchors), or
-    /// null on a v1 dataset (no "anchors" key) or any parse/structural problem -- a null
-    /// table means a build-key mismatch can never re-resolve, only disarm.</summary>
+    /// <summary>The schema v2 anchor table, seven region bases and ten singleton anchors, or null
+    /// on a v1 dataset or any parse problem. A null table means a build key mismatch can only
+    /// disarm, never re-resolve.</summary>
     public AnchorTable? Anchors { get; }
 
     // Internal (not private): AnchorRemap.cs builds a new TreasureDb from a remapped
@@ -143,14 +139,13 @@ internal sealed class TreasureDb
     internal TreasureDb(TreasureBuildKey? key, List<TreasureMap> maps, AnchorTable? anchors)
     {
         BuildKey = key;
-        Maps     = maps;
-        Anchors  = anchors;
+        Maps = maps;
+        Anchors = anchors;
     }
 
     /// <summary>
-    /// Load treasure.json from <paramref name="modDir"/>.
-    /// Returns an empty dataset (no maps) on missing file, parse failure, or any
-    /// top-level exception — never throws.
+    /// Loads treasure.json from <paramref name="modDir"/>. Returns an empty dataset on a missing
+    /// file, a parse failure or any other exception, and never throws.
     /// </summary>
     public static TreasureDb Load(string modDir)
     {
@@ -159,7 +154,7 @@ internal sealed class TreasureDb
             var path = Path.Combine(modDir, "treasure.json");
             if (!File.Exists(path)) return Empty();
 
-            var raw  = File.ReadAllText(path);
+            var raw = File.ReadAllText(path);
             var root = JsonConvert.DeserializeObject<TreasureDbJson>(raw);
             if (root is null) return Empty();
 
@@ -189,27 +184,31 @@ internal sealed class TreasureDb
                         // v1 (2-element) or regionless entry.
                         validAddrs.Add(new TreasureAddrEntry
                         {
-                            Addr = addr, Off = off,
+                            Addr = addr,
+                            Off = off,
                             Region = pair.Length >= 3 ? pair[2] : null,
                         });
                     }
                     if (tileOk && validAddrs.Count > 0)
                         validTiles.Add(new TreasureTile
                         {
-                            X = tj.X, Y = tj.Y, Addrs = validAddrs,
-                            RareItemId = tj.RareItemId, CommonItemId = tj.CommonItemId,
+                            X = tj.X,
+                            Y = tj.Y,
+                            Addrs = validAddrs,
+                            RareItemId = tj.RareItemId,
+                            CommonItemId = tj.CommonItemId,
                             Slot = tj.Slot,
                         });
                 }
                 validMaps.Add(new TreasureMap
                 {
-                    MapId     = mj.MapId,
-                    Name      = mj.Name,
+                    MapId = mj.MapId,
+                    Name = mj.Name,
                     TileCount = mj.TileCount,
-                    FpVer     = mj.FpVer,
-                    FpLen     = mj.FpLen,
+                    FpVer = mj.FpVer,
+                    FpLen = mj.FpLen,
                     FpHashHex = mj.FpHashHex,
-                    Tiles     = validTiles,
+                    Tiles = validTiles,
                 });
             }
 

@@ -20,15 +20,15 @@ namespace FFTTreasureMaster.Tests;
 internal sealed class FakeSparseMemory : IGameMemory
 {
     public readonly Dictionary<long, ushort> U16s = new();
-    public readonly Dictionary<long, byte>   U8s  = new();
-    public readonly HashSet<long> WritableAddrs   = new();
-    public readonly Dictionary<long, byte>   Written = new();
+    public readonly Dictionary<long, byte> U8s = new();
+    public readonly HashSet<long> WritableAddrs = new();
+    public readonly Dictionary<long, byte> Written = new();
 
     // TreasureMaster extensions
-    public readonly HashSet<long>             ReadableAddrs  = new();
-    public readonly Dictionary<long, byte[]>  TerrainBlocks  = new();
-    public readonly Dictionary<long, uint>    U32s           = new();
-    public readonly Dictionary<long, int>     ReadCount      = new();
+    public readonly HashSet<long> ReadableAddrs = new();
+    public readonly Dictionary<long, byte[]> TerrainBlocks = new();
+    public readonly Dictionary<long, uint> U32s = new();
+    public readonly Dictionary<long, int> ReadCount = new();
 
     // AnchorScan extensions: arbitrary-offset range reads inside a registered block (a fake
     // PE section's backing bytes). Kept separate from TerrainBlocks (which only serves an
@@ -42,8 +42,8 @@ internal sealed class FakeSparseMemory : IGameMemory
 
     // MarkerWriter extensions: U64s seeds the dereferenced utility pointer; WrittenU32
     // records 4-byte marker-field writes (mirrors Written for the 0x80 path).
-    public readonly Dictionary<long, ulong>   U64s           = new();
-    public readonly Dictionary<long, uint>    WrittenU32     = new();
+    public readonly Dictionary<long, ulong> U64s = new();
+    public readonly Dictionary<long, uint> WrittenU32 = new();
 
     public byte U8(long a)
     {
@@ -94,8 +94,8 @@ internal sealed class FakeSparseMemory : IGameMemory
     /// ArmAudit's four-byte PE reads return the expected value.</summary>
     public void SeedU32(long addr, uint value)
     {
-        U8s[addr + 0] = (byte)(value        & 0xFF);
-        U8s[addr + 1] = (byte)((value >> 8)  & 0xFF);
+        U8s[addr + 0] = (byte)(value & 0xFF);
+        U8s[addr + 1] = (byte)((value >> 8) & 0xFF);
         U8s[addr + 2] = (byte)((value >> 16) & 0xFF);
         U8s[addr + 3] = (byte)((value >> 24) & 0xFF);
         ReadableAddrs.Add(addr);

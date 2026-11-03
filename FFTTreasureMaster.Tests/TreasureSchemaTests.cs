@@ -20,9 +20,9 @@ namespace FFTTreasureMaster.Tests;
 public class TreasureSchemaTests
 {
     private const long ModuleBase = 0x140000000L;
-    private const long ModuleEnd  = 0x143000000L;   // exclusive
-    private const long UiArenaLo  = 0x140C63000L;
-    private const long UiArenaHi  = 0x140CC5000L;   // exclusive
+    private const long ModuleEnd = 0x143000000L;   // exclusive
+    private const long UiArenaLo = 0x140C63000L;
+    private const long UiArenaHi = 0x140CC5000L;   // exclusive
 
     private static string RepoTreasurePath()
     {
@@ -51,14 +51,14 @@ public class TreasureSchemaTests
     {
         var db = TreasureDb.Load(Path.GetDirectoryName(RepoTreasurePath())!);
         foreach (var map in db.Maps)
-        foreach (var tile in map.Tiles)
-        foreach (var (addr, _) in tile.Addrs)
-        {
-            Assert.True(addr >= ModuleBase && addr < ModuleEnd,
-                $"map {map.MapId} tile ({tile.X},{tile.Y}) addr 0x{addr:x} outside module span");
-            Assert.False(addr >= UiArenaLo && addr < UiArenaHi,
-                $"map {map.MapId} tile ({tile.X},{tile.Y}) addr 0x{addr:x} inside UI arena");
-        }
+            foreach (var tile in map.Tiles)
+                foreach (var (addr, _) in tile.Addrs)
+                {
+                    Assert.True(addr >= ModuleBase && addr < ModuleEnd,
+                        $"map {map.MapId} tile ({tile.X},{tile.Y}) addr 0x{addr:x} outside module span");
+                    Assert.False(addr >= UiArenaLo && addr < UiArenaHi,
+                        $"map {map.MapId} tile ({tile.X},{tile.Y}) addr 0x{addr:x} inside UI arena");
+                }
     }
 
     [Fact]
@@ -66,11 +66,11 @@ public class TreasureSchemaTests
     {
         var db = TreasureDb.Load(Path.GetDirectoryName(RepoTreasurePath())!);
         foreach (var map in db.Maps)
-        foreach (var tile in map.Tiles)
-        {
-            Assert.InRange(tile.X, 0, 15);
-            Assert.InRange(tile.Y, 0, 15);
-        }
+            foreach (var tile in map.Tiles)
+            {
+                Assert.InRange(tile.X, 0, 15);
+                Assert.InRange(tile.Y, 0, 15);
+            }
     }
 
     [Fact]
@@ -89,9 +89,9 @@ public class TreasureSchemaTests
         {
             var seen = new HashSet<long>();
             foreach (var tile in map.Tiles)
-            foreach (var (addr, _) in tile.Addrs)
-                Assert.True(seen.Add(addr),
-                    $"map {map.MapId}: duplicate addr 0x{addr:x}");
+                foreach (var (addr, _) in tile.Addrs)
+                    Assert.True(seen.Add(addr),
+                        $"map {map.MapId}: duplicate addr 0x{addr:x}");
         }
     }
 
@@ -161,14 +161,14 @@ public class TreasureSchemaTests
 
         int checkedAddrs = 0;
         foreach (var map in db.Maps)
-        foreach (var tile in map.Tiles)
-        foreach (var entry in tile.Addrs)
-        {
-            checkedAddrs++;
-            Assert.True(entry.Region is not null,
-                $"map {map.MapId} tile ({tile.X},{tile.Y}) addr 0x{entry.Addr:x} has no region");
-            Assert.Contains(entry.Region!, knownRegions);
-        }
+            foreach (var tile in map.Tiles)
+                foreach (var entry in tile.Addrs)
+                {
+                    checkedAddrs++;
+                    Assert.True(entry.Region is not null,
+                        $"map {map.MapId} tile ({tile.X},{tile.Y}) addr 0x{entry.Addr:x} has no region");
+                    Assert.Contains(entry.Region!, knownRegions);
+                }
         Assert.True(checkedAddrs > 0, "no tile addrs were checked -- fixture produced no data");
     }
 }

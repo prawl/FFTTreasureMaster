@@ -1,0 +1,33 @@
+{
+  "prod": "FFTTreasureMaster/",
+  "tests": "FFTTreasureMaster.Tests/",
+  "ticketPrefix": "TM",
+  "projects": ["FFTTreasureMaster/FFTTreasureMaster.csproj", "FFTTreasureMaster.Tests/FFTTreasureMaster.Tests.csproj"],
+  "testProjects": ["FFTTreasureMaster.Tests/FFTTreasureMaster.Tests.csproj"],
+  "modConfig": "mod/ModConfig.json",
+  "tempPrefixes": ["tm_", "td_"],
+  "tempKeep": [],
+  "consoleAllowlist": [],
+  "fenceExemptFiles": [],
+  "noSummaryExempt": {
+    "AssemblyInfo.cs": "opens with a one line comment instead of a summary block"
+  },
+  "imageAllowlist": {
+    "ImageBase.cs": "declares the preferred base itself",
+    "TreasureDb.cs": "dataset space bounds, the dataset is preferred base by contract"
+  },
+  "pinTables": {},
+  "pins": {
+    "0x140782A30": "Slot0, the in battle existence marker",
+    "0x140782A54": "Slot9, the in battle sentinel",
+    "0x140782A94": "EventId, the event or cutscene id outside live battle",
+    "0x1409069A0": "BattleMode, the battlefield state byte",
+    "0x140C6B1C8": "PauseFlag, one while a menu is open",
+    "0x140784478": "LiveBattleMapId, the current battle map id",
+    "0x140C6B440": "TerrainGrid, the per map terrain records",
+    "0x141851F2F": "UnitArrayBaseX, grid X of the lowest unit slot",
+    "0x1411A7C00": "InventoryCountBase, the item count array",
+    "0x1411A7680": "TreasureCollectedBase, the collected treasure bitfield",
+    "0x143CD3AA0": "EnhancedMarkingUtilityPtr, the native marker object pointer, unverified"
+  }
+}

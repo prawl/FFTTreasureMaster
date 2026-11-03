@@ -11,12 +11,10 @@ internal readonly record struct GrantSummary(
     int Reasserted, bool GaveUp);
 
 /// <summary>
-/// The "All units gain Treasure Hunter" grant: writes ability 509 (Treasure Hunter, the
-/// live-proven Move-Find innate) into one free innate slot of each covered JOB_DATA row,
-/// through the IJobTable seam. Pure algorithm: no game memory, no threads, no clocks -- the
-/// caller supplies the sleep so tests run instantly. Never throws; every failure path ends
-/// in at most one log line and an inert feature, because the core tile-highlight mod must
-/// never be destabilized by this optional extra.
+/// Grants every covered job the Treasure Hunter innate, ability 509, through the IJobTable seam.
+/// A pure algorithm with no game memory, threads or clocks, and the caller supplies the sleep so
+/// tests run instantly. It never throws. Every failure path ends in at most one log line and an
+/// inert feature, because the core tile highlight must never be destabilized by this extra.
 /// </summary>
 internal sealed class TreasureHunterGrant
 {
@@ -57,8 +55,9 @@ internal sealed class TreasureHunterGrant
         _reassertDelayMs = reassertDelayMs;
     }
 
-    /// <summary>One-shot grant (wait for readiness, apply, confirm, one delayed re-assert).
-    /// Setting off: zero seam calls, zero log lines. Seam absent: exactly one log line.</summary>
+    /// <summary>The one shot grant. Waits for readiness, applies, confirms, and re-asserts once
+    /// after a delay. With the setting off there are no seam calls and no log lines. With the
+    /// seam absent there is exactly one log line.</summary>
     public GrantSummary Run()
     {
         if (!_enabled) return default;
@@ -73,7 +72,7 @@ internal sealed class TreasureHunterGrant
 
         int already = 0, unreadable = 0, failed = 0, reasserted = 0;
         var fullRows = new List<int>();
-        var applied  = new List<int>();
+        var applied = new List<int>();
         try
         {
             if (!WaitForReady()) return new GrantSummary(0, 0, 0, 0, 0, 0, GaveUp: true);
@@ -120,10 +119,10 @@ internal sealed class TreasureHunterGrant
         return false;
     }
 
-    /// <summary>Re-reads every granted row after a delay and re-applies the ability where
-    /// another mod's edit removed it, under the SAME protections as the first pass: an
-    /// unreadable row is never written on faith, and a row another mod has since filled is
-    /// never overwritten (that mod won the merge; we yield). Returns the rows re-applied.</summary>
+    /// <summary>Re-reads every granted row after a delay and re-applies the ability where another
+    /// mod's edit removed it, under the same protections as the first pass. An unreadable row is
+    /// never written on faith, and a row another mod has since filled is never overwritten,
+    /// because that mod won the merge. Returns the rows re-applied.</summary>
     private int ReassertPass(List<int> applied)
     {
         if (applied.Count == 0) return 0;

@@ -96,6 +96,7 @@ SCHEMA_VERSION = 2
 _FNV_OFFSET = 0xcbf29ce484222325
 _FNV_PRIME  = 0x100000001b3
 
+
 def fnv1a64(data: bytes) -> int:
     h = _FNV_OFFSET
     for b in data:
@@ -136,6 +137,7 @@ def masked_terrain_hash_v3(raw: bytes) -> int:
     return fnv1a64(static_bytes)
 
 # ── self-test ─────────────────────────────────────────────────────────────────
+
 
 def _self_test() -> bool:
     """Pinned FNV-1a64 vectors shared verbatim with TreasureMaster.Policy.cs."""
@@ -238,8 +240,10 @@ def _self_test() -> bool:
 
 # ── parsing helpers ───────────────────────────────────────────────────────────
 
+
 def parse_hex(s: str) -> int:
     return int(s, 16)
+
 
 def addr_valid(addr: int) -> bool:
     if addr < MODULE_BASE or addr >= MODULE_END:
@@ -247,6 +251,7 @@ def addr_valid(addr: int) -> bool:
     if UI_ARENA_LO <= addr < UI_ARENA_HI:
         return False
     return True
+
 
 def pair_drop_reason(addr: int, off: int) -> str | None:
     """Non-fatal drop reasons for a captured (addr, off) pair: lockstep coincidences
@@ -258,6 +263,7 @@ def pair_drop_reason(addr: int, off: int) -> str | None:
     return None
 
 # ── anchor table (schema v2: region bases + singleton sig anchors) ────────────
+
 
 def _anchor_parse_pattern(text: str) -> list:
     """'89 05 ?? ?? ?? ?? CC' -> [0x89, 0x05, None, None, None, None, 0xCC].
@@ -402,6 +408,7 @@ def assign_region(addr: int, spans: list[tuple[str, int, int]]) -> str | None:
     return hits[0] if hits else None
 
 # ── main bake ─────────────────────────────────────────────────────────────────
+
 
 def main() -> int:
     print("gen_treasure_db.py — self-test first")

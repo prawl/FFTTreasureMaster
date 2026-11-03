@@ -79,10 +79,10 @@ public class TreasureMasterTests
             ""addrs"": [{string.Join(", ", addrList.Select(a => AddrJson(a.addr, a.off)))}]
         }}]";
 
-        string fpVerStr   = fpVer  is {} ver ? $@"""fpVer"": {ver},"   : "";
-        string fpLenStr   = fpLen  is {} l ? $@"""fpLen"": {l},"   : "";
-        string fpHashStr  = fpHash is {} h ? $@"""fpHash"": ""{h}"","  : "";
-        string bkStr      = buildKey is null ? "null" :
+        string fpVerStr = fpVer is { } ver ? $@"""fpVer"": {ver}," : "";
+        string fpLenStr = fpLen is { } l ? $@"""fpLen"": {l}," : "";
+        string fpHashStr = fpHash is { } h ? $@"""fpHash"": ""{h}""," : "";
+        string bkStr = buildKey is null ? "null" :
             $@"{{""timeDateStamp"": {buildKey.TimeDateStamp}, ""sizeOfImage"": {buildKey.SizeOfImage}}}";
 
         string json = $@"{{
@@ -157,7 +157,7 @@ public class TreasureMasterTests
         mem.SeedU32(szAddr, sizeOfImage);
     }
 
-    // ASLR (TM-8): the PE header lives at the LIVE image base, not the preferred one.
+    // ASLR, the PE header lives at the LIVE image base, not the preferred one.
     [Fact]
     public void ReadPeBuildKey_reads_the_header_at_the_live_base()
     {
@@ -213,10 +213,10 @@ public class TreasureMasterTests
     [Fact]
     public void Disabled_zero_writes_and_no_reads()
     {
-        var dir     = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
-        var addr    = TileAddr(7);
-        var db  = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
+        var addr = TileAddr(7);
+        var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
                           addrs: new[] { (addr, (byte)0x00) });
         var mem = BuildMem(74, terrain, new[] { addr });
 
@@ -250,7 +250,7 @@ public class TreasureMasterTests
     [Fact]
     public void Armed_writes_mark_value_to_each_resting_addr()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         var addrs = new[] { TileAddr(0), TileAddr(1) };
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -271,7 +271,7 @@ public class TreasureMasterTests
     [Fact]
     public void Armed_writes_flat_mark_value_on_low_bit_resting_addr()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0xAA, 0xBB, 0x11, 0x22, 0x33, 0x44, 0x55 };
         var addr = TileAddr(2);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -289,7 +289,7 @@ public class TreasureMasterTests
     [Fact]
     public void Armed_restamps_after_engine_clears_mark()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70 };
         var addr = TileAddr(3);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -314,7 +314,7 @@ public class TreasureMasterTests
     [Fact]
     public void Held_addr_never_written()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0xCA, 0xFE, 0xBA, 0xBE, 0xDE, 0xAD, 0x01 };
         var addr = TileAddr(4);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -335,7 +335,7 @@ public class TreasureMasterTests
     [Fact]
     public void Every_Written_value_equals_mark_value()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         var addrs = new[] { TileAddr(0), TileAddr(1) };
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -361,8 +361,8 @@ public class TreasureMasterTests
     [Fact]
     public void Fingerprint_mismatch_at_arm_arms_anyway()
     {
-        var dir  = TempDir();
-        var realTerrain  = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77 };
+        var dir = TempDir();
+        var realTerrain = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77 };
         var wrongTerrain = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00 };
         var addr = TileAddr(5);
         // DB stores hash for realTerrain, but memory has wrongTerrain (e.g. it's raining).
@@ -390,7 +390,7 @@ public class TreasureMasterTests
     [Fact]
     public void Fingerprint_drift_mid_battle_keeps_holding()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         var addr = TileAddr(6);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -427,7 +427,7 @@ public class TreasureMasterTests
     [Fact]
     public void MapId_flip_mid_armed_suspends_writes_and_triggers_full_reset()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         var addr = TileAddr(7);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -457,7 +457,7 @@ public class TreasureMasterTests
     [Fact]
     public void Foreign_addr_at_arm_is_skipped_and_resting_sibling_is_written()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0xAA, 0xBB, 0xCC, 0x11, 0x22, 0x33, 0x44 };
         var addrForeign = TileAddr(8);
         // Build a map with enough ok addrs to meet quorum (minPlausible=4 default, but we
@@ -488,7 +488,7 @@ public class TreasureMasterTests
     [Fact]
     public void Foreign_all_addrs_at_arm_stays_arming_zero_writes()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0xAA, 0xBB, 0xCC, 0x11, 0x22, 0x33, 0x44 };
         var addr = TileAddr(8);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -508,7 +508,7 @@ public class TreasureMasterTests
     [Fact]
     public void Unwritable_addr_skipped_siblings_still_written()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         var addrA = TileAddr(9);
         var addrB = TileAddr(10);
@@ -531,7 +531,7 @@ public class TreasureMasterTests
     [Fact]
     public void ResetBattle_clears_state_and_writes_nothing_on_first_tick()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         var addr = TileAddr(11);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -552,7 +552,7 @@ public class TreasureMasterTests
     [Fact]
     public void ResetBattle_fresh_battle_after_reset_rearms_and_writes()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         var addr = TileAddr(15);  // unique slot to avoid cross-test contamination
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
@@ -581,11 +581,11 @@ public class TreasureMasterTests
     [Fact]
     public void Stub_map_no_writes()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         // stub=true: no tiles, no fpHash
         var db = BuildDb(dir, stub: true);
         var addr = TileAddr(12);
-        var mem  = new FakeSparseMemory();
+        var mem = new FakeSparseMemory();
         mem.U8s[Offsets.LiveBattleMapId] = 74;
         mem.ReadableAddrs.Add(Offsets.LiveBattleMapId);
         mem.U8s[addr] = 0x00;
@@ -603,7 +603,7 @@ public class TreasureMasterTests
     [Fact]
     public void BuildKey_mismatch_zero_writes_and_no_flag_addr_reads()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         var addr = TileAddr(13);
         // DB has buildKey {ts=0x1234, soi=0x5678}
@@ -1289,7 +1289,7 @@ public class TreasureMasterTests
     [Fact]
     public void MapIdOnly_arms_without_fingerprint_match_even_with_garbage_terrain()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var addrs = new[] { TileAddr(100), TileAddr(101), TileAddr(102) };
         var db = BuildMapIdOnlyDb(dir,
             addrs: addrs.Select(a => (a, (byte)0x00)));
@@ -1327,7 +1327,7 @@ public class TreasureMasterTests
     [Fact]
     public void MapIdOnly_does_not_disarm_on_terrain_change_mid_battle()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var addrs = new[] { TileAddr(103), TileAddr(104), TileAddr(105) };
         var db = BuildMapIdOnlyDb(dir, mapId: 83, tileX: 2, tileY: 3,
             addrs: addrs.Select(a => (a, (byte)0x00)));
@@ -1374,7 +1374,7 @@ public class TreasureMasterTests
     [Fact]
     public void MapIdOnly_map_id_flip_still_disarms()
     {
-        var dir  = TempDir();
+        var dir = TempDir();
         var addrs = new[] { TileAddr(106), TileAddr(107), TileAddr(108) };
         var db = BuildMapIdOnlyDb(dir, mapId: 83,
             addrs: addrs.Select(a => (a, (byte)0x00)));
@@ -1413,8 +1413,8 @@ public class TreasureMasterTests
     [Fact]
     public void Fingerprinted_map_arms_despite_fingerprint_mismatch_like_mapidonly()
     {
-        var dir  = TempDir();
-        var realTerrain  = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77 };
+        var dir = TempDir();
+        var realTerrain = new byte[] { 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77 };
         var wrongTerrain = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00 };
         var addr = TileAddr(109);
         // Explicitly a fingerprinted (non-map-id-only) map.
@@ -1722,7 +1722,7 @@ public class TreasureMasterTests
     private static void SeedClaimUnit(FakeSparseMemory mem, int x, int y, int slot = 0)
     {
         long xAddr = ClaimSlotX(slot);
-        mem.U8s[xAddr]     = (byte)x;
+        mem.U8s[xAddr] = (byte)x;
         mem.U8s[xAddr + 1] = (byte)y;
         mem.ReadableAddrs.Add(xAddr);
     }
@@ -1731,7 +1731,7 @@ public class TreasureMasterTests
     private static void MoveClaimUnit(FakeSparseMemory mem, int x, int y, int slot = 0)
     {
         long xAddr = ClaimSlotX(slot);
-        mem.U8s[xAddr]     = (byte)x;
+        mem.U8s[xAddr] = (byte)x;
         mem.U8s[xAddr + 1] = (byte)y;
     }
 
@@ -1766,10 +1766,10 @@ public class TreasureMasterTests
 
         long addrC = TileAddr(300);
         long addrS = TileAddr(301);
-        byte offC  = 0x00;
-        byte offS  = 0x00;
-        int tileX  = 5, tileY  = 7;   // C tile coords ; rare item 200
-        int sibX   = 6, sibY   = 8;   // S tile coords ; rare item 201
+        byte offC = 0x00;
+        byte offS = 0x00;
+        int tileX = 5, tileY = 7;   // C tile coords ; rare item 200
+        int sibX = 6, sibY = 8;   // S tile coords ; rare item 201
 
         string json = $@"{{
             ""buildKey"": null,
@@ -1838,7 +1838,7 @@ public class TreasureMasterTests
         var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(330);
-        byte offC  = 0x00;
+        byte offC = 0x00;
         int tileX = 5, tileY = 7;
 
         string json = $@"{{
@@ -1895,7 +1895,7 @@ public class TreasureMasterTests
         var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(310);
-        byte offC  = 0x00;
+        byte offC = 0x00;
         int tileX = 5, tileY = 7;
 
         string json = $@"{{
@@ -2375,7 +2375,7 @@ public class TreasureMasterTests
     public void Collected_tile_is_never_lit_when_oracle_reports_collected()
     {
         var dir = TempDir();
-        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(340);   // collected tile
         long addrS = TileAddr(341);   // sibling, not collected
         var db = BuildClaimDb(dir, terrain,
@@ -2395,7 +2395,7 @@ public class TreasureMasterTests
     public void Collected_tile_stays_dark_through_a_sibling_claim_and_refund()
     {
         var dir = TempDir();
-        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(340);   // collected (oracle)
         long addrS = TileAddr(341);   // claimed+refunded this battle
         var db = BuildClaimDb(dir, terrain,
@@ -2420,7 +2420,7 @@ public class TreasureMasterTests
     public void Collected_tile_that_is_also_claimed_stays_dark_after_refund()
     {
         var dir = TempDir();
-        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(340);
         var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0));
         var mem = BuildMem(74, terrain, new[] { addrC }, initialByte: 0x00);
@@ -2440,7 +2440,7 @@ public class TreasureMasterTests
     public void No_collected_oracle_lights_all_tiles()
     {
         var dir = TempDir();
-        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(340), addrS = TileAddr(341);
         var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0), (6, 6, addrS, 201, 0));
         var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
@@ -2459,7 +2459,7 @@ public class TreasureMasterTests
     public void CollectDetection_enabled_but_table_unreadable_lights_all_tiles()
     {
         var dir = TempDir();
-        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(340), addrS = TileAddr(341);
         var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0), (6, 6, addrS, 201, 0));
         var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
@@ -2475,7 +2475,7 @@ public class TreasureMasterTests
     public void Collected_oracle_is_consulted_once_per_tile_at_arm_only()
     {
         var dir = TempDir();
-        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(340), addrS = TileAddr(341);
         var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0), (6, 6, addrS, 201, 0));
         var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
@@ -2493,7 +2493,7 @@ public class TreasureMasterTests
     public void Collected_exclusion_reads_no_claim_memory_when_claim_detection_off()
     {
         var dir = TempDir();
-        var terrain = new byte[] { 0x01,0x02,0x03,0x04,0x05,0x06,0x07 };
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
         long addrC = TileAddr(340), addrS = TileAddr(341);
         var db = BuildClaimDb(dir, terrain, (5, 7, addrC, 200, 0), (6, 6, addrS, 201, 0));
         var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
@@ -2521,12 +2521,12 @@ public class TreasureMasterTests
         // Decode: idx_C = 10*4+0 = 40; byte = base+5 = 0x1411A7685; bit = 7.
         //         idx_S = 10*4+1 = 41; byte = base+5 = 0x1411A7685; bit = 6.
         const long collectBase = 0x1411A7680L;
-        int   idxC    = testMapId * 4 + 0;
-        long  cByteAddr = collectBase + idxC / 8;
-        int   cBit    = 7 - (idxC % 8);
-        int   idxS    = testMapId * 4 + 1;
-        long  sByteAddr = collectBase + idxS / 8;   // same byte as C
-        int   sBit    = 7 - (idxS % 8);
+        int idxC = testMapId * 4 + 0;
+        long cByteAddr = collectBase + idxC / 8;
+        int cBit = 7 - (idxC % 8);
+        int idxS = testMapId * 4 + 1;
+        long sByteAddr = collectBase + idxS / 8;   // same byte as C
+        int sBit = 7 - (idxS % 8);
 
         var dir = TempDir();
         var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
@@ -2608,16 +2608,23 @@ public class TreasureMasterTests
     private static AnchorResolution MakeCanned(
         Dictionary<string, long>? regionDeltas = null, bool claimOk = true, bool collectOk = true,
         bool fingerprintOk = true, IReadOnlyList<string>? derived = null) => new()
-    {
-        RegionDeltas = regionDeltas ?? new Dictionary<string, long>(),
-        DerivedRegions = derived ?? Array.Empty<string>(),
-        Slot0 = Offsets.Slot0, Slot9 = Offsets.Slot9, EventId = Offsets.EventId,
-        BattleMode = Offsets.BattleMode, PauseFlag = Offsets.PauseFlag,
-        LiveBattleMapId = Offsets.LiveBattleMapId, TerrainGrid = Offsets.TerrainGrid,
-        UnitArrayBaseX = Offsets.UnitArrayBaseX, InventoryCountBase = Offsets.InventoryCountBase,
-        TreasureCollectedBase = Offsets.TreasureCollectedBase,
-        ClaimOk = claimOk, CollectOk = collectOk, FingerprintOk = fingerprintOk,
-    };
+        {
+            RegionDeltas = regionDeltas ?? new Dictionary<string, long>(),
+            DerivedRegions = derived ?? Array.Empty<string>(),
+            Slot0 = Offsets.Slot0,
+            Slot9 = Offsets.Slot9,
+            EventId = Offsets.EventId,
+            BattleMode = Offsets.BattleMode,
+            PauseFlag = Offsets.PauseFlag,
+            LiveBattleMapId = Offsets.LiveBattleMapId,
+            TerrainGrid = Offsets.TerrainGrid,
+            UnitArrayBaseX = Offsets.UnitArrayBaseX,
+            InventoryCountBase = Offsets.InventoryCountBase,
+            TreasureCollectedBase = Offsets.TreasureCollectedBase,
+            ClaimOk = claimOk,
+            CollectOk = collectOk,
+            FingerprintOk = fingerprintOk,
+        };
 
     [Fact]
     public void AnchorResolver_not_invoked_when_build_key_matches()
@@ -2756,9 +2763,12 @@ public class TreasureMasterTests
             claimDetection: true,
             // First resolve: ClaimOk=false (no claim reads). Second resolve (post-reload):
             // ClaimOk=true -- claim reads should resume, proving the flags actually reset.
-            resolver: db2 => { calls++; return MakeCanned(
+            resolver: db2 =>
+            {
+                calls++; return MakeCanned(
                 regionDeltas: new Dictionary<string, long> { ["R1"] = delta },
-                claimOk: calls >= 2); });
+                claimOk: calls >= 2);
+            });
 
         StabilizeAndArm(tm);
         Assert.Equal(1, calls);

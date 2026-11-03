@@ -65,31 +65,30 @@ public class Mod : IMod
         {
             string modDir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)
                             ?? Environment.CurrentDirectory;
-            ModLogger.Init(modDir);
+            ModLogger.Init(modDir, "[Treasure Master]", "treasuremaster", errorFlush: () => Flight.RequestFlush("error"));
             Flight.Init(modDir);
-            // TM-8: the Denuvo-free build loads at a random (ASLR) image base. Resolve it once here,
-            // before the Engine and its threads exist, so every pinned address rebases onto it.
+            // The Denuvo free build loads at a random image base. Resolve it once here, before
+            // the Engine and its threads exist, so every pinned address rebases onto it.
             if (ImageBase.TryResolveLive(out long liveBase) && ImageBase.Set(liveBase))
                 ModLogger.Event(LogVerb.Startup, $"Game image base 0x{ImageBase.Base:X} (preferred 0x{ImageBase.Preferred:X}, delta 0x{ImageBase.Delta:X}); every pinned address is rebased onto it.");
             else
                 ModLogger.Warn(LogVerb.Startup, $"Could not read the game image base; using the preferred base 0x{ImageBase.Preferred:X}. If the game loaded elsewhere the treasure marks will never arm.");
             ModLogger.Event(LogVerb.Startup, "Treasure Master is starting inside fft_enhanced.exe.");
 
-            // Load mod config fail-soft: any read failure falls back to the Tuning default (true).
-            // The Reloaded launcher writes the user's edits to <Reloaded>/User/Mods/<ModId>/Config.json,
-            // NOT to the deployed mod folder -- so read the user file when it exists, falling back to
-            // modDir/Config.json (the shipped default) before the user has opened the config UI.
-            bool enabled        = Tuning.TreasureEnabled;                 // documented default
+            // Loads the config fail soft, falling back to the Tuning default on any read failure.
+            // The Reloaded launcher writes the user's edits under User/Mods, not the deployed mod
+            // folder, so read the user file when it exists and the shipped default otherwise.
+            bool enabled = Tuning.TreasureEnabled;                 // documented default
             bool claimDetection = Tuning.ClaimDetectionEnabled;           // documented default
-            _grantEnabled       = Tuning.AllUnitsTreasureHunterEnabled;   // documented default (false)
-            _rareOnlyEnabled    = Tuning.RareTreasureOnlyEnabled;         // documented default (false)
+            _grantEnabled = Tuning.AllUnitsTreasureHunterEnabled;   // documented default (false)
+            _rareOnlyEnabled = Tuning.RareTreasureOnlyEnabled;         // documented default (false)
             try
             {
                 var configPath = ResolveConfigPath(modDir);
-                var cfg        = Configurable<Config>.FromFile(configPath, "FFT Treasure Master Configuration");
-                enabled        = cfg.Enabled;
+                var cfg = Configurable<Config>.FromFile(configPath, "FFT Treasure Master Configuration");
+                enabled = cfg.Enabled;
                 claimDetection = cfg.HideClaimedTiles;
-                _grantEnabled  = cfg.AllUnitsTreasureHunter;
+                _grantEnabled = cfg.AllUnitsTreasureHunter;
                 _rareOnlyEnabled = cfg.RareTreasureOnly;
                 ModLogger.EventWithTrace(LogVerb.Config,
                     $"Configuration loaded: Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_grantEnabled} RareTreasureOnly={_rareOnlyEnabled}.",

@@ -1,20 +1,15 @@
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Stateless write-path for the Treasure Master module. Separated from ArmAudit (the
-/// read-path gate evaluator) per the read-path/write-path split: ArmAudit never writes,
-/// TileHolder never evaluates arm gates.
+/// The write path for the Treasure Master module, with no state of its own.
+/// ArmAudit reads and never writes, and TileHolder writes and never evaluates arm gates.
 ///
-/// <see cref="Hold"/> iterates each tile address in the map:
-///   Writable guard -- skip on any failed guard.
-///   U8 read        -- classify via <see cref="TreasureMaster.ClassifyAddr"/>.
-///   Resting        -- W8(WantWrite) if cur differs.
-///   Held           -- already marked, nothing to do.
-///   Foreign        -- counted but never written (off-screen render bytes from camera pan
-///                     or action camera; they return to Resting when the tile scrolls back).
-///
-/// Returns (written, foreign) so the caller can log on first occurrence of foreign bytes
-/// without needing to re-read memory.
+/// <see cref="Hold"/> visits each tile address in the map behind a Writable guard, classifies
+/// the byte with <see cref="TreasureMaster.ClassifyAddr"/>, writes the mark on a Resting byte,
+/// leaves a Held byte alone, and counts a Foreign byte without writing it, since those are off
+/// screen render bytes from a camera pan that return to Resting when the tile scrolls back.
+/// Returns the written and foreign counts so the caller can log the first foreign bytes
+/// without re-reading memory.
 /// </summary>
 internal sealed class TileHolder
 {
@@ -55,10 +50,10 @@ internal sealed class TileHolder
     }
 
     /// <summary>
-    /// Reverts one tile's Held bytes back to their captured resting value (<paramref name="tile"/>.Addrs off).
-    /// Writable guard applied first; Foreign and Resting bytes are never written. Returns the count of
-    /// addresses actually reverted. This is the module's first Clear path -- required because the engine
-    /// does not reliably re-clear 0xCC on static maps when claim detection removes a tile mid-battle.
+    /// Reverts one tile's Held bytes to their captured resting value. The Writable guard comes
+    /// first, and Foreign and Resting bytes are never written. Returns how many addresses were
+    /// reverted. This is the module's only clear path, needed because the engine does not
+    /// reliably re-clear the mark on static maps when claim detection removes a tile mid battle.
     /// </summary>
     internal int Unlight(TreasureTile tile)
     {

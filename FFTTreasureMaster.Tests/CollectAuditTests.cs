@@ -3,14 +3,14 @@ namespace FFTTreasureMaster.Tests;
 public class CollectAuditTests
 {
     // Worked example (spec): map 74, slot 0 -> idx = 296, addr = 0x1411A7680 + 37 = 0x1411A76A5, bit = 7.
-    private const long Base    = 0x1411A7680L;
-    private const int  Map74   = 74;
+    private const long Base = 0x1411A7680L;
+    private const int Map74 = 74;
 
     private static (long addr, int bit) Decode(int mapId, int slot)
     {
-        int idx  = mapId * 4 + slot;
+        int idx = mapId * 4 + slot;
         long addr = Base + idx / 8;
-        int  bit  = 7 - (idx % 8);
+        int bit = 7 - (idx % 8);
         return (addr, bit);
     }
 
@@ -23,11 +23,11 @@ public class CollectAuditTests
         Assert.Equal(7, bit);
 
         var mem = new FakeSparseMemory();
-        mem.U8s[addr]         = 0x80;   // bit 7 set
+        mem.U8s[addr] = 0x80;   // bit 7 set
         mem.ReadableAddrs.Add(addr);
 
         var audit = new CollectAudit(mem);
-        var tile  = new TreasureTile { X = 0, Y = 1, Slot = 0 };
+        var tile = new TreasureTile { X = 0, Y = 1, Slot = 0 };
         Assert.True(audit.IsCollected(Map74, tile));
     }
 
@@ -36,11 +36,11 @@ public class CollectAuditTests
     {
         var (addr, _) = Decode(Map74, 0);
         var mem = new FakeSparseMemory();
-        mem.U8s[addr]         = 0x00;   // bit 7 clear
+        mem.U8s[addr] = 0x00;   // bit 7 clear
         mem.ReadableAddrs.Add(addr);
 
         var audit = new CollectAudit(mem);
-        var tile  = new TreasureTile { X = 0, Y = 1, Slot = 0 };
+        var tile = new TreasureTile { X = 0, Y = 1, Slot = 0 };
         Assert.False(audit.IsCollected(Map74, tile));
     }
 
@@ -54,11 +54,11 @@ public class CollectAuditTests
         Assert.Equal(6, bit1);
 
         var mem = new FakeSparseMemory();
-        mem.U8s[addr1]         = 0x40;   // bit 6 set, bit 7 clear
+        mem.U8s[addr1] = 0x40;   // bit 6 set, bit 7 clear
         mem.ReadableAddrs.Add(addr1);
 
         var audit = new CollectAudit(mem);
-        Assert.True(audit.IsCollected(Map74,  new TreasureTile { Slot = 1 }));   // bit 6 set -> collected
+        Assert.True(audit.IsCollected(Map74, new TreasureTile { Slot = 1 }));   // bit 6 set -> collected
         Assert.False(audit.IsCollected(Map74, new TreasureTile { Slot = 0 }));   // bit 7 clear -> not collected
     }
 
@@ -71,14 +71,14 @@ public class CollectAuditTests
         // ReadableAddrs intentionally NOT populated
 
         var audit = new CollectAudit(mem);
-        var tile  = new TreasureTile { X = 0, Y = 1, Slot = 0 };
+        var tile = new TreasureTile { X = 0, Y = 1, Slot = 0 };
         Assert.False(audit.IsCollected(Map74, tile));
     }
 
     [Fact]
     public void Fail_safe_unknown_slot_reads_nothing()
     {
-        var mem   = new FakeSparseMemory();
+        var mem = new FakeSparseMemory();
         var audit = new CollectAudit(mem);
 
         // Slot -1 (default / unknown): must return false and not touch game memory.

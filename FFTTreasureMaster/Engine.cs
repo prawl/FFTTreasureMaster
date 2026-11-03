@@ -7,15 +7,14 @@ namespace FFTTreasureMaster;
 
 /// <summary>
 /// The Treasure Master runtime. One background loop reads the battle sentinels once per tick,
-/// steps the <see cref="BattleState"/> machine for the battle enter/exit edges, and drives the
-/// <see cref="TreasureMaster"/> module: while a battle map is on screen it holds the 0x80 mark
-/// bit on each known treasure tile so the tiles stay lit. Nothing here knows about weapons,
-/// kills, or growth -- the module is gated solely by the config toggle.
+/// steps the <see cref="BattleState"/> machine for the enter and exit edges, and drives the
+/// <see cref="TreasureMaster"/> module, which holds the mark on each known treasure tile while
+/// a battle map is on screen. The module is gated only by the config toggle.
 /// </summary>
 internal sealed class Engine
 {
-    // Poll fast: the running-water terrain animation clears the held mark between ticks, and the
-    // FastHold thread (~8ms) backs this up. 33ms keeps the map-id / phase machine responsive.
+    // Polls fast because the running water terrain animation clears the held mark between ticks.
+    // The FastHold thread backs this up, and 33ms keeps the map id and phase machine responsive.
     private const int PollMs = 33;
 
     private readonly TreasureMaster _treasure;
@@ -35,15 +34,18 @@ internal sealed class Engine
         var liveMem = new LiveMemory();
         var resolver = new AnchorResolver(liveMem);
         _treasure = new TreasureMaster(
-            load:           () => TreasureDb.Load(modDir),
-            datasetStamp:   () => { try { return File.GetLastWriteTimeUtc(treasureJson); }
-                                    catch { return null; } },
-            mem:            liveMem,
-            enabled:        enabled,
+            load: () => TreasureDb.Load(modDir),
+            datasetStamp: () =>
+            {
+                try { return File.GetLastWriteTimeUtc(treasureJson); }
+                catch { return null; }
+            },
+            mem: liveMem,
+            enabled: enabled,
             claimDetection: claimDetection,
             collectDetection: claimDetection,
-            resolver:       resolver.TryResolve,
-            addrs:          _addrs);
+            resolver: resolver.TryResolve,
+            addrs: _addrs);
         _treasure.StartFastHold();
     }
 
@@ -71,12 +73,12 @@ internal sealed class Engine
 
     private void Tick()
     {
-        uint slot0      = Mem.U32(_addrs.Slot0);
-        uint slot9      = Mem.U32(_addrs.Slot9);
-        int  battleMode = Mem.U8(_addrs.BattleMode);
-        bool paused     = Mem.U8(_addrs.PauseFlag) == 1;
-        int  eventId    = Mem.U16(_addrs.EventId);
-        var  now        = DateTime.Now;
+        uint slot0 = Mem.U32(_addrs.Slot0);
+        uint slot9 = Mem.U32(_addrs.Slot9);
+        int battleMode = Mem.U8(_addrs.BattleMode);
+        bool paused = Mem.U8(_addrs.PauseFlag) == 1;
+        int eventId = Mem.U16(_addrs.EventId);
+        var now = DateTime.Now;
 
         // Enter is instant; exit is debounced (battleMode flickers, slot9 sticks). Reset the
         // module on BOTH edges so a battle that restarts without a clean exit still starts clean.
@@ -102,9 +104,8 @@ internal sealed class Engine
             _treasure.ResetBattle();
         }
 
-        // Treasure gates on "a battle map is on screen" (slot9 armed + mode != 0) rather than
-        // strict in-live: stable through formation, enemy turns, and cast animations while still
-        // excluding the world map (mode 0).
+        // Treasure gates on a battle map being on screen rather than strict in live, which stays
+        // stable through formation, enemy turns and cast animations while excluding the world map.
         bool battleDisplayed = BattleState.BattleDisplayed(slot9, battleMode);
 
         // TEMP (RetryDiagnostics): log battle-presence transitions. Keyed on displayed + the two

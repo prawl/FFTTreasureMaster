@@ -8,10 +8,9 @@ using Reloaded.Mod.Interfaces;
 namespace FFTTreasureMaster.Configuration;
 
 /// <summary>
-/// Base for mod config types.  Mirrors the Configurable pattern from the
-/// Reloaded-II mod template: FromFile constructs or loads an instance, Save
-/// writes it back, and IUpdatableConfigurable ties it to the Reloaded launcher
-/// property grid via Configurator.
+/// Base for mod config types, mirroring the Reloaded-II mod template. FromFile constructs or
+/// loads an instance, Save writes it back, and IUpdatableConfigurable ties it to the launcher
+/// property grid through Configurator.
 /// </summary>
 public class Configurable<TParentType> : IUpdatableConfigurable
     where TParentType : Configurable<TParentType>, new()
@@ -35,8 +34,8 @@ public class Configurable<TParentType> : IUpdatableConfigurable
     [JsonIgnore]
     public string? ConfigName { get; set; }
 
-    // FileSystemWatcher kept as a field so the GC doesn't collect it while active.
-    // Private fields are ignored by System.Text.Json by default -- no attribute needed.
+    // Kept as a field so the GC does not collect the watcher while active. System.Text.Json
+    // ignores private fields, so no attribute is needed.
     private FileSystemWatcher? _watcher;
 
     Action IConfigurable.Save => Save;
@@ -52,7 +51,7 @@ public class Configurable<TParentType> : IUpdatableConfigurable
     public static TParentType FromFile(string filePath, string configName)
     {
         var result = File.Exists(filePath) ? LoadFromFile(filePath) : new TParentType();
-        result.FilePath   = filePath;
+        result.FilePath = filePath;
         result.ConfigName = configName;
         if (!File.Exists(filePath))
             result.Save();
@@ -89,7 +88,7 @@ public class Configurable<TParentType> : IUpdatableConfigurable
     private void EnableWatcher()
     {
         if (string.IsNullOrEmpty(FilePath)) return;
-        var dir  = Path.GetDirectoryName(FilePath);
+        var dir = Path.GetDirectoryName(FilePath);
         var file = Path.GetFileName(FilePath);
         if (string.IsNullOrEmpty(dir) || string.IsNullOrEmpty(file)) return;
         _watcher?.Dispose();
@@ -103,7 +102,7 @@ public class Configurable<TParentType> : IUpdatableConfigurable
         try
         {
             var fresh = LoadFromFile(FilePath!);
-            fresh.FilePath   = FilePath;
+            fresh.FilePath = FilePath;
             fresh.ConfigName = ConfigName;
             ConfigurationUpdated?.Invoke(fresh);
         }

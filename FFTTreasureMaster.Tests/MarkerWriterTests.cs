@@ -75,16 +75,16 @@ public class MarkerWriterTests
 
         Assert.Equal(2, n);
         long ab = FakeBase + MarkerWriter.ArrayOffset;
-        Assert.Equal(2u,  mem.WrittenU32[ab + MarkerWriter.FldEnabled]);
-        Assert.Equal(3u,  mem.WrittenU32[ab + MarkerWriter.FldX]);
-        Assert.Equal(0u,  mem.WrittenU32[ab + MarkerWriter.FldFloor]);
-        Assert.Equal(7u,  mem.WrittenU32[ab + MarkerWriter.FldY]);
+        Assert.Equal(2u, mem.WrittenU32[ab + MarkerWriter.FldEnabled]);
+        Assert.Equal(3u, mem.WrittenU32[ab + MarkerWriter.FldX]);
+        Assert.Equal(0u, mem.WrittenU32[ab + MarkerWriter.FldFloor]);
+        Assert.Equal(7u, mem.WrittenU32[ab + MarkerWriter.FldY]);
 
         long e1 = ab + MarkerWriter.Stride;
-        Assert.Equal(2u,  mem.WrittenU32[e1 + MarkerWriter.FldEnabled]);
+        Assert.Equal(2u, mem.WrittenU32[e1 + MarkerWriter.FldEnabled]);
         Assert.Equal(10u, mem.WrittenU32[e1 + MarkerWriter.FldX]);
-        Assert.Equal(0u,  mem.WrittenU32[e1 + MarkerWriter.FldFloor]);
-        Assert.Equal(2u,  mem.WrittenU32[e1 + MarkerWriter.FldY]);
+        Assert.Equal(0u, mem.WrittenU32[e1 + MarkerWriter.FldFloor]);
+        Assert.Equal(2u, mem.WrittenU32[e1 + MarkerWriter.FldY]);
     }
 
     // (4) utility pointer is null (battle not yet built) -> no-op

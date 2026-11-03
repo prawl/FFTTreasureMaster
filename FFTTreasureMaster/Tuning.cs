@@ -1,16 +1,15 @@
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Treasure Master tuning knobs, in one place so the state machine, the arm gate, and the
-/// fast-hold thread agree. Plain constants -- no build flavors (the mod ships a single
-/// configuration; the only user-facing lever is the on/off toggle in the Reloaded config).
+/// The Treasure Master tuning knobs, kept in one place so every part of the module agrees.
+/// Plain constants, since the mod ships one configuration and the only user facing lever is
+/// the toggle in the Reloaded config.
 /// </summary>
 internal static class Tuning
 {
-    /// <summary>Documented default for Config.Enabled (the runtime value flows from
-    /// FFTTreasureMaster.Configuration.Config, loaded by Mod.cs at startup; this constant is the
-    /// fallback when the config file can't be read). Default ON -- marking treasure tiles is the
-    /// whole point of the mod; the player turns it OFF in the Reloaded config if they prefer.</summary>
+    /// <summary>The documented default for Config.Enabled. The runtime value comes from the
+    /// config loaded by Mod.cs, and this is the fallback when the file cannot be read. Default on,
+    /// since marking treasure tiles is the whole point of the mod.</summary>
     public const bool TreasureEnabled = true;
 
     /// <summary>Consecutive same-map-id ticks required before arming begins (~1s at 33ms).</summary>
@@ -19,8 +18,8 @@ internal static class Tuning
     /// <summary>Ticks between full fingerprint revalidations while ARMED.</summary>
     public const int TreasureRevalidateEveryNTicks = 30;
 
-    /// <summary>Maximum arming attempts before logging "waiting to arm" once per battle.
-    /// Arming continues indefinitely after the cap -- the log is informational only.</summary>
+    /// <summary>Arming attempts before logging "waiting to arm" once per battle. Arming keeps
+    /// going after the cap, so the log is informational only.</summary>
     public const int TreasureArmAttemptCap = 60;
 
     /// <summary>Minimum number of Resting or Held ("ok") tile addresses required at arm time
@@ -43,62 +42,55 @@ internal static class Tuning
     /// Out-paces the running-water wipe that clears 0x80 between 33 ms loop re-stamps.</summary>
     public const int TreasureFastHoldMs = 8;
 
-    /// <summary>Master gate for the experimental EnhancedMarker write path (native yellow
-    /// move-find diamonds via the game's EnhancedMarkingUtility -- see MarkerWriter.cs).
-    /// While false, MarkerWriter.Write is a guaranteed no-op that reads no game memory.
+    /// <summary>Master gate for the experimental native marker write path in MarkerWriter. While
+    /// false, MarkerWriter.Write is a guaranteed no-op that reads no game memory.
     ///
-    /// DARK. The EnhancedMarker (floating-diamond) path was abandoned: dicene's build differs
-    /// from our 1.5 (both code and the utility pointer shifted non-uniformly; his
-    /// EnhancedMarkingUtilityPtr reads null here), and an idle marker array can't be fingerprinted.
-    /// We get yellow tiles instead via the flat MarkValue (0xCC) write -- see TreasureMaster.Policy.
-    /// Left wired (no-op) in case the utility pointer is ever found by disassembly.</summary>
+    /// Dark. The floating diamond path was abandoned because dicene's build differs from our 1.5,
+    /// his utility pointer reads null here, and an idle marker array cannot be fingerprinted. We
+    /// get yellow tiles from the flat MarkValue write instead. Left wired in case the pointer is
+    /// ever found by disassembly.</summary>
     public const bool EnhancedMarkersEnabled = false;
 
     /// <summary>
-    /// Documented default for Config.HideClaimedTiles (the runtime value flows from
-    /// FFTTreasureMaster.Configuration.Config via Mod.cs; this constant is the fallback used only
-    /// when the ctor is passed a null claimDetection). When true, a tile stops being highlighted
-    /// once its Move-Find treasure is claimed -- an eligible unit (a Chemist, or any unit with the
-    /// Treasure Hunter movement ability) picks up the hidden item. The unit-occupancy + inventory
-    /// addresses are 1.5-verified and baked; the read path fails safe (any unreadable read returns
-    /// without marking a claim, so the worst case is a tile that stays lit). Default ON.
+    /// The documented default for Config.HideClaimedTiles. The runtime value comes from the
+    /// config through Mod.cs, and this is the fallback when the ctor gets a null claimDetection.
+    /// When true, a tile stops being highlighted once an eligible unit picks up its treasure.
+    /// The addresses are verified on 1.5 and the read path fails safe, so the worst case is a
+    /// tile that stays lit. Default on.
     /// </summary>
     public const bool ClaimDetectionEnabled = true;
 
-    /// <summary>Investigation flag for the "no tiles after Retry from Start of Battle" bug (root
-    /// cause found: the game rebuilds its tile-highlight overlay only on a full battle load, so an
-    /// in-battle Retry never re-consumes the held 0xCC -- see handoff.md "RETRY RENDER-GATE"). When
-    /// true, the engine logs battle-presence sentinel transitions (slot0/slot9/mode/displayed) and
-    /// the module logs its phase/inLive transitions plus a per-armed-tick hold breakdown -- all
-    /// DEDUPED (logged only on change). Left wired (OFF) for a future RE session. Reads are guarded.
-    /// (static readonly, not const, so the gated blocks do not trip CS0162 unreachable-code.)</summary>
+    /// <summary>Investigation flag for the missing tiles after "Retry from Start of Battle". The
+    /// game rebuilds its tile highlight overlay only on a full battle load, so an in battle Retry
+    /// never re-consumes the held mark, see handoff.md. When true, the engine logs the battle
+    /// presence sentinel transitions and the module logs its phase transitions and a per tick
+    /// hold breakdown, all deduped on change. Left wired off for a future session. Reads are
+    /// guarded. Static readonly rather than const so the gated blocks do not trip
+    /// CS0162.</summary>
     public static readonly bool RetryDiagnostics = false;
 
-    /// <summary>Live-test instrument for claim detection: when true, DetectClaims logs the set of
-    /// treasure tiles a unit is standing on plus each tile's rare/common item counts, DEDUPED
-    /// (logged only on change). Used to verify the claim-latch path on a real map; left wired OFF
-    /// because it re-fires every time a unit steps onto or off a treasure tile -- spam during a
-    /// moving battle. The per-tile ReadCount game-memory reads are skipped entirely while off.
-    /// (static readonly, not const, so the gated block does not trip CS0162 unreachable-code.)</summary>
+    /// <summary>Live test instrument for claim detection. When true, DetectClaims logs the set of
+    /// treasure tiles a unit stands on and each tile's item counts, deduped on change. Left wired
+    /// off because it re-fires every time a unit steps onto or off a treasure tile, which spams a
+    /// moving battle. The per tile ReadCount reads are skipped entirely while off. Static readonly
+    /// rather than const so the gated block does not trip CS0162.</summary>
     public static readonly bool ClaimDiagnostics = false;
 
-    /// <summary>Gate for PERSISTENT collected-treasure detection (excluding tiles whose Move-Find
-    /// treasure was collected AND the battle won in a PRIOR battle -- see CollectAudit).
-    /// The table is located and decoded: 64-byte bitfield at Offsets.TreasureCollectedBase,
-    /// indexed as idx = mapId*4 + slot, MSB-first within each byte. CollectAudit reads this
-    /// Readable-guarded; any unreadable byte returns false (tile stays lit -- fail-safe).
-    /// (static readonly, not const, so the gated wiring does not trip CS0162 unreachable-code.)</summary>
+    /// <summary>Gate for hiding tiles whose treasure was collected and the battle won in a prior
+    /// battle, see CollectAudit. The table is a 64 byte bitfield at Offsets.TreasureCollectedBase,
+    /// indexed by map id times 4 plus slot, most significant bit first. CollectAudit reads it
+    /// behind a Readable guard, so an unreadable byte leaves the tile lit. Static readonly rather
+    /// than const so the gated wiring does not trip CS0162.</summary>
     public static readonly bool CollectDetectionEnabled = true;
 
     // --- innate Treasure Hunter grant (TreasureHunterGrant, via the FFTIVC modloader) ---
 
-    /// <summary>Documented default for Config.AllUnitsTreasureHunter (the runtime value flows
-    /// from FFTTreasureMaster.Configuration.Config via Mod.cs; this constant is the fallback
-    /// when the config file cannot be read). When true, the mod asks the separately installed
-    /// FFTIVC Mod Loader to add the Treasure Hunter movement ability as a built-in innate on
-    /// the standard player jobs, so any unit of those jobs picks up Move-Find treasure by
-    /// stepping on the tile. Enemy humans of the covered jobs gain it too. Default OFF: it
-    /// changes battle balance, so the player opts in.</summary>
+    /// <summary>The documented default for Config.AllUnitsTreasureHunter. The runtime value comes
+    /// from the config through Mod.cs, and this is the fallback when the file cannot be read. When
+    /// true, the mod asks the separately installed FFTIVC Mod Loader to add the Treasure Hunter
+    /// movement ability as a built in innate on the standard player jobs, so any unit of those
+    /// jobs picks up treasure by stepping on the tile. Enemy humans of those jobs gain it too.
+    /// Default off, because it changes battle balance, so the player opts in.</summary>
     public const bool AllUnitsTreasureHunterEnabled = false;
 
     // --- rare treasure only (loader trap-table patch) ---
@@ -120,15 +112,14 @@ internal static class Tuning
     /// stamped on every table patch. Must match ModConfig.json.</summary>
     public const string OwnerModId = "prawl.fft.treasuremaster";
 
-    /// <summary>JOB_DATA row ids covered by the Treasure Hunter grant: Ramza's three story
-    /// jobs (1, 2, 3), the joined special characters with a free innate slot (13 Orlandeau,
-    /// 22 Mustadio, 25 Rapha, 26 Marach, 30 Agrias, 50 Cloud, 72 Reis as Holy Dragon), and
-    /// the twenty generic jobs (74..93). Deliberately excluded: 31 Beowulf (the table's only
-    /// Templar row, shared with enemy Templars), 42 Meliadoul (row attribution not yet
-    /// live-verified), 15 Reis human / 144 Byblos / 145 Construct 8 (all four innate slots
-    /// already occupied), 21 Orran (guest-only), and every monster row (94..141: wild-monster
-    /// spillover outweighs the benefit). Values from the vanilla JOB_DATA dump verified against
-    /// the live premise probe of 2026-07-21.</summary>
+    /// <summary>The JOB_DATA rows the Treasure Hunter grant covers. Ramza's three story jobs (1,
+    /// 2, 3), the joined special characters with a free innate slot (13 Orlandeau, 22 Mustadio,
+    /// 25 Rapha, 26 Marach, 30 Agrias, 50 Cloud, 72 Reis as Holy Dragon), and the twenty generic
+    /// jobs (74 to 93). Left out are 31 Beowulf, the only Templar row and shared with enemy
+    /// Templars, 42 Meliadoul, whose row is not live verified, 15 Reis human, 144 Byblos and 145
+    /// Construct 8, whose four innate slots are full, 21 Orran, a guest only, and every monster
+    /// row (94 to 141), where wild monster spillover outweighs the benefit. Values from the
+    /// vanilla JOB_DATA dump, verified against the live premise probe of July 2026.</summary>
     public static readonly int[] TreasureHunterGrantJobIds =
     {
         1, 2, 3, 13, 22, 25, 26, 30, 50, 72,
@@ -150,7 +141,7 @@ internal static class Tuning
     /// merge in the modloader; our late write usually wins, this makes it certain).</summary>
     public const int GrantReassertDelayMs = 2000;
 
-    // --- update-hardening: signature re-resolve scan mechanics (AnchorScan/AnchorResolver) ---
+    // --- the signature re-resolve scan mechanics (AnchorScan and AnchorResolver) ---
 
     /// <summary>Bytes read per chunk while scanning a section for a signature pattern. Chunking
     /// keeps a single TryReadBytes call small and predictable; the whole section is covered by
@@ -163,8 +154,8 @@ internal static class Tuning
     public const int AnchorScanMaxSectionBytes = 0x2000000;
 
     /// <summary>Total bytes scannable across every eligible section before the whole resolve
-    /// gives up and returns null (defense-in-depth: several moderately-sized sections could
-    /// otherwise sum past a sane scan budget even though each passes AnchorScanMaxSectionBytes).</summary>
+    /// gives up and returns null. Several moderate sections could otherwise sum past a sane
+    /// budget even though each passes AnchorScanMaxSectionBytes.</summary>
     public const int AnchorScanMaxTotalBytes = 0x4000000;
 
     /// <summary>Per-pattern hit cap. Two or more hits already means the signature is ambiguous

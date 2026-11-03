@@ -1,23 +1,16 @@
-# tools/pipeline.ps1 - the shared pipeline prefix for BuildLinked.ps1 (dev deploy)
-# and Publish.ps1 (release zip). Dot-source it; everything here lands in the
-# caller's scope.
+# tools/pipeline.ps1 holds the steps BuildLinked.ps1 (dev deploy) and Publish.ps1 (release zip)
+# share. Dot-source it; everything here lands in the caller's scope.
 #
-# Mirrors the sibling FFTItemOverhaul mod's split: one copy of bake -> test ->
-# dotnet publish, two callers, no drift.
-#
-# Step order is load-bearing: gen_treasure_db.py must run BEFORE the unit tests
-# (TreasureSchemaTests reads the build-generated FFTTreasureMaster/treasure.json),
-# so call Invoke-TablePipeline first and Invoke-UnitTestGate second.
+# The shared gates load first from gates/pipeline/gates.ps1. The bake must run before the unit
+# tests, because TreasureSchemaTests reads the treasure.json the bake writes.
 
-# Repo root, resolved from this file's own location so everything works no
-# matter what cwd the caller happens to be in when it dot-sources us.
+. "$PSScriptRoot\..\gates\pipeline\gates.ps1"
+
+# Resolved from this file's own location, so the caller's working folder does not matter.
 $PipelineRepoRoot = Split-Path -Parent $PSScriptRoot
 
-# Required-file manifest shared by BuildLinked's deploy verification and Publish's
-# Verify-Package: the mod manifest, the runtime (DLL + deps.json for the Reloaded
-# loader + Newtonsoft), and the baked treasure dataset. ModConfig.json declares
-# "ModDll": "FFTTreasureMaster.dll", so the DLL is non-optional. Paths are
-# forward-slash relative to the mod root (zip-entry style).
+# The files a deploy and a package must both contain. ModConfig.json declares the DLL, so it is
+# never optional. Paths are forward slash and relative to the mod root, the way zip entries are.
 $RequiredModFiles = @(
     "ModConfig.json",
     "FFTTreasureMaster.dll",
@@ -27,10 +20,8 @@ $RequiredModFiles = @(
 )
 
 function Invoke-TablePipeline {
-    # Bake the treasure tile address dataset. The bake self-tests (pinned FNV-1a64
-    # vectors + masked-hash vector) and exits 1 on failure -- which refuses
-    # deploy/package the same way the item mod's dominance gate does. Missing python
-    # is a hard failure, not a skip.
+    # Bakes the treasure tile dataset. The bake self tests and exits 1 on failure, which refuses
+    # the deploy or the package. Missing python is a hard failure, not a skip.
     param(
         [Parameter(Mandatory = $true)][ValidateSet('DEPLOY', 'PACKAGE')]
         [string]$FailVerb
@@ -49,29 +40,12 @@ function Invoke-TablePipeline {
     Write-Host "  -> Baked + self-tested OK." -ForegroundColor Green
 }
 
-function Invoke-UnitTestGate {
-    # The TDD gate. ONE canonical flag set, so a test that passes locally passed
-    # under the same conditions everywhere.
-    param(
-        [Parameter(Mandatory = $true)][ValidateSet('DEPLOY', 'PACKAGE')]
-        [string]$FailVerb
-    )
-
-    & dotnet test "$PipelineRepoRoot\FFTTreasureMaster.Tests\FFTTreasureMaster.Tests.csproj" --nologo -v q
-    if ($LASTEXITCODE -ne 0) {
-        throw "REFUSING TO ${FailVerb}: unit tests failed (see above)."
-    }
-}
-
 function Invoke-TreasureMasterPublish {
-    # Build the Treasure Master runtime into $OutDir. The framework-dependent publish
-    # emits FFTTreasureMaster.dll, Newtonsoft.Json.dll, FFTTreasureMaster.deps.json
-    # (the Reloaded loader reads it), and treasure.json (copied via the csproj).
+    # Builds the runtime into $OutDir. The framework dependent publish emits the DLL, Newtonsoft,
+    # the deps.json the Reloaded loader reads, and treasure.json through the csproj.
     #
-    # -CleanFirst forces a FULL recompile: MSBuild's incremental up-to-date check
-    # can ship a stale Release DLL with a fresh timestamp (the copy step re-dates the
-    # file even when CoreCompile is skipped). The clean costs seconds and deletes the
-    # failure class.
+    # -CleanFirst forces a full recompile. MSBuild's up to date check can ship a stale Release
+    # DLL with a fresh timestamp, and the clean costs seconds.
     param(
         [Parameter(Mandatory = $true)][string]$OutDir,
         [switch]$CleanFirst

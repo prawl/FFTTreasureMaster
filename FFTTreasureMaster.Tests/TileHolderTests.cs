@@ -28,13 +28,14 @@ public class TileHolderTests
     {
         long addr = 0x140300000L;
         var mem = new FakeSparseMemory();
-        mem.U8s[addr]  = currentByte;
+        mem.U8s[addr] = currentByte;
         mem.ReadableAddrs.Add(addr);
         if (writable) mem.WritableAddrs.Add(addr);
 
         var tile = new TreasureTile
         {
-            X = 1, Y = 2,
+            X = 1,
+            Y = 2,
             Addrs = new System.Collections.Generic.List<TreasureAddrEntry>
             {
                 new() { Addr = addr, Off = restOff },
@@ -42,7 +43,9 @@ public class TileHolderTests
         };
         var map = new TreasureMap
         {
-            MapId = 74, Name = "Test", TileCount = 1,
+            MapId = 74,
+            Name = "Test",
+            TileCount = 1,
             Tiles = new System.Collections.Generic.List<TreasureTile> { tile },
         };
         return (mem, map, addr);
@@ -128,12 +131,12 @@ public class TileHolderTests
     [Fact]
     public void Unlight_multi_addr_reverts_only_Held_returns_correct_count()
     {
-        long addrHeld    = 0x140300100L;
+        long addrHeld = 0x140300100L;
         long addrResting = 0x140300200L;
         long addrForeign = 0x140300300L;
 
         var mem = new FakeSparseMemory();
-        mem.U8s[addrHeld]    = TreasureMaster.MarkValue;
+        mem.U8s[addrHeld] = TreasureMaster.MarkValue;
         mem.U8s[addrResting] = 0x00;
         mem.U8s[addrForeign] = 0xAB;
         foreach (var a in new[] { addrHeld, addrResting, addrForeign })
@@ -144,7 +147,8 @@ public class TileHolderTests
 
         var tile = new TreasureTile
         {
-            X = 3, Y = 4,
+            X = 3,
+            Y = 4,
             Addrs = new System.Collections.Generic.List<TreasureAddrEntry>
             {
                 new() { Addr = addrHeld,    Off = 0x00 },
@@ -163,7 +167,7 @@ public class TileHolderTests
         Assert.Equal(0x00, mem.Written[addrHeld]);
     }
 
-    // ── ASLR (TM-8): tile addresses are dataset-space; the write path must rebase them ─────────
+    // ── ASLR, tile addresses are dataset-space and the write path must rebase them ────────────
 
     // 0x140E8BC7B is a real R2 tile address from FFTTreasureMaster/treasure.json (dataset space).
     private const long DatasetTileAddr = 0x140E8BC7BL;
@@ -171,7 +175,8 @@ public class TileHolderTests
 
     private static TreasureTile OneAddrTile(byte off) => new()
     {
-        X = 1, Y = 2,
+        X = 1,
+        Y = 2,
         Addrs = new System.Collections.Generic.List<TreasureAddrEntry>
         {
             new() { Addr = DatasetTileAddr, Off = off },
@@ -191,7 +196,9 @@ public class TileHolderTests
             mem.WritableAddrs.Add(live);   // the dataset address is deliberately NOT seeded
             var map = new TreasureMap
             {
-                MapId = 74, Name = "Test", TileCount = 1,
+                MapId = 74,
+                Name = "Test",
+                TileCount = 1,
                 Tiles = new System.Collections.Generic.List<TreasureTile> { OneAddrTile(0x01) },
             };
 

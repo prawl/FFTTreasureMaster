@@ -19,7 +19,7 @@ internal interface ILoaderEvents
     void OnModLoaded(Action<string> handler);
 }
 
-/// <summary>Live adapter over the Reloaded loader handle. Untested by design.</summary>
+/// <summary>Live adapter over the Reloaded loader handle. Live only, so untested.</summary>
 internal sealed class ReloadedLoaderEvents : ILoaderEvents
 {
     private readonly IModLoaderV1 _loader;

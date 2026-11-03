@@ -15,7 +15,7 @@ public class ClaimAuditTests
     private static void SeedUnit(FakeSparseMemory mem, int k, int x, int y, bool readable = true)
     {
         long xAddr = Offsets.UnitArrayBaseX + (long)k * Offsets.UnitRecordStride;
-        mem.U8s[xAddr]     = (byte)x;
+        mem.U8s[xAddr] = (byte)x;
         mem.U8s[xAddr + 1] = (byte)y;
         if (readable) mem.ReadableAddrs.Add(xAddr);
     }
@@ -47,10 +47,10 @@ public class ClaimAuditTests
     public void CollectOccupied_skips_origin_and_off_grid_and_unreadable()
     {
         var mem = new FakeSparseMemory();
-        SeedUnit(mem, k: 1, x: 0,  y: 0);                 // origin -> skipped
+        SeedUnit(mem, k: 1, x: 0, y: 0);                 // origin -> skipped
         SeedUnit(mem, k: 2, x: 40, y: 5);                 // off-grid x -> skipped
-        SeedUnit(mem, k: 3, x: 5,  y: 99);                // off-grid y -> skipped
-        SeedUnit(mem, k: 4, x: 6,  y: 6, readable: false);// unreadable -> skipped
+        SeedUnit(mem, k: 3, x: 5, y: 99);                // off-grid y -> skipped
+        SeedUnit(mem, k: 4, x: 6, y: 6, readable: false);// unreadable -> skipped
         var occ = new HashSet<(int, int)>();
 
         new ClaimAudit(mem).CollectOccupied(occ);

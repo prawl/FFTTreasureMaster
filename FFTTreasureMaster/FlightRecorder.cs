@@ -4,9 +4,9 @@ using System.IO;
 
 namespace FFTTreasureMaster;
 
-/// <summary>One flight-recorder entry: a monotonic elapsed-ms stamp, an event type tag, and a
-/// free-form payload. Immutable value type: copying it under the lock is a plain struct copy,
-/// never a torn read.</summary>
+/// <summary>One flight recorder entry, with a monotonic elapsed ms stamp, an event type tag and
+/// a free form payload. An immutable struct, so copying it under the lock is never a torn
+/// read.</summary>
 internal readonly struct FlightRecord
 {
     public readonly long ElapsedMs;
@@ -22,21 +22,18 @@ internal readonly struct FlightRecord
 }
 
 /// <summary>
-/// The flight recorder's INSTANCE core (the "black box"), see docs/LOGGING.md. A bounded ring
-/// (<see cref="Capacity"/> records) of on-change (elapsedMs, type, payload) events; callers
-/// append via <see cref="Record"/> (cheap, lock-protected, no I/O ever happens there). The
-/// static <see cref="Flight"/> facade is the null-object every production call site uses; this
-/// class is the testable instance behind it: clock, wall-clock, file-writer, and retention
-/// lister/deleter are all injected so the whole ring/flush/retention contract is unit-testable
-/// with no real disk or clock (FlightRecorderTests). The pure serialize/retention-selection
-/// half lives in FlightRecorder.Policy.cs (the 200-line refactor seam).
+/// The flight recorder's instance core, the black box described in docs/LOGGING.md.
+/// A bounded ring of on change events that callers append to through <see cref="Record"/>, which
+/// is cheap, lock protected and never touches disk. The static <see cref="Flight"/> facade is
+/// what production calls. The clock, the file writer and the retention lister are injected, so
+/// the whole ring, flush and retention contract is unit tested with no real disk or clock. The
+/// pure half lives in FlightRecorder.Policy.cs.
 ///
-/// FLUSH SAFETY: <see cref="Flush"/> swaps the ring out UNDER the lock and does the
-/// serialize/write/prune OUTSIDE it, so the recording thread is never blocked on disk I/O. A
-/// flush failure is swallowed, never thrown, and never routed through ModLogger (a flush
-/// triggered by an error log calling back into the error log would recurse).
-/// <see cref="RequestFlush"/> only raises a pending flag; the real flush runs later from
-/// <see cref="DrainPending"/>, called once per Engine tick.
+/// <see cref="Flush"/> swaps the ring out under the lock and writes outside it, so the recording
+/// thread never waits on disk. A flush failure is swallowed and never routed through ModLogger,
+/// because a flush triggered by an error log calling back into the error log would recurse.
+/// <see cref="RequestFlush"/> only raises a flag, and <see cref="DrainPending"/> does the work
+/// once per Engine tick.
 /// </summary>
 internal sealed partial class FlightRecorder
 {
@@ -57,7 +54,7 @@ internal sealed partial class FlightRecorder
 
     private bool _pendingFlush;
     private string _pendingTrigger = "";
-    private bool _errorFlushArmed;   // FlushOnce latch: only the FIRST "error" request per launch flushes
+    private bool _errorFlushArmed;   // only the first error request per launch flushes
 
     /// <param name="modDir">Mod deployment directory; flushes land under modDir/flight/.</param>
     /// <param name="clock">Monotonic elapsedMs source. Default Environment.TickCount64.</param>
@@ -121,9 +118,8 @@ internal sealed partial class FlightRecorder
         catch { /* swallow: a flush failure must never throw or re-enter the logger */ }
     }
 
-    /// <summary>Raises a pending-flush flag ONLY; no I/O happens on this call. The "error"
-    /// trigger is FlushOnce: after the first-ever error request, every later one is a full
-    /// no-op, so an error storm cannot prune the retention into uselessness.</summary>
+    /// <summary>Raises the pending flush flag and does no I/O. The error trigger fires once per
+    /// launch, so an error storm cannot prune the retention into uselessness.</summary>
     public void RequestFlush(string trigger)
     {
         lock (_lock)

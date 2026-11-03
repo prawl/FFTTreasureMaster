@@ -3,34 +3,27 @@ using System.Threading;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Runs a dedicated background thread that re-stamps the armed map's tile addresses
-/// at a high frequency (~8 ms) so the 0x80 mark bit is set on every render frame.
+/// Runs a background thread that re-stamps the armed map's tile marks about every 8 ms.
+/// Running water maps animate the terrain render bytes at about 60 fps, which clears the held
+/// mark between the 33 ms loop's stamps and flickers. Stamping twice per animation frame keeps
+/// the mark set whenever a frame renders.
 ///
-/// Problem addressed: on running-water maps the engine animates terrain render-flag
-/// bytes at ~60 fps (~16 ms), clearing the held 0x80 between the 33 ms loop's
-/// re-stamps and causing visible flicker. Re-stamping at ~8 ms (≈2× per animation
-/// frame) out-paces the wipe so the bit is set whenever a frame renders.
-///
-/// Concurrency: TileHolder is stateless and OR-only (it never clears bits, only
-/// OR-sets 0x80 on Resting bytes via RPM/WPM). The fast thread and the 33 ms loop
-/// calling Hold on the same addresses is therefore safe: concurrent OR-sets to the
-/// same byte are idempotent and there is no clear path in this module.
-///
-/// The thread is not started in the ctor so that unit tests can drive
-/// <see cref="HoldOnce"/> directly without spawning OS threads.
+/// TileHolder is stateless and only ever sets bits, so the fast thread and the 33 ms loop
+/// holding the same addresses at once is safe. The thread is not started in the ctor, so unit
+/// tests can drive <see cref="HoldOnce"/> directly without OS threads.
 /// </summary>
 internal sealed class FastHold
 {
     private readonly TileHolder _holder;
-    private readonly int        _intervalMs;
+    private readonly int _intervalMs;
 
     private volatile TreasureMap? _map;
-    private volatile bool         _stop;
-    private Thread?               _thread;
+    private volatile bool _stop;
+    private Thread? _thread;
 
     public FastHold(TileHolder holder, int intervalMs)
     {
-        _holder     = holder;
+        _holder = holder;
         _intervalMs = intervalMs;
     }
 
@@ -52,8 +45,7 @@ internal sealed class FastHold
     }
 
     /// <summary>
-    /// Starts the background thread.  Idempotent: calling Start a second time is a no-op
-    /// if the thread is already running.
+    /// Starts the background thread. A second call while the thread runs does nothing.
     /// </summary>
     public void Start()
     {
@@ -61,7 +53,7 @@ internal sealed class FastHold
         _thread = new Thread(Run)
         {
             IsBackground = true,
-            Name         = "treasure-fasthold",
+            Name = "treasure-fasthold",
         };
         _thread.Start();
     }

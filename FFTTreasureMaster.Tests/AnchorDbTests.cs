@@ -157,14 +157,22 @@ public class AnchorDbTests
 
     private static TreasureTile Tile(int x, int y, params TreasureAddrEntry[] addrs) => new()
     {
-        X = x, Y = y, Addrs = new List<TreasureAddrEntry>(addrs),
-        RareItemId = 7, CommonItemId = 3, Slot = 1,
+        X = x,
+        Y = y,
+        Addrs = new List<TreasureAddrEntry>(addrs),
+        RareItemId = 7,
+        CommonItemId = 3,
+        Slot = 1,
     };
 
     private static TreasureMap Map(int mapId, params TreasureTile[] tiles) => new()
     {
-        MapId = mapId, Name = "Test Map", TileCount = tiles.Length,
-        FpVer = 2, FpLen = 1456, FpHashHex = "0xdeadbeefdeadbeef",
+        MapId = mapId,
+        Name = "Test Map",
+        TileCount = tiles.Length,
+        FpVer = 2,
+        FpLen = 1456,
+        FpHashHex = "0xdeadbeefdeadbeef",
         Tiles = new List<TreasureTile>(tiles),
     };
 

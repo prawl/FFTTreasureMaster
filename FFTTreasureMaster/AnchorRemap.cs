@@ -3,14 +3,11 @@ using System.Collections.Generic;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Pure remap of a TreasureDb's tile addresses by per-region delta, applied after a
-/// successful signature re-resolve (build-key mismatch; see the AnchorResolver design).
-/// addr' = addr + regionDeltas[region]. A pair is dropped when its region is null/unknown
-/// (absent from regionDeltas), or when the remapped address lands outside the module span
-/// or inside the UI render arena. A tile emptied of all its addr pairs is dropped entirely;
-/// a map is never dropped -- it is kept intact (fingerprint fields, name, tileCount) even
-/// with zero remaining tiles, exactly like an unshippable stub (the runtime nag needs the
-/// name/count either way). BuildKey and Anchors pass through unchanged.
+/// Remaps a dataset's tile addresses by each region's delta after a signature re-resolve.
+/// A pair is dropped when its region is unknown, or when the new address lands outside the
+/// module span or inside the UI render arena. A tile with no pairs left is dropped. A map is
+/// never dropped, because the runtime nag still needs its name and tile count. BuildKey and
+/// Anchors pass through unchanged.
 /// </summary>
 internal static class AnchorRemap
 {
@@ -36,7 +33,9 @@ internal static class AnchorRemap
 
                     addrs.Add(new TreasureAddrEntry
                     {
-                        Addr = remapped, Off = entry.Off, Region = entry.Region,
+                        Addr = remapped,
+                        Off = entry.Off,
+                        Region = entry.Region,
                     });
                 }
 
@@ -44,16 +43,23 @@ internal static class AnchorRemap
 
                 tiles.Add(new TreasureTile
                 {
-                    X = tile.X, Y = tile.Y, Addrs = addrs,
-                    RareItemId = tile.RareItemId, CommonItemId = tile.CommonItemId,
+                    X = tile.X,
+                    Y = tile.Y,
+                    Addrs = addrs,
+                    RareItemId = tile.RareItemId,
+                    CommonItemId = tile.CommonItemId,
                     Slot = tile.Slot,
                 });
             }
 
             maps.Add(new TreasureMap
             {
-                MapId = map.MapId, Name = map.Name, TileCount = map.TileCount,
-                FpVer = map.FpVer, FpLen = map.FpLen, FpHashHex = map.FpHashHex,
+                MapId = map.MapId,
+                Name = map.Name,
+                TileCount = map.TileCount,
+                FpVer = map.FpVer,
+                FpLen = map.FpLen,
+                FpHashHex = map.FpHashHex,
                 Tiles = tiles,
             });
         }

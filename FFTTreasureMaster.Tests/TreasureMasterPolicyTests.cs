@@ -34,10 +34,10 @@ public class TreasureMasterPolicyTests
     // ---- (1) MapIdValid ----
 
     [Theory]
-    [InlineData(0,   false)]   // uninitialized
-    [InlineData(1,   true)]    // low boundary
-    [InlineData(64,  true)]    // midpoint
-    [InlineData(74,  true)]    // The Siedge Weald (known real map id)
+    [InlineData(0, false)]   // uninitialized
+    [InlineData(1, true)]    // low boundary
+    [InlineData(64, true)]    // midpoint
+    [InlineData(74, true)]    // The Siedge Weald (known real map id)
     [InlineData(127, true)]    // high boundary
     [InlineData(128, false)]   // first invalid
     [InlineData(200, false)]

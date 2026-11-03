@@ -3,34 +3,19 @@ using System;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Pure statics behind the Treasure Master module -- no memory access, so they're
-/// unit-tested directly. The stateful orchestrator (the tick loop, write+hold, four-layer
-/// containment) lives in TreasureMaster.cs (a later stage).
+/// The pure decisions behind the Treasure Master module, tested directly since they touch no
+/// memory. The stateful tick loop lives in TreasureMaster.cs.
 ///
-/// Contract index:
-///   1. MapIdValid      -- 1..127 are the only live-battle map ids (FFTHandsFree contract);
-///                         0 = uninitialized, 128+ invalid.
-///   2. Fnv1a64         -- standard FNV-1a 64-bit; shared verbatim with the Python capture
-///                         tool (gen_treasure_db.py self-test) so cross-language drift is a
-///                         compile-time fact, not a runtime surprise.
-///   3. AddrState /
-///      ClassifyAddr    -- per-byte safety contract over the only legitimate values
-///                         {0x00, 0x01, MarkValue (0xCC)}; anything else is Foreign and is
-///                         never written.
-///   4. WantWrite /
-///      MarkValue       -- flat write of MarkValue (0xCC = cyan border, yellow fill). Set-only:
-///                         no Clear path exists; the engine clears marks itself.
-///   5. ArmVerdict /
-///      DecideArm       -- two-outcome arm gate: okCount >= minPlausible -> Arm;
-///                         otherwise -> Retry (infinite patience). Foreign bytes are NOT a
-///                         veto -- they are off-screen render bytes (camera pan / action
-///                         camera) that return to Resting when the tile scrolls back. Per-
-///                         write gating in TileHolder (L3) guarantees they are never written.
-///                         The Disarm verdict is reserved for fingerprint mismatches only
-///                         (handled in TreasureMaster.TickArming, not DecideArm).
-///   6. BuildKeyMatches -- exact equality on both PE header fields (TimeDateStamp +
-///                         SizeOfImage); a single-field mismatch is a hard global disarm
-///                         until re-capture.
+/// MapIdValid accepts 1 to 127, the only live battle map ids. Fnv1a64 is the standard 64 bit
+/// FNV-1a, shared verbatim with the Python capture tool so the two cannot drift. ClassifyAddr
+/// is the per byte safety contract over the only legitimate values, 0x00, 0x01 and MarkValue,
+/// and anything else is Foreign and never written. WantWrite is a flat write of MarkValue, with
+/// no clear path, since the engine clears marks itself. DecideArm arms once enough addresses
+/// are ok and otherwise retries forever. Foreign bytes are not a veto, because they are off
+/// screen render bytes that return to Resting when the tile scrolls back, and TileHolder never
+/// writes them. Disarm is reserved for fingerprint mismatches in TreasureMaster.TickArming.
+/// BuildKeyMatches is exact equality on both PE header fields, and a mismatch is a hard global
+/// disarm until re-capture.
 /// </summary>
 internal sealed partial class TreasureMaster
 {
@@ -54,15 +39,14 @@ internal sealed partial class TreasureMaster
     // ---- #1 MapIdValid ----
 
     /// <summary>
-    /// True for map ids 1..127 -- the FFTHandsFree LiveBattleMapId valid range.
-    /// 0 is the uninitialized value (address not yet populated); 128+ are not assigned.
-    /// Never read outside <see cref="BattleState.InLiveBattle"/>.
+    /// True for map ids 1 to 127, the valid LiveBattleMapId range. 0 is the uninitialized value
+    /// and 128 and up are not assigned. Never read outside <see cref="BattleState.InLiveBattle"/>.
     /// </summary>
     internal static bool MapIdValid(byte id) => id >= 1 && id <= 127;
 
     // ---- #2 Fnv1a64 ----
 
-    // Pinned constants -- must stay bit-for-bit identical to the Python capture tool.
+    // Pinned constants that must stay bit for bit identical to the Python capture tool.
     private const ulong FnvBasis = 0xcbf29ce484222325UL;
     private const ulong FnvPrime = 0x00000100000001b3UL;
 
@@ -86,18 +70,14 @@ internal sealed partial class TreasureMaster
     // ---- #3 ClassifyAddr ----
 
     /// <summary>
-    /// Maps a raw byte from the tile's render-flag address to its <see cref="AddrState"/>.
-    /// Legitimate values are exactly {0x00, 0x01, <see cref="MarkValue"/>}:
-    ///   <see cref="MarkValue"/> (0xCC, the cyan-border/yellow-fill highlight) -> Held.
-    ///   0x00 or 0x01 (the per-tile resting value; low bit is engine-driven)   -> Resting.
-    ///   anything else                                                          -> Foreign.
-    /// The mark is a FLAT value (not OR 0x80): the whole byte value selects the highlight colour,
-    /// so the held byte is exactly MarkValue -- there is no low-bit variant (ORing a resting
-    /// 0x01 would shift 0xCC -> 0xCD, a different colour).
+    /// Maps a raw byte from a tile's render flag address to its <see cref="AddrState"/>.
+    /// <see cref="MarkValue"/> is Held, 0x00 or 0x01 is Resting (the low bit is engine driven),
+    /// and anything else is Foreign. The mark is a flat value, not an OR of 0x80, because the
+    /// whole byte selects the highlight colour, so a held byte is exactly MarkValue.
     /// </summary>
     internal static AddrState ClassifyAddr(byte cur)
     {
-        if (cur == MarkValue)           return AddrState.Held;
+        if (cur == MarkValue) return AddrState.Held;
         if (cur == 0x00 || cur == 0x01) return AddrState.Resting;
         return AddrState.Foreign;
     }
@@ -105,36 +85,29 @@ internal sealed partial class TreasureMaster
     // ---- #4 MarkValue / WantWrite ----
 
     /// <summary>
-    /// The render-flag byte value that paints a treasure tile: a cyan border with a yellow
-    /// interior fill. The byte value IS the highlight colour (live-tuned 2026-06-18 by cycling
-    /// values on map 74 -- 0x80 was the original dim mark, 0xCC the yellow-fill variant).
+    /// The render flag byte that paints a treasure tile, a cyan border with a yellow fill. The
+    /// byte value is the colour, tuned live in June 2026 by cycling values on map 74.
     /// </summary>
     internal const byte MarkValue = 0xCC;
 
     /// <summary>
-    /// The value to write for this byte: always <see cref="MarkValue"/>, regardless of
-    /// <paramref name="cur"/>. Written FLAT (not cur | mark): the colour is the whole byte, so
-    /// ORing a resting 0x01 would yield 0xCD (a different colour). Still set-only -- the module
-    /// never writes a resting value to un-mark; the engine clears marks itself (ledger-proven).
+    /// The value to write for this byte, always <see cref="MarkValue"/> regardless of
+    /// <paramref name="cur"/>. Written flat rather than ORed, because the colour is the whole
+    /// byte and ORing a resting 0x01 would give 0xCD, a different colour. Still set only, since
+    /// the engine clears marks itself.
     /// </summary>
     internal static byte WantWrite(byte cur) => MarkValue;
 
     // ---- #5 DecideArm ----
 
     /// <summary>
-    /// Per-tick arm decision from an address audit summary.
-    /// <list type="bullet">
-    ///   <item><paramref name="okCount"/> &gt;= <paramref name="minPlausible"/> ->
-    ///     <see cref="ArmVerdict.Arm"/>. Foreign bytes are not a veto: they are off-screen
-    ///     render bytes (camera pan, action camera) that return to Resting when the tile
-    ///     scrolls back into view. Per-write gating in <see cref="TileHolder.Hold"/> ensures
-    ///     they are never written.</item>
-    ///   <item>Otherwise -> <see cref="ArmVerdict.Retry"/>. The module polls until enough
-    ///     tiles are on-screen. The caller logs once when attempts pass
-    ///     <see cref="Tuning.TreasureArmAttemptCap"/>.</item>
-    /// </list>
-    /// Never returns <see cref="ArmVerdict.Disarm"/> -- that path lives in
-    /// <see cref="TickArming"/> for fingerprint mismatches only.
+    /// The per tick arm decision from an address audit summary. Arm once
+    /// <paramref name="okCount"/> reaches <paramref name="minPlausible"/>, else Retry, and the
+    /// module polls until enough tiles are on screen. Foreign bytes are not a veto, because they
+    /// are off screen render bytes that return to Resting when the tile scrolls back, and
+    /// <see cref="TileHolder.Hold"/> never writes them. Never returns
+    /// <see cref="ArmVerdict.Disarm"/>, which belongs to <see cref="TickArming"/> for fingerprint
+    /// mismatches only.
     /// </summary>
     internal static ArmVerdict DecideArm(
         int okCount, int foreignCount, int unreadableCount,
@@ -157,30 +130,20 @@ internal sealed partial class TreasureMaster
 
     // ---- #7 MaskedTerrainHash (fingerprint v2) and MaskedTerrainHashV3 ----
 
-    // Grid layout: 208 records x 7 bytes each.  Field 1 and field 6 are live state
-    // (change during play); field 0 (tile height) is pure map geometry.  The v1
-    // fingerprint hashed all 1456 raw bytes and falsely detected changes when field 1
-    // or field 6 mutated mid-battle (LIVE INCIDENT #2).  V2 hashes only field 0 of
-    // every record, making the fingerprint immune to in-battle field mutations.
-    //
-    // LIVE INCIDENT #3 (Zeirchele Falls, map 83, water map): field 0 (height), field 1
-    // (slope), and field 6 (flow) ALL animate on water/lava maps, so v2 (field-0 only)
-    // cycles with the animation and triggers spurious disarm/re-arm.  V3 hashes fields
-    // {2,3,4,5} only -- those are static geometry on all map types.
+    // The grid is 208 records of 7 bytes. Fields 1 and 6 change during play and field 0 is tile
+    // height. The v1 fingerprint hashed all 1456 raw bytes and saw changes whenever field 1 or 6
+    // moved mid battle. V2 hashes only field 0 of every record. On water and lava maps fields 0,
+    // 1 and 6 all animate, seen live on Zeirchele Falls, so v2 cycled with the animation and
+    // disarmed and re-armed. V3 hashes fields 2 to 5 only, which are static on every map type.
     private const int TerrainRecordLen = 7;   // bytes per terrain record
 
     /// <summary>
-    /// Fingerprint v2: FNV-1a64 over field-0 bytes only (byte at offset i*7) extracted
-    /// from the raw terrain window.  Records beyond the buffer length are silently skipped
-    /// (partial reads are handled by the caller returning false before this is reached).
-    ///
-    /// Pinned test vector (shared with the Python self-test -- never let them drift):
-    ///   raw = [ 01 02 03 04 05 06 07 | 11 12 13 14 15 16 17 ]  (2 records)
-    ///   field-0 bytes = [0x01, 0x11]
-    ///   result = Fnv1a64([0x01, 0x11]) = 0x082f3307b4e8a9a7
-    ///
-    /// Kept for dual-version support: 10 dry-land maps captured with fpVer=2 continue to use this.
-    /// Water/lava maps use MaskedTerrainHashV3 instead.
+    /// Fingerprint v2, FNV-1a64 over field 0 of each record, the byte at offset i times 7.
+    /// Records beyond the buffer are skipped, and the caller already returns false on a partial
+    /// read. The pinned test vector, shared with the Python self test, is two records of
+    /// 01 02 03 04 05 06 07 and 11 12 13 14 15 16 17, whose field 0 bytes 01 and 11 hash to
+    /// 0x082f3307b4e8a9a7. Kept because ten dry land maps were captured with fpVer 2, while water
+    /// and lava maps use v3.
     /// </summary>
     internal static ulong MaskedTerrainHash(ReadOnlySpan<byte> raw)
     {
@@ -196,15 +159,11 @@ internal sealed partial class TreasureMaster
     }
 
     /// <summary>
-    /// Fingerprint v3: FNV-1a64 over bytes at positions where (pos % 7) is in {2,3,4,5}
-    /// -- i.e. fields {2,3,4,5} of each record.  These are the static geometry fields;
-    /// fields {0,1,6} (height, slope, flow) animate on water/lava maps and are excluded.
-    ///
-    /// Pinned test vector (shared with the Python self-test and gen_treasure_db.py):
-    ///   raw = [ 01 02 03 04 05 06 07 | 11 12 13 14 15 16 17 ]  (2 records)
-    ///   fields {2,3,4,5} bytes = [03 04 05 06 13 14 15 16]
-    ///     (indices 2,3,4,5 from record 0; indices 9,10,11,12 from record 1)
-    ///   result = Fnv1a64([03 04 05 06 13 14 15 16]) = 0x05708f90b5f5fac5
+    /// Fingerprint v3, FNV-1a64 over fields 2 to 5 of each record, the bytes whose position mod 7
+    /// is 2, 3, 4 or 5. Those are the static geometry fields. Fields 0, 1 and 6 animate on water
+    /// and lava maps and are excluded. The pinned test vector, shared with the Python self test,
+    /// is two records of 01 02 03 04 05 06 07 and 11 12 13 14 15 16 17, whose selected bytes
+    /// 03 04 05 06 13 14 15 16 hash to 0x05708f90b5f5fac5.
     /// </summary>
     internal static ulong MaskedTerrainHashV3(ReadOnlySpan<byte> raw)
     {

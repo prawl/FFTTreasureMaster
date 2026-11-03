@@ -3,24 +3,19 @@ using System;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// Stateless gate evaluator for the Treasure Master module. Injected IGameMemory so it is
-/// testable without a live process. Performs three evaluations:
+/// Evaluates the arm gates for the Treasure Master module and holds no state of its own.
+/// It reads through an injected IGameMemory, so it is testable without a live process. It
+/// reads the PE build key, checks the terrain fingerprint, and audits each tile address,
+/// classifying the bytes and asking TreasureMaster.DecideArm for the verdict.
 ///
-///   ReadPeBuildKey  -- reads e_lfanew then TimeDateStamp + SizeOfImage from the PE header of the
-///                      mapped game image (the LIVE base, ImageBase.Base). Returns null on any failed read.
-///   FingerprintMatches -- TryReadBytes fpLen bytes at TerrainGrid; FNV-1a64 vs map.FpHash.
-///   AuditAddrs      -- reads each tile address, classifies via TreasureMaster.ClassifyAddr,
-///                      tallies ok/foreign/unreadable, calls TreasureMaster.DecideArm.
-///
-/// SEAM NOTE: this is NOT a TreasureMaster partial. A partial holding gate logic would be the
-/// same-state-machine-in-two-files evasion the house bans (see project rules). The state
-/// lives entirely in TreasureMaster.cs; ArmAudit is pure evaluation with no state of its own.
+/// This is a separate class, not a TreasureMaster partial. The state machine lives whole in
+/// TreasureMaster.cs and this class is pure evaluation.
 /// </summary>
 internal sealed class ArmAudit
 {
     private const long ELfanewOff = 0x3C;
     private const long TimeDateStampOff = 8;
-    private const long SizeOfImageOff   = 0x50;
+    private const long SizeOfImageOff = 0x50;
 
     private readonly IGameMemory _mem;
     private readonly AddrMap _addrs;
@@ -34,10 +29,9 @@ internal sealed class ArmAudit
     // ── PE build key ──────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Reads the PE header fields from the mapped game image.
-    /// Layout: e_lfanew (U32) @ base+0x3C; TimeDateStamp (U32) @ base+e_lfanew+8;
-    /// SizeOfImage (U32) @ base+e_lfanew+0x50. All reads are Readable-guarded.
-    /// Returns null if any read is not Readable (e.g., memory not yet mapped or wrong base).
+    /// Reads the build key from the mapped game image. e_lfanew sits at base plus 0x3C,
+    /// TimeDateStamp 8 bytes into the PE header and SizeOfImage 0x50 bytes in. Every read is
+    /// Readable guarded, and any failed read returns null.
     /// </summary>
     public (uint TimeDateStamp, uint SizeOfImage)? ReadPeBuildKey()
     {
@@ -57,9 +51,8 @@ internal sealed class ArmAudit
     // ── map-id read ───────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Gate evaluation for the map-id byte: Readable guard, U8 read, and MapIdValid check.
-    /// Returns false on any failed guard or invalid value.
-    /// Centralised here because both TickDisarmed and TickArmed use this same gate sequence.
+    /// Reads the map id byte behind a Readable guard and checks MapIdValid. False on any failed
+    /// guard or invalid value. Shared here because TickDisarmed and TickArmed use the same gate.
     /// </summary>
     public bool TryReadMapId(out byte id)
     {
@@ -72,17 +65,13 @@ internal sealed class ArmAudit
     // ── fingerprint ───────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Reads <see cref="TreasureMap.FpLen"/> raw bytes at <see cref="Offsets.TerrainGrid"/> and
-    /// compares the fingerprint to <see cref="TreasureMap.FpHash"/>. Returns false on read failure
-    /// (caller retries up to TreasureArmAttemptCap).
-    /// A null FpLen or FpHash means the map is a stub (no fingerprint captured); returns false
-    /// so the caller treats it as not-armable (stub maps have no tiles anyway).
+    /// Reads <see cref="TreasureMap.FpLen"/> bytes at <see cref="Offsets.TerrainGrid"/> and
+    /// compares the fingerprint to <see cref="TreasureMap.FpHash"/>. False on a failed read,
+    /// which the caller retries up to TreasureArmAttemptCap. A map with no fingerprint is a stub
+    /// and returns false too, since it has no tiles anyway.
     ///
-    /// Fingerprint version dispatch:
-    ///   fpVer == 3: MaskedTerrainHashV3 (fields {2,3,4,5} per record; immune to field-0/1/6
-    ///               animation on water/lava maps -- LIVE INCIDENT #3).
-    ///   fpVer == 2: MaskedTerrainHash (field-0 only per record; immune to field-1/6 churn).
-    ///   anything else (legacy v1 or null): plain Fnv1a64 over the raw bytes.
+    /// Version 3 hashes fields 2 to 5 of each record, which survive the water and lava
+    /// animation. Version 2 hashes field 0 only. Anything else hashes the raw bytes.
     /// </summary>
     public bool FingerprintMatches(TreasureMap map)
     {
@@ -145,8 +134,8 @@ internal sealed class ArmAudit
                 long live = ImageBase.At(addr);   // tile addrs are dataset space; read the LIVE image
                 if (!_mem.Readable(live, 1)) { unreadableCount++; continue; }
                 var state = TreasureMaster.ClassifyAddr(_mem.U8(live));
-                if      (state == TreasureMaster.AddrState.Foreign) foreignCount++;
-                else                                                 okCount++;
+                if (state == TreasureMaster.AddrState.Foreign) foreignCount++;
+                else okCount++;
             }
         }
         // Clamp the quorum to the actual address count so small maps can still arm.

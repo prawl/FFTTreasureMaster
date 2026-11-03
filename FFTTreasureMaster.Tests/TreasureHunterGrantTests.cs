@@ -102,7 +102,7 @@ public class TreasureHunterGrantTests
         var t = new FakeJobTable(); t.Rows[76] = new ushort[] { 0, 0, 0, 0 };
         var log = new List<string>();
 
-        var first  = Grant(t, log, new[] { 76 }).Run();
+        var first = Grant(t, log, new[] { 76 }).Run();
         var second = Grant(t, log, new[] { 76 }).Run();
 
         Assert.Equal(1, first.Applied);

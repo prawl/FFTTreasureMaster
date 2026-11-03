@@ -1,13 +1,10 @@
 using System;
 
-namespace FFTTreasureMaster;
+namespace ModGates.Logging;
 
 /// <summary>
-/// The closed event-verb glossary for every log line the runtime emits (the model shared with
-/// the sibling FFT mods). docs/LOGGING.md commits a verb table that must match this enum
-/// one-for-one; LogContractTests pins the two in lockstep. The set is CLOSED: a new subsystem
-/// reuses one of these verbs, or the doc gets amended deliberately; no ad-hoc per-module
-/// prefixes.
+/// Every verb a log line may carry. The set is closed, and the table in docs/LOGGING.md lists
+/// the same verbs, so a new subsystem reuses one of these.
 /// </summary>
 internal enum LogVerb
 {
@@ -24,8 +21,7 @@ internal enum LogVerb
     Trace,
 }
 
-/// <summary>Enum member -&gt; the literal kebab-case bracket token rendered in log lines and
-/// committed in docs/LOGGING.md's verb table.</summary>
+/// <summary>The bracket token each verb renders as.</summary>
 internal static class LogVerbToken
 {
     public static string Token(this LogVerb verb) => verb switch
@@ -41,7 +37,6 @@ internal static class LogVerbToken
         LogVerb.Save => "save",
         LogVerb.Engine => "engine",
         LogVerb.Trace => "trace",
-        _ => throw new ArgumentOutOfRangeException(nameof(verb), verb,
-            "unmapped LogVerb: add it to both the Token() switch and docs/LOGGING.md's verb table"),
+        _ => throw new ArgumentOutOfRangeException(nameof(verb), verb, "unmapped LogVerb"),
     };
 }

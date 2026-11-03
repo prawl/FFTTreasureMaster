@@ -198,7 +198,7 @@ public class AnchorResolverTests
         Assert.Equal(TerrainAddr + 0x1000, result.TerrainGrid);
     }
 
-    // ── ASLR (TM-8) ───────────────────────────────────────────────────────────────────────────
+    // ── ASLR ──────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
     public void Region_delta_is_RVA_only_when_the_image_is_relocated()

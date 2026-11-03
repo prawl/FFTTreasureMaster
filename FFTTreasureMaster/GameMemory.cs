@@ -1,9 +1,8 @@
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// The slice of memory access the treasure logic needs, behind an interface so the arm gate
-/// and the tile-hold path are unit-testable with a fake memory -- no live game. LiveMemory is
-/// the production adapter over the RPM/WPM-backed <see cref="Mem"/>.
+/// The slice of memory access the treasure logic needs, behind a seam so tests can fake it.
+/// LiveMemory is the production adapter over <see cref="Mem"/>.
 /// </summary>
 internal interface IGameMemory
 {

@@ -37,7 +37,7 @@ is a review rule.
 
 ## Tier model
 
-The runtime logs through the static `ModLogger` facade (FFTTreasureMaster/ModLogger.cs), backed
+The runtime logs through the static `ModLogger` facade (gates/Logging/ModLogger.cs), backed
 by an `ILogger`; production impl is `FileConsoleLogger`, test-only swallow is `NullLogger`. The
 facade surface is TYPED: every call site uses `ModLogger.Event(verb, msg)` / `Warn` / `Error` /
 `Debug`, the two-line helpers `EventWithTrace`/`WarnWithTrace`, or a `ScopedLogger` from

@@ -11,18 +11,18 @@ namespace FFTTreasureMaster;
 /// parent-anchor sigs); the runtime record (<see cref="AnchorSig"/>) never carries it.</summary>
 internal sealed class AnchorSigJson
 {
-    [JsonProperty("name")]      public string? Name      { get; set; }
-    [JsonProperty("pattern")]   public string? Pattern   { get; set; }
-    [JsonProperty("dispOff")]   public int?    DispOff   { get; set; }
-    [JsonProperty("endAdjust")] public int?    EndAdjust { get; set; }
-    [JsonProperty("target")]   public string? Target    { get; set; }
-    [JsonProperty("pinConst")] public string? PinConst   { get; set; }
+    [JsonProperty("name")] public string? Name { get; set; }
+    [JsonProperty("pattern")] public string? Pattern { get; set; }
+    [JsonProperty("dispOff")] public int? DispOff { get; set; }
+    [JsonProperty("endAdjust")] public int? EndAdjust { get; set; }
+    [JsonProperty("target")] public string? Target { get; set; }
+    [JsonProperty("pinConst")] public string? PinConst { get; set; }
 }
 
-/// <summary>Raw JSON shape for one region: id, base, inclusive [lo, hi] span, sigs.</summary>
+/// <summary>Raw JSON shape for one region, with its id, base, inclusive span and sigs.</summary>
 internal sealed class AnchorRegionJson
 {
-    [JsonProperty("id")]   public string? Id   { get; set; }
+    [JsonProperty("id")] public string? Id { get; set; }
     [JsonProperty("base")] public string? Base { get; set; }
     [JsonProperty("span")] public List<string>? Span { get; set; }
     [JsonProperty("sigs")] public List<AnchorSigJson>? Sigs { get; set; }
@@ -42,36 +42,35 @@ internal sealed class AnchorSingletonJson
 /// data/anchor_sigs.json minus its _meta).</summary>
 internal sealed class AnchorTableJson
 {
-    [JsonProperty("regions")]    public List<AnchorRegionJson>?    Regions    { get; set; }
+    [JsonProperty("regions")] public List<AnchorRegionJson>? Regions { get; set; }
     [JsonProperty("singletons")] public List<AnchorSingletonJson>? Singletons { get; set; }
 }
 
-// ── runtime records (parsed, hex-resolved; no pinConst -- bake-time only) ────
+// ── runtime records, parsed and hex resolved (pinConst is bake time only) ────
 
-/// <summary>One resolved sig: a masked byte pattern (null = wildcard) plus the RIP-resolve
-/// parameters and the baked target VA this sig is expected to resolve to on the build the
-/// dataset was captured against.</summary>
+/// <summary>One resolved sig. A masked byte pattern (null is a wildcard), the RIP resolve
+/// parameters, and the baked target address this sig resolved to on the build the dataset
+/// was captured against.</summary>
 internal sealed record AnchorSig(string Name, int?[] Pattern, int DispOff, int EndAdjust, long Target);
 
-/// <summary>One tile-address region: its baked base VA, the inclusive [SpanLo, SpanHi]
-/// dataset-addr classification window, and the sigs that can resolve it.</summary>
+/// <summary>One tile address region. Its baked base address, the inclusive dataset address
+/// window it classifies, and the sigs that can resolve it.</summary>
 internal sealed record AnchorRegion(string Id, long Base, long SpanLo, long SpanHi, IReadOnlyList<AnchorSig> Sigs);
 
 /// <summary>One singleton game address (a battle sentinel, map-id slot, etc.) and the
 /// sigs that can resolve it.</summary>
 internal sealed record AnchorSingleton(string Name, long Addr, IReadOnlyList<AnchorSig> Sigs);
 
-/// <summary>The whole parsed anchor table: 7 regions (R0..R6) + 10 singletons.</summary>
+/// <summary>The whole parsed anchor table, seven regions (R0..R6) and ten singletons.</summary>
 internal sealed record AnchorTable(IReadOnlyList<AnchorRegion> Regions, IReadOnlyList<AnchorSingleton> Singletons);
 
 // ── fail-soft parser ──────────────────────────────────────────────────────────
 
 /// <summary>
-/// Fail-soft parser for the schema v2 "anchors" block. ANY structural problem anywhere
-/// in the block (a missing field, an unparseable hex string, a garbage pattern token)
-/// yields a null <see cref="AnchorTable"/> for the WHOLE table, never a partial one and
-/// never a throw -- a build-key mismatch against a null anchor table simply cannot
-/// re-resolve and falls back to the existing global-disarm behavior.
+/// Fail soft parser for the schema v2 "anchors" block. Any structural problem anywhere in the
+/// block yields a null <see cref="AnchorTable"/> for the whole table, never a partial one and
+/// never a throw. A build key mismatch against a null table cannot re-resolve and falls back
+/// to the global disarm.
 /// </summary>
 internal static class AnchorDb
 {

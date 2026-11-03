@@ -5,20 +5,14 @@ using System.Runtime.InteropServices;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// In-process memory access -- but every read and write goes through
-/// Read/WriteProcessMemory on our OWN process handle, NOT a raw pointer deref.
+/// Every read and write of game memory goes through RPM and WPM on our own handle, never a raw
+/// deref. That is the single most important safety property of the runtime. RPM and WPM check
+/// the range in the kernel and return false on an unmapped page. A raw deref access violates
+/// instead, and .NET cannot catch an access violation, so it crashes the whole game. A page
+/// freed between the guard and the access now degrades to a caught exception or a no-op.
 ///
-/// This is the single most important safety property of the runtime. RPM/WPM
-/// validate the range in the kernel and return false on an unmapped/freed page;
-/// a raw pointer deref AVs instead, and an access violation is an UNCATCHABLE
-/// corrupted-state exception in .NET -> it crashes the whole game. The external
-/// Python companion never crashed the game for exactly this reason (it used
-/// RPM/WPM); doing the same in-process gives us the same fail-safe behavior. A
-/// TOCTOU race (page freed between guard and access) now degrades to a caught
-/// exception or a no-op, never a crash.
-///
-/// VirtualQuery (Readable/Writable/Regions) stays as a cheap pre-filter so we skip
-/// obvious misses without a syscall, but it is NOT the safety net -- RPM/WPM are.
+/// VirtualQuery stays as a cheap pre filter so obvious misses skip the syscall, but RPM and WPM
+/// are the safety net, not the query.
 /// </summary>
 internal static class Mem
 {
@@ -86,7 +80,7 @@ internal static class Mem
     {
         if (!ReadScalar(a, 8)) return 0UL;
         var s = _scratch!;
-        return (ulong)s[0]        | ((ulong)s[1] << 8)  | ((ulong)s[2] << 16) | ((ulong)s[3] << 24)
+        return (ulong)s[0] | ((ulong)s[1] << 8) | ((ulong)s[2] << 16) | ((ulong)s[3] << 24)
              | ((ulong)s[4] << 32) | ((ulong)s[5] << 40) | ((ulong)s[6] << 48) | ((ulong)s[7] << 56);
     }
 
@@ -116,15 +110,13 @@ internal static class Mem
     private const uint PAGE_GUARD = 0x100;
     private const uint PAGE_NOACCESS = 0x01;
 
-    /// <summary>Yield (base, size) for every committed, PRIVATE, writable, non-guard region --
-    /// the process heap where the game's UI render copies (the card text we paint) live. Skips
-    /// module (IMAGE) and file-backed (MAPPED) memory: the display can't write there and the
-    /// card text is never there, so excluding them shrinks the paint scan from GBs to the heap
-    /// (much faster, which is what lets the counter refresh near-instantly).</summary>
+    /// <summary>Yields the base and size of every committed, private, writable, non guard region,
+    /// which is the process heap. Module and file backed memory is skipped, since the card text
+    /// is never there, which shrinks the paint scan from gigabytes to the heap.</summary>
     public static IEnumerable<(long baseAddr, long size)> Regions()
     {
         long addr = 0;
-        var mbi = new MEMORY_BASIC_INFORMATION();
+        MEMORY_BASIC_INFORMATION mbi;
         int mbiSize = Marshal.SizeOf<MEMORY_BASIC_INFORMATION>();
         while (addr < 0x7FFF_FFFF_0000)
         {
