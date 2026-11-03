@@ -36,16 +36,18 @@ that checklist.
     logged at warning level; suite green; one live battle's log shows no marker warning.
 
 - [TM-20] 2026-11-02: Nothing tests how the mod reacts to a real battle from start to finish,
-  because Engine builds its own live memory reader and BattleState has no tests of its own. Record
-  a few real battles as tapes and replay them through Engine and BattleState, the way Living
-  Weapons and Battle Brain already test against tapes, so a change to battle detection fails the
-  build before a player meets it. (Tech: pass IGameMemory into Engine instead of building
-  LiveMemory inside its constructor; a tape is the per tick reads of slot0, slot9, battleMode,
-  pause and event id plus the treasure tile bytes; start with a plain battle, an in-battle Retry
-  and a quit to the world map.)
-  - Done means: at least three recorded battles replay through Engine and BattleState in the
-    suite, and each one checks when the battle starts and ends and which tiles light up.
-  - Verify: the replay tests go red when the battle exit debounce or the enter signal is broken on
+  because Engine builds its own live memory reader and BattleState has no tests of its own. Open
+  the seam and record one plain battle as a tape, enough to drive TM-19's test and to replay
+  through Engine and BattleState the way Living Weapons and Battle Brain test against tapes, so a
+  change to battle detection fails the build before a player meets it. The in-battle Retry and
+  quit to world map tapes wait until this mod changes again; a three tape suite for a mod that
+  rarely changes pays nothing until it does. Owner 2026-11-02, narrowed from three tapes to one.
+  (Tech: pass IGameMemory into Engine instead of building LiveMemory inside its constructor; a
+  tape is the per tick reads of slot0, slot9, battleMode, pause and event id plus the treasure
+  tile bytes.)
+  - Done means: one recorded battle replays through Engine and BattleState in the suite and
+    checks when the battle starts and ends and which tiles light up.
+  - Verify: the replay test goes red when the battle exit debounce or the enter signal is broken on
     purpose, and green again on revert; suite green.
 - [TM-2] 2026-07-21: Confirm live that a battle reset re-lights the refunded treasure tile. Parked 2026-11-02 by the owner's quality pause; it was AWAITING-LIVE in Now.
   - Done means: the owner has seen it happen on screen: claim a treasure, reset the battle so
