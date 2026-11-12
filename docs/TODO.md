@@ -25,7 +25,36 @@ that checklist.
   - Verify: a new test runs a default settings battle through TreasureMaster and asserts nothing is
     logged at warning level; suite green; one live battle's log shows no marker warning.
 
+- **[TM-21] Light the fourth treasure tile on Grogh Heights, which never lit** (opened 2026-11-12) [AWAITING-LIVE]
+  - Done means: a player fighting on Grogh Heights sees all four treasure tiles glow. Until now
+    only three did; the one at x 9, y 8 stayed dark although its treasure could still be picked
+    up, as a Nexus player reported. The mod had the wrong memory spots on file for that one
+    tile, so it was marking twelve bytes that light nothing and none of the three the game
+    itself paints that tile with. The right three are now on file, and the build refuses any
+    tile that holds no byte the game paints from, so a bad capture like this cannot ship again.
+    (Tech: data/treasure_addrs.json map 81 tile 9,8 gains 0x140E894F3, 0x14103CC5B and
+    0x141187617, resting 0x0, tagged R2, R4 and R6 by the bake. Reproduced live 2026-11-12 on the
+    1.7.0 build: with the mod armed those three read 0x00 while the three good tiles' bytes read
+    0xCC; the game wrote 0x10, 0x08 and 0x03 to exactly those three for its own red, blue and
+    yellow highlights eleven times in three and a half minutes, and the twelve captured bytes
+    never changed; holding 0xCC on the three lit the tile on screen. The new check is
+    TreasureSchemaTests.Every_tile_owns_bytes_in_the_lists_the_game_paints_from, which failed on
+    the old data and named this tile alone out of 284. The twelve old bytes stay for now, see
+    TM-22.)
+  - Verify: suite green with the new check, 620 tests; then owner-only: start a battle on Grogh
+    Heights with the rebuilt mod and see four lit tiles, the new one on the east edge at height 6.
+
 ## Backlog
+
+- [TM-22] 2026-11-12: The mod writes its mark into some memory spots that seem to light nothing,
+  and nobody has checked whether they are needed. On Grogh Heights 19 of the 28 spots on file took
+  the mark and kept it, the game never touched them through three and a half minutes of battle,
+  and the one tile that had only such spots stayed dark. Find out what they are, then either drop
+  them when the dataset is baked or write down why they stay; writing into bytes nobody can
+  explain is a risk carried for nothing. (Tech: baked addresses that are neither half of a pair
+  0x1B3768 apart nor tagged R6, 214 of 1604 on 37 tiles; on Grogh Heights they are the R3 and R5
+  bytes resting at 0x0, 0x140F92EB9 to 0x140F93731 and their copies 0x1B39E8 above. Found
+  2026-11-12 while fixing TM-21.)
 
 - [TM-20] 2026-11-02: Nothing tests how the mod reacts to a real battle from start to finish,
   because Engine builds its own live memory reader and BattleState has no tests of its own. Open

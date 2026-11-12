@@ -171,5 +171,32 @@ public class TreasureSchemaTests
                 }
         Assert.True(checkedAddrs > 0, "no tile addrs were checked -- fixture produced no data");
     }
+
+    // The game paints a tile from three lists that run in step. The second sits a fixed gap above
+    // the first, and the third names each tile. Grogh Heights (9,8) shipped with a byte in none of
+    // them and never lit, though the capture called it verified.
+    private const long MirrorListGap = 0x1B3768L;
+    private const string TileNamingList = "R6";
+
+    [Fact]
+    public void Every_tile_owns_bytes_in_the_lists_the_game_paints_from()
+    {
+        var db = TreasureDb.Load(Path.GetDirectoryName(RepoTreasurePath())!);
+        var dark = new List<string>();
+        int checkedTiles = 0;
+        foreach (var map in db.Maps)
+            foreach (var tile in map.Tiles)
+            {
+                checkedTiles++;
+                var addrs = tile.Addrs.Select(e => e.Addr).ToHashSet();
+                bool mirrored = addrs.Any(a => addrs.Contains(a + MirrorListGap));
+                bool named = tile.Addrs.Any(e => e.Region == TileNamingList);
+                if (!mirrored || !named)
+                    dark.Add($"map {map.MapId} {map.Name} tile ({tile.X},{tile.Y})");
+            }
+        Assert.True(checkedTiles > 0, "no tiles were checked, so the fixture produced no data");
+        Assert.True(dark.Count == 0,
+            "these tiles hold no byte the game paints from, so they can never light: " + string.Join("; ", dark));
+    }
 }
 
