@@ -97,8 +97,10 @@ Results so far, 2026-11-25, on Grogh Heights with the Mod Loader off:
   turn, and never touched Ramza's switch again.
 - A seat the game uses while it builds the party reads as empty, so the mod picks units by
   their on field and seat filled markers, never by seat number alone.
+- A battle restart rebuilds every unit about half a second later, once, and the switch comes
+  back off with it, as expected. The mod's hold puts it back long before anyone moves.
 - Still open: gate 1's second half and gate 4, which need the Mod Loader on, and gate 2's
-  Retry and suspend and resume.
+  suspend and resume.
 
 ### What was not chosen
 
