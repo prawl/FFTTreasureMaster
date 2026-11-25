@@ -215,3 +215,20 @@ and array values in the converter; resolve the config path again at each press; 
 keys to the modifier check and say the number pad does not count; list the stale comment
 references in TileHolder, ArmAudit and TreasureMaster. All folded in above. Zeklaus Desert holds
 all seven regions, so the step 1 live check needs only that map.
+
+## Duet's verdict, and what it adds
+
+GO (notes 482 and 483, 2026-11-25), under the owner's standing word. Four additions, none
+blocking the start:
+
+1. TM-34 is fixed inside TM-32, as its first test-first change: the loader reports a file it
+   cannot read instead of quietly returning defaults, and the forgiving converter is built on
+   top of that loader, since both live in the same config code.
+2. The Zeklaus live check moves a fact to confirmed only for what it shows on screen. The
+   CONTRADICTED cursor fact stays as it is.
+3. Step 2 names one test outright: a key held down steps the style once per press, so a long
+   press never skips looks.
+4. The build starts in a fresh session, handed off before /build-lite begins.
+
+The build is offline only. The live check waits for the game lock's release, and the push waits
+for the review's yes and that check.
