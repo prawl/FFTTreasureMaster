@@ -1,5 +1,5 @@
 {
- "sha": "50a27e4",
+ "sha": "6bd2fc1",
  "date": "2026-11-25",
  "columns": [
   "comments",
@@ -21,7 +21,7 @@
   "BattleState.cs": [47, 14, 56, 0, 0],
   "ClaimAudit.cs": [19, 14, 32, 0, 0],
   "CollectAudit.cs": [15, 11, 22, 0, 0],
-  "Configuration/Config.cs": [4, 4, 41, 0, 0],
+  "Configuration/Config.cs": [4, 4, 42, 0, 0],
   "Configuration/Configurable.cs": [17, 7, 78, 1, 0],
   "Configuration/Configurator.cs": [14, 6, 69, 1, 0],
   "Configuration/ConfiguratorMixinBase.cs": [6, 5, 13, 0, 0],

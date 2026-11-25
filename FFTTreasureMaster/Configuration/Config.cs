@@ -28,10 +28,11 @@ public class Config : Configurable<Config>
     [Description("In every battle, the units you deploy can pick up Move-Find treasure just by " +
                  "stepping on the tile, recruited monsters included (no more dragging a Chemist " +
                  "everywhere). Enemies never get it from this setting, guests do not get it yet, " +
-                 "and a unit whose movement abilities another mod changed is skipped and named in " +
-                 "the mod's log. Chemists are left as they are: they find treasure anyway, and " +
-                 "equipping Treasure Hunter on one still earns its bonus. The ability does not " +
-                 "show on the Formation screen. Needs Enable Treasure Master on. Changes apply " +
+                 "and a unit whose movement abilities look changed by another mod is skipped and " +
+                 "named in the mod's log. Chemists are left as they are: they find treasure " +
+                 "anyway, and equipping Treasure Hunter on one still earns its bonus. Enemy " +
+                 "Chemists can still pick up treasure by the game's own rule. The ability does " +
+                 "not show on the Formation screen. Needs Enable Treasure Master on. Changes apply " +
                  "the next time the game is launched. Default: off.")]
     [DefaultValue(false)]
     public bool AllUnitsTreasureHunter { get; set; } = false;

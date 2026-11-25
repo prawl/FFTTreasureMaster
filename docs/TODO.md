@@ -26,7 +26,7 @@ that checklist.
     logged at warning level; suite green; one live battle's log shows no marker warning.
 
 - **[TM-25] Give Treasure Hunter only to the units the player deploys, so enemies stop taking treasure** (opened 2026-11-25) [AWAITING-LIVE]
-  - Done means: with All units on, every unit the player deploys picks up tile treasure,
+  - Done means: with All units on, the units the player deploys pick up tile treasure,
     Chemists by the game's own rule and everyone else through the mod, and no enemy picks one
     up because of the mod. A player reported enemies grabbing treasure first, and the owner saw
     it in the game, because the setting edits the job list both sides share. Now the setting

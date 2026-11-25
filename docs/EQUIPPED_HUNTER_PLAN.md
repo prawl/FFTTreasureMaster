@@ -40,10 +40,11 @@ keeper and were filed, so this part keeps no addresses.
 Chosen 2026-11-25, on Duet's review of the proposal.
 
 - The All units setting stops changing the job list.
-- In each battle the mod turns the switch on for every unit the player deployed, whatever
-  its job and recruited monsters included, and holds it on until the battle ends. A unit
-  qualifies only when it sits in a player seat, its team marker says it fights for the
-  player right now, and it is on the field.
+- In each battle the mod turns the switch on for the units the player deployed, whatever
+  their job and recruited monsters included (Chemists, guests, and a unit whose movement
+  abilities look changed by another mod are left out), and holds it on until the battle
+  ends. A unit qualifies only when it sits in a player seat, its team marker says it fights
+  for the player right now, and it is on the field.
 - Chemists are skipped. They pick up treasure with nothing equipped anyway, and skipping
   them leaves an equipped Treasure Hunter worth the game's Chemist bonus, which is what
   step zero in part 2 wants.

@@ -304,7 +304,7 @@ public sealed class HunterHoldTests : IDisposable
     }
 
     [Fact]
-    public void A2_A_take_back_whose_bit_is_already_clear_logs_nothing()
+    public void T25_A_take_back_whose_bit_is_already_clear_logs_nothing()
     {
         Qualifying(16);
         Ticks(1);
@@ -318,7 +318,7 @@ public sealed class HunterHoldTests : IDisposable
     }
 
     [Fact]
-    public void A2_A_take_back_trace_names_the_unit_and_the_reason()
+    public void T25_A_take_back_trace_names_the_unit_and_the_reason()
     {
         Qualifying(16);
         Ticks(1);
@@ -328,7 +328,7 @@ public sealed class HunterHoldTests : IDisposable
     }
 
     [Fact]
-    public void A3_Changing_the_name_bytes_of_a_held_unit_logs_no_new_summary()
+    public void T26_Changing_the_name_bytes_of_a_held_unit_logs_no_new_summary()
     {
         Qualifying(16);
         Ticks(6);
