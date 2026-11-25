@@ -113,7 +113,14 @@ Changes:
 
 Live check (owner): with a dev deploy, three styles picked in the setting and each seen after a
 relaunch on Zeklaus Desert, which alone holds bytes in all seven regions R0 to R6; a claimed
-tile still going dark; the dropdown's names reading well in the launcher.
+tile still going dark; the dropdown's names reading well in the launcher. The three are Yellow
+(0x98), RedOutline (0xF8) and Green (0xD8), because 0x98 and 0xF8 read like the game's own
+overlay values combined (0x88 with 0x90, 0xE0 with 0x18). The mod owns a byte only by its exact
+value, so if the game ever draws a combined value equal to the style, the mod would take it for
+its own mark and could erase it on a claimed tile. So, under each style, open a unit's Move range
+and an ability range over a lit tile and cancel, and under Green open a Move range over a claimed
+tile: the game's overlay must draw normally and the style must come back after. (Build review
+round 1, premise 7, PLAUSIBLE and cosmetic only.)
 
 ## Step 2 (TM-33): the cycle key
 

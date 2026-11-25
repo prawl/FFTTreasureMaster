@@ -23,9 +23,11 @@ that checklist.
     sweep (FFTGameFacts aa1629e, b25301f, 25e716a, 6781a48), the written plan cf0115b, two
     blind review rounds folded in b8b9cda and fdecec3, and the coordinator's go 51aa99a.)
   - Verify: suite green with a non default style test that fails on the old constant; then
-    owner only, in the game: three styles picked and each seen after a relaunch on Zeklaus
-    Desert (all seven memory regions), a claimed tile going dark, the dropdown names reading
-    well.
+    owner only, in the game: Yellow, RedOutline and Green picked and each seen after a
+    relaunch on Zeklaus Desert (all seven memory regions); under each, a Move range and an
+    ability range opened over a lit tile draw normally and the style comes back after; under
+    Green a claimed tile goes dark and a Move range over it draws clean; the dropdown names
+    read well; a broken Config.json warns in the log and is left untouched.
 
 ## Backlog
 

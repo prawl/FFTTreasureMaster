@@ -101,9 +101,9 @@ brackets at Info tier):
 [Treasure Master] [12:01:03.140] [INFO] The runtime loop has started; battles are being watched.
 ```
 
-The config source path rides the `[trace]` companion in the file. A config read failure turns
-the middle line into a Warning naming the defaults in force. The runtime-loop line is the
-liveness canary that closes the header.
+The config source path rides the `[trace]` companion in the file. A config file that cannot be
+read turns the middle line into a Warning naming the file, the reason and the defaults in force.
+The runtime-loop line is the liveness canary that closes the header.
 
 ## The battle report
 
