@@ -411,7 +411,7 @@ def assign_region(addr: int, spans: list[tuple[str, int, int]]) -> str | None:
 
 
 def main() -> int:
-    print("gen_treasure_db.py — self-test first")
+    print("gen_treasure_db.py -- self-test first")
     if not _self_test():
         print("GATE FAIL: self-test failed.")
         return 1
@@ -490,7 +490,7 @@ def main() -> int:
 
         # Check if this map has any capturable data.
         if cmap is None:
-            # No capture data at all — emit stub.
+            # No capture data at all -- emit stub.
             stub_count += 1
             out_maps.append({
                 "mapId":     mid,
@@ -535,7 +535,7 @@ def main() -> int:
             new_ts = newest_build.get("timeDateStamp", 0)
             if cap_ts < new_ts:
                 print(f"  WARN: map {mid} ({name}) captured under older build "
-                      f"(ts={cap_ts:#010x}) vs current (ts={new_ts:#010x}) — DROPPED")
+                      f"(ts={cap_ts:#010x}) vs current (ts={new_ts:#010x}) -- DROPPED")
                 dropped_count += 1
                 # Still emit a stub for the runtime nag.
                 out_maps.append({

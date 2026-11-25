@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using FFTTreasureMaster;
 using Xunit;
@@ -360,6 +361,32 @@ public sealed class HunterHoldTests : IDisposable
         _mem.FailRead = true;
         Ticks(1);
         Assert.Equal(0, _mem.Writes);
+    }
+
+    [Fact]
+    public void T25_The_set_and_the_guest_take_back_reach_the_flight_record()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "tm_hunter_flight_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Flight.Reset();
+            Flight.Init(dir);
+            Qualifying(16);
+            Ticks(1);
+            _pin.Bytes[Off(16) + 6] = 0x08;
+            Ticks(1);
+            Flight.RequestFlush("error");
+            Flight.DrainPending();
+
+            string text = string.Concat(Directory.GetFiles(Path.Combine(dir, "flight"), "flight_*.jsonl").Select(File.ReadAllText));
+            Assert.Contains("set seat=16 job=74 name=900", text);
+            Assert.Contains("take seat=16 job=74 name=900 reason=guest marker", text);
+        }
+        finally
+        {
+            Flight.Reset();
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
     }
 
     [Fact]
