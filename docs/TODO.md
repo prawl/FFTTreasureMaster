@@ -164,11 +164,10 @@ that checklist.
 
 ## Walled (blocked by engine / external)
 
-- After an in-battle "Retry from Start of Battle", the treasure glow does not come back until
-  you restart from the Formation screen instead. The game only rebuilds its tile-highlight
-  overlay on a full battle load, and an in-battle Retry is not one; the mod keeps holding the
-  highlight bytes correctly the whole time. Root-caused live 2026-06-19 (handoff.md, "RETRY
-  RENDER-GATE"); the wall is engine-side.
+- Nothing walled right now. The old Retry wall is lifted: after an in-battle "Retry from Start
+  of Battle" the treasure glow does come back once the cursor or camera moves, as the owner saw
+  on Grogh Heights on 2026-11-25, so no Formation restart is needed. The 2026-06-19 reading
+  that only a full battle load redraws it is superseded.
 
 ## Format (enforced by TodoContractTests)
 
