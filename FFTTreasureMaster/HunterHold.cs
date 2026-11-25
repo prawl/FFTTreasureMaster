@@ -17,7 +17,7 @@ internal sealed class HunterHold
 
     private readonly IGameMemory _mem;
     private readonly AddrMap _addrs;
-    private readonly HashSet<int> _setByUs = new();
+    private readonly HashSet<int> _owned = new();
     private readonly Verdict[] _last = new Verdict[Seats], _settled = new Verdict[Seats];
     private readonly int[] _streak = new int[Seats];
     private readonly HashSet<(int, Verdict)> _skipLogged = new();
@@ -49,9 +49,9 @@ internal sealed class HunterHold
         return r[MoveField] == want[0] && r[MoveField + 1] == want[1] && (r[HunterByte] & ~Bit) == (want[2] & ~Bit);
     }
 
-    internal static Verdict Decide(ReadOnlySpan<byte> r, bool setByUs)
+    internal static Verdict Decide(ReadOnlySpan<byte> r, bool owned)
     {
-        bool bitSet = (r[HunterByte] & Bit) != 0, ours = setByUs && bitSet;
+        bool bitSet = (r[HunterByte] & Bit) != 0, ours = owned && bitSet;
         if (r[1] == 0xFF || r[0x1B5] != 1) return Verdict.Empty;
         if (U16(r, 0x18) == HunterId || U16(r, 0x0A) == HunterId || U16(r, 0x0C) == HunterId
             || U16(r, 0x0E) == HunterId || U16(r, 0x10) == HunterId) return Verdict.Owns;
@@ -65,7 +65,7 @@ internal sealed class HunterHold
     public void ResetBattle(bool entered)
     {
         _entered = entered;
-        _setByUs.Clear();
+        _owned.Clear();
         Array.Clear(_last); Array.Clear(_settled); Array.Clear(_streak);
         _skipLogged.Clear();
         _summary = "";
@@ -86,7 +86,7 @@ internal sealed class HunterHold
         for (int i = 0; i < Seats; i++)
         {
             var rec = new ReadOnlySpan<byte>(block, i * RecLen, RecLen);
-            var v = ApplySeat(i, rec, Decide(rec, _setByUs.Contains(i)));
+            var v = ApplySeat(i, rec, Decide(rec, _owned.Contains(i)));
             _streak[i] = v == _last[i] && _streak[i] > 0 ? _streak[i] + 1 : 1;
             _last[i] = v;
             if (_streak[i] >= SettleTicks) _settled[i] = v;
@@ -98,14 +98,18 @@ internal sealed class HunterHold
 
     private Verdict ApplySeat(int i, ReadOnlySpan<byte> rec, Verdict v)
     {
-        if (v == Verdict.Held) _setByUs.Add(i);
+        if (v == Verdict.Held && _owned.Add(i))
+        {
+            ModLogger.Debug(LogVerb.Trace, "hunter adopt " + Who(i, rec));
+            Flight.Record("hunter", "adopt " + Who(i, rec));
+        }
         if (v != Verdict.Hold && v != Verdict.TakeBack) return v;
         long addr = SeatRecord(_addrs, i) + HunterByte;
         if (!_mem.Writable(addr, 1)) return v;
         byte cur = _mem.U8(addr);
         if (v == Verdict.TakeBack)
         {
-            _setByUs.Remove(i);
+            _owned.Remove(i);
             bool team = (rec[5] & TeamMask) != 0;
             if ((cur & Bit) == 0) return team ? Verdict.OtherTeam : Verdict.Guest;
             _mem.W8(addr, (byte)(cur & ~Bit));
@@ -122,7 +126,7 @@ internal sealed class HunterHold
             _warned = true;
             return v;
         }
-        _setByUs.Add(i);
+        _owned.Add(i);
         ModLogger.Debug(LogVerb.Trace, "hunter set " + Who(i, rec));
         Flight.Record("hunter", "set " + Who(i, rec));
         return Verdict.Held;

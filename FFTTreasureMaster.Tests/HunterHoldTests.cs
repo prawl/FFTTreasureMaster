@@ -150,15 +150,17 @@ public sealed class HunterHoldTests : IDisposable
         Assert.Equal(0, HunterByte(16));
     }
 
+    // An equipped 509 replaces the 488 word, so its record carries no 488 field bit, or the unit
+    // reads as wrong looking and the owner check is never reached.
     [Theory]
-    [InlineData(0x18)]
-    [InlineData(0x0A)]
-    [InlineData(0x0C)]
-    [InlineData(0x0E)]
-    [InlineData(0x10)]
-    public void T7_Owning_509_is_never_written_or_taken_back(int word)
+    [InlineData(0x18, 0x00)]
+    [InlineData(0x0A, 0x20)]
+    [InlineData(0x0C, 0x20)]
+    [InlineData(0x0E, 0x20)]
+    [InlineData(0x10, 0x20)]
+    public void T7_Owning_509_is_never_written_or_taken_back(int word, int field0)
     {
-        Qualifying(16);
+        Qualifying(16, field0: (byte)field0);
         _pin.Bytes[Off(16) + word] = 0xFD;
         _pin.Bytes[Off(16) + word + 1] = 0x01;
         Ticks(2);
@@ -225,11 +227,11 @@ public sealed class HunterHoldTests : IDisposable
     }
 
     [Theory]
-    [InlineData(0x18)]
-    [InlineData(0x0A)]
-    public void T29_A_real_Treasure_Hunter_bit_is_never_adopted(int word)
+    [InlineData(0x18, 0x00)]
+    [InlineData(0x0A, 0x20)]
+    public void T29_A_real_Treasure_Hunter_bit_is_never_adopted(int word, int field0)
     {
-        Qualifying(16);
+        Qualifying(16, field0: (byte)field0);
         _pin.Bytes[Off(16) + word] = 0xFD;
         _pin.Bytes[Off(16) + word + 1] = 0x01;
         _pin.Bytes[Off(16) + 0x9E] = 0x01;
@@ -253,6 +255,47 @@ public sealed class HunterHoldTests : IDisposable
         Assert.Equal(0x01, HunterByte(16));
         Assert.Equal(0, _mem.Writes);
         Assert.Equal(0, _log.Count("info", "Treasure Hunter was taken back"));
+    }
+
+    [Theory]
+    [InlineData(6, 0x01)]
+    [InlineData(0x9C, 0x40)]
+    [InlineData(1, 0xFF)]
+    public void T30_A_guest_an_odd_record_or_an_empty_seat_is_never_adopted(int field, int value)
+    {
+        Qualifying(16);
+        _pin.Bytes[Off(16) + field] = (byte)value;
+        _pin.Bytes[Off(16) + 0x9E] = 0x01;
+        Ticks(2);
+        _pin.Bytes[Off(16) + 5] = 0x1B;
+        Ticks(2);
+        Assert.Equal(0x01, HunterByte(16));
+        Assert.Equal(0, _mem.Writes);
+    }
+
+    [Fact]
+    public void T31_An_adoption_leaves_one_trace_line_and_a_flight_record()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "tm_hunter_adopt_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Flight.Reset();
+            Flight.Init(dir);
+            Qualifying(16);
+            _pin.Bytes[Off(16) + 0x9E] = 0x01;
+            Ticks(3);
+            Flight.RequestFlush("error");
+            Flight.DrainPending();
+
+            Assert.Equal(1, _log.Count("debug", "hunter adopt seat=16 job=74 name=900"));
+            string text = string.Concat(Directory.GetFiles(Path.Combine(dir, "flight"), "flight_*.jsonl").Select(File.ReadAllText));
+            Assert.Contains("adopt seat=16 job=74 name=900", text);
+        }
+        finally
+        {
+            Flight.Reset();
+            try { Directory.Delete(dir, recursive: true); } catch { }
+        }
     }
 
     [Fact]
@@ -279,7 +322,7 @@ public sealed class HunterHoldTests : IDisposable
     }
 
     [Fact]
-    public void T13_ResetBattle_forgets_ownership()
+    public void T13_ResetBattle_forgets_ownership_until_a_tick_adopts_the_bit_again()
     {
         Qualifying(16);
         Ticks(1);
@@ -287,6 +330,11 @@ public sealed class HunterHoldTests : IDisposable
         _pin.Bytes[Off(16) + 5] = 0x1B;
         Ticks(1);
         Assert.Equal(0x01, HunterByte(16));
+        _pin.Bytes[Off(16) + 5] = 0x0B;
+        Ticks(1);
+        _pin.Bytes[Off(16) + 5] = 0x1B;
+        Ticks(1);
+        Assert.Equal(0, HunterByte(16));
     }
 
     [Fact]
