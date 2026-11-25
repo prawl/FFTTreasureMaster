@@ -1,6 +1,7 @@
 # Treasure Hunter for the player's units, and worth equipping
 
-STATUS: PLAN. Nothing here is built and nothing here has been watched in the game. Two parts,
+STATUS: PLAN. Part 1 is being built (TM-25, go from Duet on 2026-11-25); part 2 is not
+started, and nothing here has been watched in the game beyond part 1's gates. Two parts,
 both decided, worked in this order: first keep the free ability away from enemies (TM-25,
 chosen 2026-11-25 on Duet's review), then make an equipped Treasure Hunter find more rares
 (TM-24, then TM-23, chosen by the owner on 2026-11-24). Ledger rows are in [TODO.md](TODO.md).
@@ -55,8 +56,8 @@ Chosen 2026-11-25, on Duet's review of the proposal.
   still pick up treasure in battle.
 - The jobs left out today, for having no free slot in the job list or for sharing a row
   with enemies, get it too, since every deployed unit qualifies.
-- The setting may no longer need the Mod Loader; Rare treasure only still does. That is
-  settled when the build is planned.
+- The setting no longer needs the Mod Loader; Rare treasure only still does. It also
+  follows Enable Treasure Master, and a guest marked unit is skipped and named in the log.
 
 What it does not change:
 

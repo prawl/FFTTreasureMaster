@@ -25,6 +25,29 @@ that checklist.
   - Verify: a new test runs a default settings battle through TreasureMaster and asserts nothing is
     logged at warning level; suite green; one live battle's log shows no marker warning.
 
+- **[TM-25] Give Treasure Hunter only to the units the player deploys, so enemies stop taking treasure** (opened 2026-11-25) [BUILDING]
+  - Done means: with All units on, every unit the player deploys picks up tile treasure,
+    Chemists by the game's own rule and everyone else through the mod, and no enemy picks one
+    up because of the mod. A player reported enemies grabbing treasure first, and the owner saw
+    it in the game, because the setting edits the job list both sides share. Now the setting
+    stops changing the job list and the mod gives the ability in each battle instead,
+    recruited monsters included and Chemists skipped. A charmed player unit has no free ability
+    while charmed, guests get none and the log names them, any unit the mod cannot read or that
+    does not look right plays as in the unmodded game and the log names it, and the setting
+    follows Enable Treasure Master and no longer needs the Mod Loader. The setting's
+    description says what changed, since the Treasure Hunter tag leaves the Formation screen.
+    The plan is part 1 of [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md). (Tech: the job
+    table grant retires; each battle a new HunterHold holds bit 0x01 of +0x9E on qualifying
+    records in seats 16 to 20, found from the signature anchored unit array, never the claim
+    scan's window. Duet's calls F1 to F5, note 373.)
+  - Verify: gate 1's set direction and gate 2's battle start and enemy turn parts passed live on
+    2026-11-25; gate 1's clear direction and suspend and resume move to the owner's live check,
+    since the job table grant they were written for retires here (Duet, note 373). Suite green
+    with the new hold tests; then owner-only in the game: deployed units of several jobs pick
+    treasure up, an enemy of a standard job walked onto a lit tile leaves the treasure, a
+    charmed player unit gets nothing while charmed and gets it back after, and the hold comes
+    back after a Retry and after a suspend and resume.
+
 ## Backlog
 
 - [TM-26] 2026-11-25: A normal battle can still log a warning that some treasure flag bytes are
@@ -32,29 +55,6 @@ that checklist.
   twice on Grogh Heights on 2026-11-25, both times with all four tiles lit. Decide whether it is
   worth a warning at all, or belongs at a quieter level. (Tech: the foreign count warning in
   TreasureMaster TickArmed, logged once per battle.)
-
-- [TM-25] 2026-11-25: With All units on, enemies of the granted jobs get Treasure Hunter too, so an
-  enemy can walk onto a hidden treasure and take it before the player gets there. A player
-  reported it and the owner saw it in the game. Chosen 2026-11-25 on Duet's review: the setting
-  stops changing the job list, which both sides share, and in each battle the mod gives the
-  ability to the units the player deployed instead, recruited monsters included and Chemists
-  skipped, so enemies never get it from the mod. The plan is part 1 of
-  [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md) and goes before TM-24 and TM-23. No code
-  yet: gate 1's first half and most of gate 2 passed live on 2026-11-25, see the plan.
-  - Done means: with All units on, every unit the player deploys picks up tile treasure,
-    Chemists by the game's own rule and everyone else through the mod, and no enemy picks one
-    up because of the mod. A charmed player unit has no free ability while charmed, guests stay
-    out for now, and the setting's description says what changed, since the Treasure Hunter
-    tag leaves the Formation screen. A unit the mod cannot read plays as in the unmodded game.
-    (Tech: the job table grant retires; each battle the mod holds one bit on each qualifying
-    battle unit record, found through the signature anchored array base and its real seats,
-    never through the claim scan's wider window. One code read, still owed to the fact keeper,
-    says the pick up test reads that bit and not the job list. The same read says the unmodded
-    game lets enemy Chemists find treasure, which no data fix can stop.)
-  - Verify: gates 1 and 2 of the plan pass live before any code; suite green; then owner-only in
-    the game: an enemy of a standard job walked onto a lit tile leaves the treasure, deployed
-    units of several jobs pick treasure up, and a charmed player unit gets nothing while
-    charmed.
 
 - [TM-24] 2026-11-24: Take Chemists out of the All units grant, so equipping Treasure Hunter on
   a Chemist is worth something again, then check in the game that the Chemist bonus works the
