@@ -1,5 +1,5 @@
 {
- "sha": "cdd40f0",
+ "sha": "51aa99a",
  "date": "2026-11-25",
  "columns": [
   "comments",
@@ -22,7 +22,7 @@
   "ClaimAudit.cs": [19, 14, 32, 0, 0],
   "CollectAudit.cs": [15, 11, 22, 0, 0],
   "Configuration/Config.cs": [4, 4, 42, 0, 0],
-  "Configuration/Configurable.cs": [17, 7, 78, 1, 0],
+  "Configuration/Configurable.cs": [17, 7, 83, 1, 0],
   "Configuration/Configurator.cs": [14, 6, 69, 1, 0],
   "Configuration/ConfiguratorMixinBase.cs": [6, 5, 13, 0, 0],
   "Engine.cs": [17, 6, 90, 2, 0],
@@ -40,7 +40,7 @@
   "LoaderJobs.cs": [5, 5, 22, 0, 0],
   "LogVerb.cs": [5, 4, 34, 0, 0],
   "Mem.cs": [23, 10, 100, 0, 0],
-  "Mod.cs": [23, 6, 99, 2, 0],
+  "Mod.cs": [23, 6, 106, 2, 0],
   "Offsets.cs": [43, 13, 16, 0, 0],
   "RareTreasureGrant.cs": [8, 6, 75, 0, 0],
   "ReadinessWait.cs": [3, 2, 16, 0, 0],

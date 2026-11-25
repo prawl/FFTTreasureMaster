@@ -11,13 +11,29 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-## Backlog
+- **[TM-34] Warn in the log when the settings file cannot be read** (opened 2026-11-25) [BUILDING]
+  - Done means: a player whose Config.json is broken still gets every setting at its default,
+    the file is left as it is for them to fix, and the log says which file could not be read
+    and why instead of claiming the settings loaded. The launcher's Configure window still
+    opens on a broken file, since it is the way to repair it. (Tech: Configurable.LoadFromFile
+    keeps the failure in a hidden LoadError field instead of quietly returning a new Config;
+    Mod.DescribeConfig picks the warn line. Fixed first inside TM-32, as the coordinator asked.)
+  - Verify: suite green with the new ModConfigTests cases (a broken, empty, null or locked file
+    reports its error and is not overwritten; a good or missing file reports none).
 
-- [TM-34] 2026-11-25: When the settings file cannot be read, every setting quietly falls back
-  to its default and the log reads as if the file said so, so a player who broke the file by
-  hand never learns why their choices vanished. Warn in the log instead. (Tech:
-  Configurable.LoadFromFile catches every exception and returns a new Config, so the warning
-  in Mod.cs around line 94 never fires. Found in the TM-33 plan review.)
+- **[TM-32] Let players pick how the treasure tiles look** (opened 2026-11-25) [BUILDING]
+  - Done means: a "Tile highlight style" setting offers six looks, today's blue border with a
+    yellow fill staying the default, and a battle shows the chosen look after a relaunch; a
+    claimed tile still goes dark; a config saved by a newer version never resets the other
+    settings. The plan is step 1 of [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: TileStyles
+    holds the table, the published style, Classify and WantWrite, moved out of
+    TreasureMaster.Policy.cs; a forgiving converter maps an unknown value to the default.)
+  - Verify: suite green with a non default style test that fails on the old constant; then
+    owner only, in the game: three styles picked and each seen after a relaunch on Zeklaus
+    Desert (all seven memory regions), a claimed tile going dark, the dropdown names reading
+    well.
+
+## Backlog
 
 - [TM-33] 2026-11-25: Let a player press a key in battle to step the treasure tiles through
   every highlight style on the real map, so nobody has to pick a look from its name, and keep
@@ -25,11 +41,6 @@ that checklist.
   [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: key 4 by default, polled behind focus,
   modifier and battle checks, a Stale state so lit tiles follow the change, the choice saved
   to Config.json.)
-
-- [TM-32] 2026-11-25: Give players a "Tile highlight style" setting with a short list of
-  looks, such as green, pink or a dotted outline, today's blue border with a yellow fill
-  staying the default. The plan is step 1 of [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech:
-  MarkValue becomes the chosen style's value, from a table of looks seen live 2026-11-25.)
 
 - [TM-31] 2026-11-25: Nobody has yet watched an enemy walk onto a lit treasure tile with All
   units on and leave the treasure there, or an enemy Chemist pick one up unaided. Catch either

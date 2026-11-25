@@ -34,6 +34,10 @@ public class Configurable<TParentType> : IUpdatableConfigurable
     [JsonIgnore]
     public string? ConfigName { get; set; }
 
+    [Browsable(false)]
+    [JsonIgnore]
+    public string? LoadError { get; private set; }
+
     // Kept as a field so the GC does not collect the watcher while active. System.Text.Json
     // ignores private fields, so no attribute is needed.
     private FileSystemWatcher? _watcher;
@@ -64,11 +68,13 @@ public class Configurable<TParentType> : IUpdatableConfigurable
         try
         {
             var json = File.ReadAllText(filePath);
-            return JsonSerializer.Deserialize<TParentType>(json, SerializerOptions) ?? new TParentType();
+            var parsed = JsonSerializer.Deserialize<TParentType>(json, SerializerOptions);
+            if (parsed != null) return parsed;
+            return new TParentType { LoadError = "the file holds a JSON null instead of a settings object" };
         }
-        catch
+        catch (Exception ex)
         {
-            return new TParentType();
+            return new TParentType { LoadError = ex.Message };
         }
     }
 

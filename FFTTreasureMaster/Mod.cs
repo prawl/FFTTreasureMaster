@@ -87,9 +87,9 @@ public class Mod : IMod
                 claimDetection = cfg.HideClaimedTiles;
                 _allUnitsHunter = cfg.AllUnitsTreasureHunter;
                 _rareOnlyEnabled = cfg.RareTreasureOnly;
-                ModLogger.EventWithTrace(LogVerb.Config,
-                    $"Configuration loaded: Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_allUnitsHunter} RareTreasureOnly={_rareOnlyEnabled}.",
-                    $"config source {configPath}");
+                var (ok, line) = DescribeConfig(cfg, configPath);
+                if (ok) ModLogger.EventWithTrace(LogVerb.Config, line, $"config source {configPath}");
+                else ModLogger.Warn(LogVerb.Config, line);
             }
             catch (Exception cfgEx)
             {
@@ -104,6 +104,14 @@ public class Mod : IMod
         {
             try { ModLogger.Error(LogVerb.Startup, "Startup failed; Treasure Master will not run.", ex); } catch { }
         }
+    }
+
+    internal static (bool Ok, string Line) DescribeConfig(Config cfg, string source)
+    {
+        var values = $"Enabled={cfg.Enabled} HideClaimedTiles={cfg.HideClaimedTiles} AllUnitsTreasureHunter={cfg.AllUnitsTreasureHunter} RareTreasureOnly={cfg.RareTreasureOnly}";
+        return cfg.LoadError == null
+            ? (true, $"Configuration loaded: {values}.")
+            : (false, $"The configuration file {source} could not be read ({cfg.LoadError}); every setting uses its default: {values}.");
     }
 
     /// <summary>

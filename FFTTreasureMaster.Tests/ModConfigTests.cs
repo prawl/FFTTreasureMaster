@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using FFTTreasureMaster.Configuration;
 using Xunit;
@@ -13,7 +14,8 @@ namespace FFTTreasureMaster.Tests;
 ///   (2) FromFile on a missing path creates a new Config with the default value (true).
 ///   (3) A Config.json written with Enabled=true  round-trips back as true.
 ///   (4) A Config.json written with Enabled=false round-trips back as false.
-///   (5) FromFile on corrupt JSON silently returns a default Config (no throw).
+///   (5) FromFile on a corrupt, empty, null or locked file returns a default Config with LoadError
+///       set (no throw, file untouched); a good or missing file leaves LoadError null.
 ///   (6) Default Config has HideClaimedTiles == true (dim-on-claim ships on by default).
 ///   (7) FromFile on a missing path returns HideClaimedTiles == true.
 ///   (8) A Config.json written with HideClaimedTiles=true  round-trips back as true.
@@ -25,6 +27,8 @@ namespace FFTTreasureMaster.Tests;
 ///  (13) A Config.json written with AllUnitsTreasureHunter=false round-trips back as false.
 ///  (14) RareTreasureOnly follows the same four checks as AllUnitsTreasureHunter (default off).
 ///  (15) Every toggle default equals its Tuning fallback constant.
+///  (16) Save never writes LoadError; DescribeConfig is Ok on a clean load and names source and
+///       reason on a failed one.
 /// </summary>
 public class ModConfigTests : IDisposable
 {
@@ -74,18 +78,98 @@ public class ModConfigTests : IDisposable
     }
 
     [Fact]
-    public void FromFile_CorruptJson_ReturnsDefaultNoThrow()
+    public void FromFile_CorruptJson_DefaultsReportErrorAndFileUntouched()
     {
         var path = Path.Combine(TempDir(), "Config.json");
         File.WriteAllText(path, "{ this is not valid json !!!");
+        var before = File.ReadAllBytes(path);
 
-        var ex = Record.Exception(() =>
-        {
-            var c = Configurable<Config>.FromFile(path, "Test");
-            Assert.True(c.Enabled);   // corrupt load falls back to default (true)
-            Assert.False(c.RareTreasureOnly);
-        });
+        Config? c = null;
+        var ex = Record.Exception(() => c = Configurable<Config>.FromFile(path, "Test"));
+
         Assert.Null(ex);
+        Assert.True(c!.Enabled);
+        Assert.False(c.RareTreasureOnly);
+        Assert.NotNull(c.LoadError);
+        Assert.Equal(before, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public void FromFile_NullLiteral_DefaultsAndReportsError()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "null");
+        var c = Configurable<Config>.FromFile(path, "Test");
+        Assert.True(c.Enabled);
+        Assert.False(string.IsNullOrWhiteSpace(c.LoadError));
+    }
+
+    [Fact]
+    public void FromFile_EmptyFile_ReportsError()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "");
+        Assert.NotNull(Configurable<Config>.FromFile(path, "Test").LoadError);
+    }
+
+    [Fact]
+    public void FromFile_FileLockedByAnotherHandle_ReportsErrorNoThrow()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "{}");
+        using var hold = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+        Config? c = null;
+        var ex = Record.Exception(() => c = Configurable<Config>.FromFile(path, "Test"));
+
+        Assert.Null(ex);
+        Assert.NotNull(c!.LoadError);
+    }
+
+    [Fact]
+    public void FromFile_GoodFileAndMissingPath_LoadErrorIsNull()
+    {
+        var good = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(good, "{ \"Enabled\": false }");
+        var loaded = Configurable<Config>.FromFile(good, "Test");
+        Assert.False(loaded.Enabled);
+        Assert.Null(loaded.LoadError);
+        Assert.Null(Configurable<Config>.FromFile(Path.Combine(TempDir(), "Config.json"), "Test").LoadError);
+    }
+
+    [Fact]
+    public void Save_NeverWritesLoadError()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "{ nope");
+        var c = Configurable<Config>.FromFile(path, "Test");
+        Assert.NotNull(c.LoadError);
+        c.Save();
+        Assert.DoesNotContain("LoadError", File.ReadAllText(path));
+    }
+
+    [Fact]
+    public void DescribeConfig_GoodConfig_IsOkAndOpensWithLoaded()
+    {
+        var (ok, line) = Mod.DescribeConfig(new Config(), "src.json");
+        Assert.True(ok);
+        Assert.StartsWith("Configuration loaded", line);
+    }
+
+    [Fact]
+    public void DescribeConfig_FailedConfig_NamesSourceAndReason()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "{ nope");
+        var c = Configurable<Config>.FromFile(path, "Test");
+
+        var (ok, line) = Mod.DescribeConfig(c, path);
+
+        Assert.False(ok);
+        Assert.Contains(path, line);
+        Assert.Contains(c.LoadError!, line);
+        Assert.Contains("default", line);
+        Assert.Contains("RareTreasureOnly=", line);
     }
 
     // ── HideClaimedTiles invariants ───────────────────────────────────────────
