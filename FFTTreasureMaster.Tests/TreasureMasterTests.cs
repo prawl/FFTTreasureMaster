@@ -2802,4 +2802,50 @@ public class TreasureMasterTests : IDisposable
         Assert.True(mem.ReadCount.ContainsKey(Offsets.UnitArrayBaseX),
             "claim reads should resume after the flags reset and the second resolution allows them");
     }
+
+    // ── UnitArrayTrusted (the hunter hold's trust flag) ──────────────────────────
+
+    private static bool TrustedAfter(string dir, bool? enabled, TreasureBuildKey? key, uint ts, uint soi,
+        Func<TreasureDb, AnchorResolution?>? resolver)
+    {
+        var db = BuildDb(dir, buildKey: key);
+        var mem = BuildMem(74, new byte[] { 1, 2, 3, 4, 5, 6, 7 }, new[] { TileAddr(450) });
+        SeedPeHeader(mem, ts, soi);
+        var tm = new TreasureMaster(db, mem, enabled: enabled, resolver: resolver);
+        StabilizeAndArm(tm);
+        return tm.UnitArrayTrusted;
+    }
+
+    private static readonly TreasureBuildKey TrustKey = new() { TimeDateStamp = 0xAB12, SizeOfImage = 0xCD34 };
+
+    [Fact]
+    public void UnitArrayTrusted_false_before_the_first_tick()
+    {
+        var tm = new TreasureMaster(BuildDb(TempDir(), buildKey: TrustKey), new FakeSparseMemory(), enabled: true);
+        Assert.False(tm.UnitArrayTrusted);
+    }
+
+    [Fact]
+    public void UnitArrayTrusted_true_on_a_matching_build_key()
+        => Assert.True(TrustedAfter(TempDir(), true, TrustKey, 0xAB12, 0xCD34, null));
+
+    [Fact]
+    public void UnitArrayTrusted_false_with_Enabled_off()
+        => Assert.False(TrustedAfter(TempDir(), false, TrustKey, 0xAB12, 0xCD34, null));
+
+    [Fact]
+    public void UnitArrayTrusted_false_on_a_mismatch_with_no_resolver()
+        => Assert.False(TrustedAfter(TempDir(), true, TrustKey, 0x1, 0x2, null));
+
+    [Fact]
+    public void UnitArrayTrusted_false_when_the_resolver_says_ClaimOk_false()
+        => Assert.False(TrustedAfter(TempDir(), true, TrustKey, 0x1, 0x2, _ => MakeCanned(claimOk: false)));
+
+    [Fact]
+    public void UnitArrayTrusted_true_when_the_resolver_says_ClaimOk_true()
+        => Assert.True(TrustedAfter(TempDir(), true, TrustKey, 0x1, 0x2, _ => MakeCanned(claimOk: true)));
+
+    [Fact]
+    public void UnitArrayTrusted_false_on_a_dataset_with_no_build_key()
+        => Assert.False(TrustedAfter(TempDir(), true, null, 0xAB12, 0xCD34, null));
 }

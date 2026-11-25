@@ -1,5 +1,5 @@
 {
- "sha": "770ab63",
+ "sha": "f9378ad",
  "date": "2026-11-25",
  "columns": [
   "comments",
@@ -25,13 +25,14 @@
   "Configuration/Configurable.cs": [17, 7, 78, 1, 0],
   "Configuration/Configurator.cs": [14, 6, 69, 1, 0],
   "Configuration/ConfiguratorMixinBase.cs": [6, 5, 13, 0, 0],
-  "Engine.cs": [17, 6, 86, 2, 0],
+  "Engine.cs": [17, 6, 90, 2, 0],
   "FastHold.cs": [23, 10, 40, 1, 0],
   "FftivcJobTable.cs": [16, 6, 66, 0, 0],
   "FftivcTrapTable.cs": [10, 5, 75, 0, 0],
   "Flight.cs": [18, 7, 16, 0, 0],
   "FlightRecorder.cs": [37, 14, 128, 4, 0],
   "GameMemory.cs": [7, 4, 23, 0, 0],
+  "HunterHold.cs": [5, 3, 127, 0, 0],
   "IJobTable.cs": [14, 5, 7, 0, 0],
   "ILoaderEvents.cs": [8, 4, 24, 0, 0],
   "ISignature.cs": [15, 6, 19, 0, 0],
@@ -50,6 +51,6 @@
   "TreasureHunterGrant.cs": [24, 6, 114, 0, 0],
   "Tuning.cs": [88, 8, 35, 0, 0],
   "partial FlightRecorder": [13, 5, 51, 0, 0],
-  "partial TreasureMaster": [228, 16, 538, 0, 0]
+  "partial TreasureMaster": [228, 16, 537, 0, 0]
  }
 }

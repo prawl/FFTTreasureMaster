@@ -20,6 +20,7 @@ internal sealed class Engine
     private readonly TreasureMaster _treasure;
     private readonly BattleState _battle = new();   // debounced in/out edges (slot9 sticks; mode flickers)
     private readonly AddrMap _addrs = new();   // shared sentinel addresses; rebased by AnchorResolver on a build-key mismatch
+    private readonly HunterHold? _hunter;
     private CancellationTokenSource? _cts;
 
     /// <param name="modDir">Mod deployment directory (treasure.json + Config.json live here).</param>
@@ -27,7 +28,7 @@ internal sealed class Engine
     /// Null falls back to Tuning.TreasureEnabled.</param>
     /// <param name="claimDetection">Claim-detection gate, read from Config.HideClaimedTiles at
     /// startup. Null falls back to Tuning.ClaimDetectionEnabled.</param>
-    public Engine(string modDir, bool? enabled = null, bool? claimDetection = null)
+    public Engine(string modDir, bool? enabled = null, bool? claimDetection = null, bool allUnitsHunter = false)
     {
         var treasureJson = Path.Combine(modDir, "treasure.json");
         var liveMem = new LiveMemory();
@@ -45,6 +46,7 @@ internal sealed class Engine
             collectDetection: claimDetection,
             resolver: resolver.TryResolve,
             addrs: _addrs);
+        if (allUnitsHunter && (enabled ?? Tuning.TreasureEnabled)) _hunter = new HunterHold(liveMem, _addrs);
         _treasure.StartFastHold();
     }
 
@@ -101,6 +103,7 @@ internal sealed class Engine
                 ModLogger.NoteBattleEdge();
             }
             _treasure.ResetBattle();
+            _hunter?.ResetBattle();
         }
 
         // Treasure gates on a battle map being on screen rather than strict in live, which stays
@@ -108,6 +111,7 @@ internal sealed class Engine
         bool battleDisplayed = BattleState.BattleDisplayed(slot9, battleMode);
 
         _treasure.Tick(now, battleDisplayed);
+        _hunter?.Tick(battleDisplayed, _treasure.UnitArrayTrusted);
         Flight.DrainPending();   // performs any error-triggered flush queued since the last tick
     }
 }

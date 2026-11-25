@@ -100,7 +100,7 @@ public class Mod : IMod
                     $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_grantEnabled} RareTreasureOnly={_rareOnlyEnabled}: {cfgEx.Message}");
             }
 
-            _engine = new Engine(modDir, enabled, claimDetection);
+            _engine = new Engine(modDir, enabled, claimDetection, _grantEnabled);
             _engine.Start();
         }
         catch (Exception ex)

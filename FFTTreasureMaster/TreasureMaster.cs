@@ -50,9 +50,8 @@ internal sealed partial class TreasureMaster : ISignature
     // Feature flags for a build re-resolved by signature (see AnchorResolver). All start true --
     // the fast path (matching build key) never touches them, so config alone decides, byte-
     // identical to before AddrMap/AnchorResolver existed.
-    private bool _claimOkForBuild = true;
-    private bool _collectOkForBuild = true;
-    private bool _fingerprintOkForBuild = true;
+    private bool _claimOkForBuild = true, _collectOkForBuild = true, _fingerprintOkForBuild = true;
+    internal bool UnitArrayTrusted => _globalIdleChecked && !_globalIdle && _claimOkForBuild && _db.BuildKey is not null;
 
     private readonly HashSet<(int, int)> _claimed = new();
     private readonly Dictionary<int, int> _lastCount = new();   // itemId -> inventory count last tick
