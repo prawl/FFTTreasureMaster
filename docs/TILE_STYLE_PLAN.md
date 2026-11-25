@@ -3,8 +3,10 @@
 STATUS: PLAN, APPROVED in review round 2, 2026-11-25. Round 1 went to a blind reviewer, who
 answered CHANGES NEEDED with one blocker and five should-fixes; round 2 checked every fix
 against the code and answered APPROVE, and its notes are folded in (see the last section).
-Nothing built. Two steps, worked in this order: a style setting (TM-32), then a key that
-cycles the style in game (TM-33). Ledger rows are in [TODO.md](TODO.md).
+Step 1 built 2026-11-25 (dfa2d58, adfac4d, 603d6fa), blind build review SHIP in round 2,
+waiting on the owner's Zeklaus live check. Two steps, worked in this order: a style setting
+(TM-32), then a key that cycles the style in game (TM-33). Ledger rows are in
+[TODO.md](TODO.md).
 
 ## In plain words
 
@@ -92,9 +94,11 @@ Changes:
   the options' `JsonStringEnumConverter`; the reviewer checked this in a live F# run.
 - `Mod.cs`: read the setting, publish the style before the engine and FastHold start, add it
   to the "Configuration loaded" line.
-- Text that names the settings: `mod/ModConfig.json` ModDescription, the Enabled description in
-  `Config.cs` ("a yellow-fill mark"), `README.md` ("There is one setting"), and this repo's
-  `CLAUDE.md` ("Four user-facing settings").
+- Text that names the settings or the moved members: `mod/ModConfig.json` ModDescription, the
+  Enabled description in `Config.cs` ("a yellow-fill mark"), `README.md` ("There is one
+  setting" and its bit `0x80` sentence), the sample "Configuration loaded" line in
+  `docs/LOGGING.md`, and this repo's `CLAUDE.md` ("Four user-facing settings", "the four
+  toggles", ClassifyAddr in the policy statics, and the TileHolder line).
 - Tests, about twice the production lines, since the repo's test ratio floor is 1.72:
   - every member mapped; every value has bit 0x80, is even, is neither 0x00 nor 0x01, and is
     unique; the default is 0xCC and equals the Tuning default, as ModConfigTests does for the
@@ -120,6 +124,10 @@ Changes:
   frozen once shipped), default Key4, the nearest free key to the game's own markers on 2 and
   3. The owner ruled out the F keys, and step 0 found T, R and 3 taken. Only the top row digit
   counts, not the number pad. The forgiving converter from step 1 sits on this property too.
+- Text that names the settings, all of it stale once a sixth setting lands: `README.md` ("five
+  settings"), `CLAUDE.md` ("Five user-facing settings" and the Configuration line),
+  `mod/ModConfig.json` ModDescription, `Mod.DescribeConfig`'s value list and the sample line in
+  `docs/LOGGING.md` that mirrors it.
 - New `StyleHotkey.cs`, called from the engine's tick behind an `IKeySource` seam. The live
   source reads the key with `GetAsyncKeyState` and counts it only while the foreground window
   belongs to the game's own process, Alt, Ctrl, Shift and both Windows keys are all up, and a

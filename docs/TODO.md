@@ -11,7 +11,7 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-- **[TM-32] Let players pick how the treasure tiles look** (opened 2026-11-25) [BUILDING]
+- **[TM-32] Let players pick how the treasure tiles look** (opened 2026-11-25) [AWAITING-LIVE]
   - Done means: a "Tile highlight style" setting offers six looks, today's blue border with a
     yellow fill staying the default, and a battle shows the chosen look after a relaunch; a
     claimed tile still goes dark; a config saved by a newer version never resets the other

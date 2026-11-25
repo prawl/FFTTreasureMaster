@@ -1454,8 +1454,8 @@ public class TreasureMasterTests : IDisposable
     // ── FastHold tests ────────────────────────────────────────────────────────────
     // No real threads are spawned (Start/StartFastHold never called).
     // All tests drive HoldOnce() directly -- the thread-safe property is argued by
-    // construction: TileHolder is stateless and set-only (writes the same DefaultMark), so
-    // concurrent callers are idempotent and safe.
+    // construction: TileHolder is stateless and writes the one mark published before any hold
+    // starts (DefaultMark in these tests), so concurrent callers are idempotent and safe.
 
     /// <summary>
     /// FastHold.HoldOnce with a published map writes DefaultMark to the tile addresses via
