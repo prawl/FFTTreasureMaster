@@ -26,17 +26,16 @@ that checklist.
     logged at warning level; suite green; one live battle's log shows no marker warning.
 
 - **[TM-25] Give Treasure Hunter only to the units the player deploys, so enemies stop taking treasure** (opened 2026-11-25) [AWAITING-LIVE]
-  - Done means: with All units on, the units the player deploys pick up tile treasure,
-    Chemists by the game's own rule and the other qualifying units through the mod, and no
-    enemy picks one
-    up because of the mod. A player reported enemies grabbing treasure first, and the owner saw
-    it in the game, because the setting edits the job list both sides share. Now the setting
-    stops changing the job list and the mod gives the ability in each battle instead,
-    recruited monsters included and Chemists skipped. A charmed player unit has no free ability
-    while charmed, guests get none and the log names them, a unit that does not look right
-    plays as in the unmodded game and the log names it (an unreadable read names nobody), and
-    the setting follows Enable Treasure Master and no longer needs the Mod Loader. The setting's
-    description says what changed, since the Treasure Hunter tag leaves the Formation screen.
+  - Done means: with All units on, the units the player deploys pick up tile treasure, Chemists
+    by the game's own rule and the other qualifying units through the mod, and no enemy picks
+    one up because of the mod. A player reported enemies grabbing treasure first, and the owner
+    saw it in the game, because the setting edits the job list both sides share. Now the setting
+    stops changing the job list and the mod gives the ability in each battle instead, recruited
+    monsters included and Chemists skipped. A charmed player unit has no free ability while
+    charmed, guests get none and the log names them, a unit that does not look right plays as in
+    the unmodded game and the log names it (an unreadable read names nobody), and the setting
+    follows Enable Treasure Master and no longer needs the Mod Loader. The setting's description
+    says what changed, since the Treasure Hunter tag leaves the Formation screen.
     The plan is part 1 of [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md). (Tech: the job
     table grant retires; each battle a new HunterHold holds bit 0x01 of +0x9E on qualifying
     records in seats 16 to 20, found from the same signature anchor the claim

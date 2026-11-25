@@ -3,8 +3,8 @@ namespace FFTTreasureMaster;
 /// <summary>
 /// The static facade every call site uses to reach the flight recorder.
 /// Every call is a silent no-op until <see cref="Init"/> builds the real
-/// <see cref="FlightRecorder"/>, which Mod.cs does once right after ModLogger.Init. That
-/// inertness lets every test run unmodified, since none of them call Init. The design, what is
+/// <see cref="FlightRecorder"/>, which Mod.cs does once right after ModLogger.Init. Tests
+/// that never call Init see a no-op, and one that does must Reset after. The design, what is
 /// captured, where files land and the retention, is in docs/LOGGING.md under "Flight recorder".
 /// </summary>
 internal static class Flight

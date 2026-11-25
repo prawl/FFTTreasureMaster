@@ -1,5 +1,5 @@
 {
- "sha": "6bd2fc1",
+ "sha": "8dcbede",
  "date": "2026-11-25",
  "dirty": true,
  "snapshot": {
@@ -7,8 +7,8 @@
   "prod_lines": 4311,
   "code_lines": 2784,
   "test_files": 25,
-  "test_lines": 7210,
-  "test_ratio": 1.67,
+  "test_lines": 7237,
+  "test_ratio": 1.68,
   "comment_share": 0.228,
   "empty_catches": 12,
   "catches": 34,

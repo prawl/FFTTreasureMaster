@@ -129,13 +129,14 @@ of a session is diagnosable after the fact even if nobody was watching the conso
 oldest-dropped) of `(elapsedMs, type, payload)` records, every dependency (clock, wall clock,
 file writer, retention lister/deleter) injected (`FlightRecorderTests`). `Flight.cs` is a
 static null-object facade over it, mirroring `ModLogger`'s swappable-Instance idiom: every call
-site is a silent no-op until `Flight.Init(modDir)` runs (once, from Mod.cs), which is what lets
-every pre-existing test keep passing unmodified.
+site is a silent no-op until `Flight.Init(modDir)` runs (once, from Mod.cs), so a test that
+never calls Init sees nothing, and one that does calls `Flight.Reset()` after.
 
 **What gets captured (on-change only, never per-tick):** battle enter/exit edges (Engine), arm
 verdicts (TreasureMaster), claim and refund rulings, anchor re-resolve outcomes and stand-downs,
-and dataset reloads. The jsonl record types (`"battle"`, `"arm"`, `"claim"`, `"anchor"`,
-`"save"`) are a separate namespace from the console verbs; do not "align" them.
+dataset reloads, and the Treasure Hunter hold's set and take records (HunterHold). The jsonl
+record types (`"battle"`, `"arm"`, `"claim"`, `"anchor"`, `"save"`, `"hunter"`) are a separate
+namespace from the console verbs; do not "align" them.
 
 **Where files land:** `<modDir>/flight/flight_<yyyyMMdd_HHmmss>_<trigger>.jsonl`, one compact
 JSON object per line (Newtonsoft.Json). The first line is a header object
