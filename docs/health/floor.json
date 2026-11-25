@@ -1,13 +1,13 @@
 {
- "sha": "dae0b3b",
+ "sha": "50a27e4",
  "date": "2026-11-25",
  "dirty": true,
  "snapshot": {
   "prod_files": 41,
-  "prod_lines": 4309,
-  "code_lines": 2782,
+  "prod_lines": 4310,
+  "code_lines": 2783,
   "test_files": 25,
-  "test_lines": 7186,
+  "test_lines": 7210,
   "test_ratio": 1.67,
   "comment_share": 0.228,
   "empty_catches": 12,

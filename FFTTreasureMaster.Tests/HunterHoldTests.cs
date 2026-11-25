@@ -16,7 +16,7 @@ public sealed class HunterHoldTests : IDisposable
     {
         private readonly LiveMemory _in = new();
         public int Reads, U8Reads, Writes;
-        public bool WritableAll = true, DropWrites;
+        public bool WritableAll = true, DropWrites, FailRead;
         public long HookAddr;
         public Action? Hook;
         public byte U8(long a)
@@ -26,7 +26,7 @@ public sealed class HunterHoldTests : IDisposable
             return _in.U8(a);
         }
         public ushort U16(long a) => _in.U16(a);
-        public bool TryReadBytes(long a, int n, out byte[] b) { Reads++; return _in.TryReadBytes(a, n, out b); }
+        public bool TryReadBytes(long a, int n, out byte[] b) { Reads++; bool ok = _in.TryReadBytes(a, n, out b); return ok && !FailRead; }
         public void W8(long a, byte v) { Writes++; if (!DropWrites) _in.W8(a, v); }
         public bool Readable(long a, int n) => _in.Readable(a, n);
         public bool Writable(long a, int n) => WritableAll && _in.Writable(a, n);
@@ -336,6 +336,30 @@ public sealed class HunterHoldTests : IDisposable
         _pin.Bytes[Off(16) + 0x1FC] = 0x77;
         Ticks(8);
         Assert.Equal(1, _log.Count("info", "Treasure Hunter is on"));
+    }
+
+    [Fact]
+    public void T25_A_guest_take_back_is_a_trace_with_its_reason_and_counts_as_guest()
+    {
+        Qualifying(18);
+        Ticks(1);
+        _pin.Bytes[Off(18) + 6] = 0x08;
+        Ticks(1);
+        Assert.Equal(0, HunterByte(18));
+        Assert.True(_log.Has("hunter take seat=18 job=74 name=900 reason=guest marker"));
+        Ticks(3);
+        Assert.False(_log.Has("hunter skip seat=18"));
+        Ticks(1);
+        Assert.True(_log.Has("hunter skip seat=18"));
+    }
+
+    [Fact]
+    public void T27_A_failed_block_read_writes_nothing_even_with_a_filled_buffer()
+    {
+        Qualifying(16);
+        _mem.FailRead = true;
+        Ticks(1);
+        Assert.Equal(0, _mem.Writes);
     }
 
     [Fact]

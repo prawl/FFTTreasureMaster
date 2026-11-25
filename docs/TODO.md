@@ -38,19 +38,21 @@ that checklist.
     description says what changed, since the Treasure Hunter tag leaves the Formation screen.
     The plan is part 1 of [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md). (Tech: the job
     table grant retires; each battle a new HunterHold holds bit 0x01 of +0x9E on qualifying
-    records in seats 16 to 20, found from the signature anchored unit array, never the claim
-    scan's window. Duet's calls F1 to F5, note 373.)
+    records in seats 16 to 20, found from the same signature anchor the claim
+    scan starts from, read only at the real party seats 16 to 20, never by scanning the claim
+    window's 65 records. Duet's calls F1 to F5, note 373.)
   - Verify: gate 1's set direction and gate 2's battle start and enemy turn parts passed live on
     2026-11-25; gate 1's clear direction and suspend and resume move to the owner's live check,
     since the job table grant they were written for retires here (Duet, note 373). Suite green
     with the new hold tests. It does not ship until the fact keeper's GF-19 review passes on
-    the three claims it leans on: the switch alone lets a unit pick up treasure, the switch
-    holds until a battle restart rebuilds the unit, and seat 20 holds staging copies marked
-    0xFF (Duet, note 376). Then owner-only in the game: deployed units of several jobs pick
-    treasure up, a Chemist with nothing equipped picks up treasure, an enemy of a standard job
-    walked onto a lit tile leaves the treasure, a
-    charmed player unit gets nothing while charmed and gets it back after, and the hold
-    comes back after a Retry and after a suspend and resume.
+    claims 1, 2, 3 and 7: the switch alone lets a unit pick up treasure, the switch holds until
+    a battle restart rebuilds the unit, seat 20 holds staging copies marked 0xFF, and enemy
+    Chemists find treasure unaided (the known limit the setting's text states) (Duet, notes 376
+    and 389). Claim 4 does not block. Then owner-only in the game: deployed units of several
+    jobs pick treasure up, a Chemist with nothing equipped picks up treasure, an enemy of a
+    standard job walked onto a lit tile leaves the treasure, a charmed player unit gets nothing
+    while charmed and gets it back after, and the hold comes back after a Retry and after a
+    suspend and resume.
 
 ## Backlog
 
