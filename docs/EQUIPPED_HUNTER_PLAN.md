@@ -88,6 +88,18 @@ other copy of it is open.
 4. For information: with today's build, when an enemy or a guest picks up a treasure, does
    the item land in the player's bag? It decides whether guests come in later.
 
+Results so far, 2026-11-25, on Grogh Heights with the Mod Loader off:
+
+- Gate 1's first half passed. With the switch turned on and nothing else granting it, Ramza,
+  with Move +3 equipped, picked up a Potion the moment he stopped on a treasure tile.
+- Gate 2 held through the battle start and five enemy turns. The game wrote each player
+  unit's movement switches once, about seven seconds after the map loaded and before any
+  turn, and never touched Ramza's switch again.
+- A seat the game uses while it builds the party reads as empty, so the mod picks units by
+  their on field and seat filled markers, never by seat number alone.
+- Still open: gate 1's second half and gate 4, which need the Mod Loader on, and gate 2's
+  Retry and suspend and resume.
+
 ### What was not chosen
 
 - Taking the ability back from enemies each battle. When it misses, it falls back to the

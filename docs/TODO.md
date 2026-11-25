@@ -27,14 +27,20 @@ that checklist.
 
 ## Backlog
 
+- [TM-26] 2026-11-25: A normal battle can still log a warning that some treasure flag bytes are
+  away from their expected value, which reads like trouble even though every tile lights. Seen
+  twice on Grogh Heights on 2026-11-25, both times with all four tiles lit. Decide whether it is
+  worth a warning at all, or belongs at a quieter level. (Tech: the foreign count warning in
+  TreasureMaster TickArmed, logged once per battle.)
+
 - [TM-25] 2026-11-25: With All units on, enemies of the granted jobs get Treasure Hunter too, so an
   enemy can walk onto a hidden treasure and take it before the player gets there. A player
   reported it and the owner saw it in the game. Chosen 2026-11-25 on Duet's review: the setting
   stops changing the job list, which both sides share, and in each battle the mod gives the
   ability to the units the player deployed instead, recruited monsters included and Chemists
   skipped, so enemies never get it from the mod. The plan is part 1 of
-  [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md) and goes before TM-24 and TM-23. Not
-  started: two live gates come first and wait for the go.
+  [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md) and goes before TM-24 and TM-23. No code
+  yet: gate 1's first half and most of gate 2 passed live on 2026-11-25, see the plan.
   - Done means: with All units on, every unit the player deploys picks up tile treasure,
     Chemists by the game's own rule and everyone else through the mod, and no enemy picks one
     up because of the mod. A charmed player unit has no free ability while charmed, guests stay
