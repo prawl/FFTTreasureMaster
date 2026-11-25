@@ -46,6 +46,17 @@ that checklist.
 
 ## Backlog
 
+- [TM-25] 2026-11-25: With All units on, enemies of the granted jobs get Treasure Hunter too, so an
+  enemy can walk onto a hidden treasure and take it before the player gets there. A player
+  reported it and the owner saw it in the game. A proposal went to Duet on 2026-11-25: stop
+  adding the ability to the job list, which both sides share, and give it to the player's own
+  units in each battle instead, so enemies never get it. Taking it back from enemies each battle
+  is the second choice and a patch on the game's pick up check the fallback. Not decided, not
+  started. (Tech: one code read, still owed to the fact keeper, says the pick up test reads one
+  bit on each unit's battle record and not the job list; the player's deployed units sit in
+  seats 16 and up, enemies below, per the fact keeper's party-units-start-at-slot-16. The same
+  read says the unmodded game lets enemy Chemists find treasure, which no data fix can stop.)
+
 - [TM-24] 2026-11-24: Take Chemists out of the All units grant, so equipping Treasure Hunter on
   a Chemist is worth something again, then check in the game that the Chemist bonus works the
   way the research says. This is step zero of the plan in
