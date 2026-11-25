@@ -22,7 +22,7 @@ that checklist.
 - [TM-33] 2026-11-25: Let a player press a key in battle to step the treasure tiles through
   every highlight style on the real map, so nobody has to pick a look from its name, and keep
   the last pick for the next launch. The plan is step 2 of
-  [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: T by default, polled behind focus,
+  [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: key 4 by default, polled behind focus,
   modifier and battle checks, a Stale state so lit tiles follow the change, the choice saved
   to Config.json.)
 

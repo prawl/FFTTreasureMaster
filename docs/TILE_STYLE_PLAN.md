@@ -1,10 +1,10 @@
 # Tile highlight styles: a setting and a key that cycles them
 
-STATUS: PLAN, round 2, 2026-11-25, key choice updated the same day. Round 1 went to a blind
-reviewer, who answered CHANGES NEEDED with one blocker and five should-fixes; this round folds
-all ten findings in (see the last section). Nothing built. Two steps, worked in this order:
-a style setting (TM-32), then a key that cycles the style in game (TM-33). Ledger rows are in
-[TODO.md](TODO.md).
+STATUS: PLAN, APPROVED in review round 2, 2026-11-25. Round 1 went to a blind reviewer, who
+answered CHANGES NEEDED with one blocker and five should-fixes; round 2 checked every fix
+against the code and answered APPROVE, and its notes are folded in (see the last section).
+Nothing built. Two steps, worked in this order: a style setting (TM-32), then a key that
+cycles the style in game (TM-33). Ledger rows are in [TODO.md](TODO.md).
 
 ## In plain words
 
@@ -42,10 +42,9 @@ Not proven, and the plan does not lean on it:
 - Re-shoot each listed look alone: no trap marker nearby and the cursor a few tiles off, with
   the existing sweep probe on the listed values only. The pictures are for the Nexus page and
   the setting's description, and ship nowhere else.
-- Press T, then 3 to 9, bare, in battle (cursor, menus, the battlefield view) and on the world
-  map, and note any the game answers. T is the owner's pick for the default (2026-11-25) and
-  holds only if the game ignores it; otherwise the default is the first listed key that does
-  nothing.
+- Done 2026-11-25, the owner pressing keys in battle: T opens the unit's Status page, R is View
+  Battlefield, 3 puts the trap marker on the mouse pointer's tile (as 2 does on the cursor's),
+  and 4 to 9 do nothing. So the key list is 4 to 9. The clean previews are still to shoot.
 
 ## Step 1 (TM-32): the style setting
 
@@ -80,12 +79,17 @@ Changes:
   `ClassifyAddr`, `WantWrite` and `MarkValue`; `TileHolder` and `ArmAudit` call `TileStyles`.
   Its row in docs/health (the partial TreasureMaster, 537 code lines, 228 comment lines, both
   at the limit) can only go down. Comments that stop being true are rewritten within each
-  file's frozen comment budget: the policy's header and the MarkValue notes, and FastHold.cs:11
-  "only ever sets bits".
+  file's frozen comment budget: the policy's header and the MarkValue notes, FastHold.cs:11
+  "only ever sets bits", the `see cref` at TileHolder.cs:8 and ArmAudit.cs:118, and the plain
+  mentions at TreasureMaster.cs:16, :422 and :466 (no project builds XML docs, so the compiler
+  will not catch a stale reference). The smaller row is then written with
+  `python gates/tools/health.py floor --write` and committed.
 - `Configuration/Config.cs`: a `TileStyle` property, DisplayName "Tile highlight style", the
   description naming each look in words, read at the next launch. A forgiving converter on
-  this one property maps a name it does not know to the default, so a config saved by a newer
-  version never fails the whole load.
+  this property (and on the key setting in step 2) maps a name it does not know, a number, or
+  an object or array (skipped with `reader.Skip()`) to the default, so a config saved by a
+  newer version never fails the whole load. An attribute converter on the property wins over
+  the options' `JsonStringEnumConverter`; the reviewer checked this in a live F# run.
 - `Mod.cs`: read the setting, publish the style before the engine and FastHold start, add it
   to the "Configuration loaded" line.
 - Text that names the settings: `mod/ModConfig.json` ModDescription, the Enabled description in
@@ -104,22 +108,25 @@ Changes:
 - Size: about 40 production lines in the new file, fewer in the policy than today.
 
 Live check (owner): with a dev deploy, three styles picked in the setting and each seen after a
-relaunch on Grogh Heights (R2 to R6), Gollund Colliery Ridge (R1, R3, R5) and Zeklaus Desert
-(R0, R5); a claimed tile still going dark; the dropdown's names reading well in the launcher.
+relaunch on Zeklaus Desert, which alone holds bytes in all seven regions R0 to R6; a claimed
+tile still going dark; the dropdown's names reading well in the launcher.
 
 ## Step 2 (TM-33): the cycle key
 
 Changes:
 
-- `Config.cs`: a `StyleCycleKey` setting, one of Off, T, 3, 4, 5, 6, 7, 8 or 9, default T (T
-  for treasure, the owner's pick), held on the step 0 check. The owner ruled out the F keys.
-  The game's own battle keys are left off the list: 1 (Change Display), 2 (Marker), C, V, Z,
-  Tab, Shift, Esc and Backspace.
+- `Config.cs`: a `StyleCycleKey` enum setting with members Off, Key4, Key5, Key6, Key7, Key8
+  and Key9 (a digit cannot start a member name, and the names show in the dropdown and are
+  frozen once shipped), default Key4, the nearest free key to the game's own markers on 2 and
+  3. The owner ruled out the F keys, and step 0 found T, R and 3 taken. Only the top row digit
+  counts, not the number pad. The forgiving converter from step 1 sits on this property too.
 - New `StyleHotkey.cs`, called from the engine's tick behind an `IKeySource` seam. The live
   source reads the key with `GetAsyncKeyState` and counts it only while the foreground window
-  belongs to the game's own process, Alt, Ctrl and Shift are all up, and the engine says a
-  battle map is on screen. So typing in another program, a unit's name in a menu, or Shift
-  (the game's Tactical View) with T never cycles. A press fires once on its down edge; holding
+  belongs to the game's own process, Alt, Ctrl, Shift and both Windows keys are all up, and a
+  battle map is on screen. The battle signal is the `battleDisplayed` value `Engine.cs` already
+  builds and passes to TreasureMaster and HunterHold, so no new memory read. So typing in
+  another program, a unit's name in a menu, Win+4 (the taskbar's fourth app) or Shift (the
+  game's Tactical View) never cycles. A press fires once on its down edge; holding
   does not repeat.
   The tick runs every 31 to 47 ms, so a tap shorter than that can be missed; a normal press
   lasts longer.
@@ -127,12 +134,15 @@ Changes:
   and the current value always leaves it, so after a wrap the current value is checked first
   and never treated as retired. 0x80 can never be in the set, because it is never listed. One
   log line names the new style and the key.
-- The save rewrites one field, not the file. At the press, the live Config.json is read fresh;
-  if it does not parse, nothing is written and the log warns once; otherwise only `TileStyle`
-  is replaced and the file is written back. A setting the player changed in the launcher since
-  launch survives, and a failed load is never made permanent. If the launcher's Configure
-  window is open and saved afterwards, its value wins; the plan accepts that. A save that
-  throws warns once and never stops the game.
+- The save rewrites one field, not the file. At the press the config path is resolved again, since
+  the launcher can create the User file mid session, and the live Config.json is read fresh as a
+  JSON node tree, not through `Configurable.FromFile`, whose loader cannot tell a broken file from
+  a default one. If it does not parse, nothing is written and the log warns once; otherwise only
+  the `TileStyle` field is replaced and the file is written back. A setting the player changed in
+  the launcher since launch survives, and a failed load is never made permanent. If the launcher's
+  Configure window is open and saved afterwards, the launcher's own copy may win; the plan accepts
+  that, and the live check notes which way it goes. A save that throws warns once and never stops
+  the game.
 - The swap. The safety rule never writes a value the mod does not own, so without help every
   lit tile would freeze on the old look. Classification gains `Stale`, an exact match of a
   retired value: `TileHolder.Hold` rewrites a Stale byte to the current value and `Unlight`
@@ -142,8 +152,10 @@ Changes:
   the retired set are one immutable snapshot, swapped in one write, read fresh on each pass and
   never cached. A pass that read the old snapshot can write the old value once; it is Stale on
   the next pass and corrected.
-- The key does nothing while `Enabled` is off, and nothing outside a battle map, where letters
-  can be typed.
+- The key does nothing while `Enabled` is off, nothing outside a battle map, and nothing while
+  the mod has stood down for an unknown game build (the battle signal then comes from baked
+  addresses that may be wrong). That last gate reads an existing TreasureMaster member, so the
+  partial's row does not grow.
 - Tests, again about twice the production lines: the down edge fires once, a held key does not
   repeat, no focus, a held modifier or no battle on screen means no press and no edge carried
   over; the order wraps; after a full wrap the current value reads Held, not Stale; a Stale
@@ -161,12 +173,12 @@ Live check (owner): the key steps through every style on a lit map, each look ma
 sheet; a claimed tile still goes dark after a change; a relaunch keeps the last style; a
 setting changed in the launcher mid session survives a press; the key does nothing while the
 game is in the background, with a modifier held, or outside a battle (renaming a unit with a
-T in the name changes nothing).
+a 4 in the name changes nothing).
 
 ## Calls for the owner
 
-- Decided 2026-11-25: the default key is T, chosen from a list, if step 0 finds the game
-  ignores it.
+- Decided 2026-11-25: the default key is 4, chosen from a list of 4 to 9, after the owner's
+  key check.
 - Whether any left out look goes in. 0x80 cannot, for the reason above.
 
 ## Out of scope
@@ -188,9 +200,18 @@ T in the name changes nothing).
 4. Only R2, R4 and R6 were swept: the live checks cover R0, R1, R3 and R5 maps.
 5. The bit 0x01 premise was wrong: no longer relied on; the fact is marked CONTRADICTED and a
    clean trap marker fact filed.
-6. No modifier check: Alt, Ctrl and Shift must be up. Round 2 also drops the F keys at the
-   owner's word for T, and the key counts only on a battle map.
+6. No modifier check: Alt, Ctrl, Shift and the Windows keys must be up, the key counts only on
+   a battle map, and the F keys are dropped at the owner's word.
 7. 12 versus 16 looks: wording fixed, the near repeats named.
 8. Text updates: listed in step 1.
 9. Test hygiene: round trips, the Tuning default, the unknown name, `finally` restores.
 10. A short tap can be missed: noted, accepted.
+
+## Round 2 review, and where each note went
+
+APPROVE, no blockers. Its notes: name the key members and put the forgiving converter on both
+enums (step 2); gate the key off while the mod has stood down for an unknown build; skip object
+and array values in the converter; resolve the config path again at each press; add the Windows
+keys to the modifier check and say the number pad does not count; list the stale comment
+references in TileHolder, ArmAudit and TreasureMaster. All folded in above. Zeklaus Desert holds
+all seven regions, so the step 1 live check needs only that map.
