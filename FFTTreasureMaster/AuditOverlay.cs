@@ -10,12 +10,6 @@ namespace FFTTreasureMaster;
 /// </summary>
 internal static class AuditOverlay
 {
-    /// <summary>Job model innate property names, in slot order. Slot 0 is suffix 1.</summary>
-    public static readonly string[] InnatePropertyNames =
-    {
-        "InnateAbilityId1", "InnateAbilityId2", "InnateAbilityId3", "InnateAbilityId4",
-    };
-
     /// <summary>Trap formation model common item property names, in slot order.</summary>
     public static readonly string[] CommonItemPropertyNames =
     {

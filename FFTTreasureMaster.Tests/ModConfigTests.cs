@@ -18,8 +18,8 @@ namespace FFTTreasureMaster.Tests;
 ///   (7) FromFile on a missing path returns HideClaimedTiles == true.
 ///   (8) A Config.json written with HideClaimedTiles=true  round-trips back as true.
 ///   (9) A Config.json written with HideClaimedTiles=false round-trips back as false.
-///  (10) Default Config has AllUnitsTreasureHunter == false (the grant is opt-in; it changes
-///       battle balance and gives enemy humans of the covered jobs the ability too).
+///  (10) Default Config has AllUnitsTreasureHunter == false (the setting is opt-in, since it
+///       changes battle balance).
 ///  (11) FromFile on a missing path returns AllUnitsTreasureHunter == false.
 ///  (12) A Config.json written with AllUnitsTreasureHunter=true  round-trips back as true.
 ///  (13) A Config.json written with AllUnitsTreasureHunter=false round-trips back as false.

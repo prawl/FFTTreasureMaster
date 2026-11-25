@@ -25,7 +25,7 @@ that checklist.
   - Verify: a new test runs a default settings battle through TreasureMaster and asserts nothing is
     logged at warning level; suite green; one live battle's log shows no marker warning.
 
-- **[TM-25] Give Treasure Hunter only to the units the player deploys, so enemies stop taking treasure** (opened 2026-11-25) [BUILDING]
+- **[TM-25] Give Treasure Hunter only to the units the player deploys, so enemies stop taking treasure** (opened 2026-11-25) [AWAITING-LIVE]
   - Done means: with All units on, every unit the player deploys picks up tile treasure,
     Chemists by the game's own rule and everyone else through the mod, and no enemy picks one
     up because of the mod. A player reported enemies grabbing treasure first, and the owner saw
@@ -43,7 +43,10 @@ that checklist.
   - Verify: gate 1's set direction and gate 2's battle start and enemy turn parts passed live on
     2026-11-25; gate 1's clear direction and suspend and resume move to the owner's live check,
     since the job table grant they were written for retires here (Duet, note 373). Suite green
-    with the new hold tests; then owner-only in the game: deployed units of several jobs pick
+    with the new hold tests. It does not ship until the fact keeper's GF-19 review passes on
+    the three claims it leans on: the switch alone lets a unit pick up treasure, the switch
+    holds until a battle restart rebuilds the unit, and seat 20 holds staging copies marked
+    0xFF (Duet, note 376). Then owner-only in the game: deployed units of several jobs pick
     treasure up, an enemy of a standard job walked onto a lit tile leaves the treasure, a
     charmed player unit gets nothing while charmed and gets it back after, and the hold comes
     back after a Retry and after a suspend and resume.
@@ -60,14 +63,13 @@ that checklist.
   a Chemist is worth something again, then check in the game that the Chemist bonus works the
   way the research says. This is step zero of the plan in
   [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md), chosen by the owner on 2026-11-24, and it
-  goes before TM-23. Not started. TM-25 goes first, and its new grant already skips Chemists, so
-  once it lands only the check in the game is left here.
+  goes before TM-23. The Chemist skip landed with TM-25, so only the check in the
+  game is left here.
   - Done means: with All units on, a Chemist still picks up tile treasure with nothing
     equipped, but no longer gets the game's 25 points of rare chance for free. A Chemist who
     equips Treasure Hunter gets them, as with the mod off. Every other job keeps its grant.
-    (Tech: the Chemist row, job 75, leaves the grant list in Tuning.cs, so 30 rows become 29;
-    the setting's description and CLAUDE.md say 30 today.)
-  - Verify: suite green with the grant tests moved to 29 rows; then owner-only, in the game:
+    (Tech: the hold in HunterHold.cs skips job 75.)
+  - Verify: suite green; then owner-only, in the game:
     at Brave 25 or lower a Chemist with Treasure Hunter equipped gets the rare on every claim,
     and at Brave 100 a Chemist with nothing equipped gets the common item on every claim. One
     miss either way means the research is wrong and TM-23 is planned again.
@@ -135,7 +137,7 @@ that checklist.
     '/'; Nexus 1.6.0 file replaced with that zip; the reporter confirms the folder appears.
 
 - [TM-11] 2026-10-26: A mod loaded into an already running game cannot run its loader-backed
-  extras (Rare treasure only, the Treasure Hunter grant) until the next launch, because
+  extra (Rare treasure only, the only loader-backed setting now) until the next launch, because
   Reloaded never re-fires its all-mods-loaded event and a timer cannot be made safe against
   the loader's own table merge. (Tech: needs a loader-side initialized signal or a Reloaded
   API that says initialization already happened.)

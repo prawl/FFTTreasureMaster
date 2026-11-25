@@ -65,14 +65,11 @@ internal static class Tuning
     /// than const so the gated wiring does not trip CS0162.</summary>
     public static readonly bool CollectDetectionEnabled = true;
 
-    // --- innate Treasure Hunter grant (TreasureHunterGrant, via the FFTIVC modloader) ---
+    // --- Treasure Hunter for deployed units (HunterHold) ---
 
-    /// <summary>The documented default for Config.AllUnitsTreasureHunter. The runtime value comes
-    /// from the config through Mod.cs, and this is the fallback when the file cannot be read. When
-    /// true, the mod asks the separately installed FFTIVC Mod Loader to add the Treasure Hunter
-    /// movement ability as a built in innate on the standard player jobs, so any unit of those
-    /// jobs picks up treasure by stepping on the tile. Enemy humans of those jobs gain it too.
-    /// Default off, because it changes battle balance, so the player opts in.</summary>
+    /// <summary>Fallback for Config.AllUnitsTreasureHunter when the config file cannot be read.
+    /// When true, each unit the player deploys holds the Treasure Hunter bit in battle. Default
+    /// off, because it changes battle balance, so the player opts in.</summary>
     public const bool AllUnitsTreasureHunterEnabled = false;
 
     // --- rare treasure only (loader trap-table patch) ---
@@ -94,34 +91,14 @@ internal static class Tuning
     /// stamped on every table patch. Must match ModConfig.json.</summary>
     public const string OwnerModId = "prawl.fft.treasuremaster";
 
-    /// <summary>The JOB_DATA rows the Treasure Hunter grant covers. Ramza's three story jobs (1,
-    /// 2, 3), the joined special characters with a free innate slot (13 Orlandeau, 22 Mustadio,
-    /// 25 Rapha, 26 Marach, 30 Agrias, 50 Cloud, 72 Reis as Holy Dragon), and the twenty generic
-    /// jobs (74 to 93). Left out are 31 Beowulf, the only Templar row and shared with enemy
-    /// Templars, 42 Meliadoul, whose row is not live verified, 15 Reis human, 144 Byblos and 145
-    /// Construct 8, whose four innate slots are full, 21 Orran, a guest only, and every monster
-    /// row (94 to 141), where wild monster spillover outweighs the benefit. Values from the
-    /// vanilla JOB_DATA dump, verified against the live premise probe of July 2026.</summary>
-    public static readonly int[] TreasureHunterGrantJobIds =
-    {
-        1, 2, 3, 13, 22, 25, 26, 30, 50, 72,
-        74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
-        84, 85, 86, 87, 88, 89, 90, 91, 92, 93,
-    };
-
-    /// <summary>Delay between readiness probes while waiting for the modloader's job table
+    /// <summary>Delay between readiness probes while waiting for the modloader's trap table
     /// (its signature scan runs asynchronously at startup; there is no cross-mod ordering
     /// guarantee, so the grant polls instead of assuming).</summary>
     public const int GrantRetryIntervalMs = 250;
 
-    /// <summary>Total time the grant will wait for the job table before giving up for the
+    /// <summary>Total time the grant will wait for the trap table before giving up for the
     /// session (one warn line; the core mod is unaffected).</summary>
     public const int GrantRetryCapMs = 30000;
-
-    /// <summary>Delay before the single re-assert pass that re-reads every granted row and
-    /// re-applies the ability if another mod's table edit clobbered it (last-writer-wins
-    /// merge in the modloader; our late write usually wins, this makes it certain).</summary>
-    public const int GrantReassertDelayMs = 2000;
 
     // --- the signature re-resolve scan mechanics (AnchorScan and AnchorResolver) ---
 

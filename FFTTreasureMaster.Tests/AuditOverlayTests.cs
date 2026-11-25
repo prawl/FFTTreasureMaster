@@ -6,7 +6,7 @@ using Xunit;
 namespace FFTTreasureMaster.Tests;
 
 /// <summary>
-/// AuditOverlay: the pure effective-view helper behind FftivcJobTable.GetInnates. The
+/// AuditOverlay: the pure effective-view helper behind FftivcTrapTable. The
 /// modloader's GetJob serves a startup-time snapshot that programmatic ApplyTablePatch
 /// never refreshes; the ChangedProperties audit is the only surface reflecting this
 /// session's patches. The overlay lays audit values over the stale base so read-backs
@@ -17,7 +17,7 @@ namespace FFTTreasureMaster.Tests;
 ///   a present audit value replaces the base value, whatever boxed numeric type it is;
 ///   a junk audit value (unconvertible object) leaves the base value;
 ///   the input array is never mutated;
-///   the slot property names match the modloader's Job model property names exactly.
+///   the slot property names match the modloader's trap formation model property names exactly.
 /// </summary>
 public class AuditOverlayTests
 {
@@ -87,21 +87,11 @@ public class AuditOverlayTests
     }
 
     [Fact]
-    public void InnatePropertyNames_MatchTheJobModel()
-    {
-        Assert.Equal(
-            new[] { "InnateAbilityId1", "InnateAbilityId2", "InnateAbilityId3", "InnateAbilityId4" },
-            AuditOverlay.InnatePropertyNames);
-    }
-
-    [Fact]
     public void PropertyNameArrays_ExistOnTheLoaderModels()
     {
-        Assert.Equal(TreasureHunterGrant.InnateSlots, AuditOverlay.InnatePropertyNames.Length);
         Assert.Equal(Tuning.TrapSlots, AuditOverlay.CommonItemPropertyNames.Length);
         Assert.Equal(Tuning.TrapSlots, AuditOverlay.RareItemPropertyNames.Length);
 
-        AssertNames(typeof(Job), AuditOverlay.InnatePropertyNames);
         AssertNames(typeof(MapTrapFormation), AuditOverlay.CommonItemPropertyNames);
         AssertNames(typeof(MapTrapFormation), AuditOverlay.RareItemPropertyNames);
     }

@@ -3,7 +3,7 @@ using Xunit;
 
 namespace FFTTreasureMaster.Tests;
 
-/// <summary>ReadinessWait.Until, the shared poll loop behind both loader-backed grants.</summary>
+/// <summary>ReadinessWait.Until, the shared poll loop behind the Rare treasure grant.</summary>
 public class ReadinessWaitTests
 {
     [Fact]

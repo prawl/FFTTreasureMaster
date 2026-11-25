@@ -19,7 +19,7 @@ public class Mod : IMod
 {
     private Engine? _engine;
     private bool _started;
-    private bool _grantEnabled;
+    private bool _allUnitsHunter;
     private bool _rareOnlyEnabled;
     private LoaderGrantHost? _loaderHost;
 
@@ -38,16 +38,14 @@ public class Mod : IMod
     /// </summary>
     private void ArmLoaderJobs(IModLoaderV1? loader)
     {
-        if (loader == null || (!_rareOnlyEnabled && !_grantEnabled)) return;
+        if (loader == null || !_rareOnlyEnabled) return;
 
         var events = new ReloadedLoaderEvents(loader);
-        var jobs = new List<(string Name, Action Job)>();
-        if (_rareOnlyEnabled)
-            jobs.Add(("Rare treasure only", () => LoaderJobs.RunRareTreasure(
-                () => FftivcTrapTable.TryCreate(loader), events.IsLoaderActive, Info, Warn, Thread.Sleep)));
-        if (_grantEnabled)
-            jobs.Add(("All units gain Treasure Hunter", () => LoaderJobs.RunTreasureHunter(
-                () => FftivcJobTable.TryCreate(loader), events.IsLoaderActive, Info, Warn, Thread.Sleep)));
+        var jobs = new List<(string Name, Action Job)>
+        {
+            ("Rare treasure only", () => LoaderJobs.RunRareTreasure(
+                () => FftivcTrapTable.TryCreate(loader), events.IsLoaderActive, Info, Warn, Thread.Sleep)),
+        };
 
         _loaderHost ??= new LoaderGrantHost(jobs, Info, Warn, work =>
             new Thread(() => work()) { IsBackground = true, Name = "TreasureMaster.LoaderJobs" }.Start());
@@ -80,7 +78,7 @@ public class Mod : IMod
             // folder, so read the user file when it exists and the shipped default otherwise.
             bool enabled = Tuning.TreasureEnabled;                 // documented default
             bool claimDetection = Tuning.ClaimDetectionEnabled;           // documented default
-            _grantEnabled = Tuning.AllUnitsTreasureHunterEnabled;   // documented default (false)
+            _allUnitsHunter = Tuning.AllUnitsTreasureHunterEnabled;   // documented default (false)
             _rareOnlyEnabled = Tuning.RareTreasureOnlyEnabled;         // documented default (false)
             try
             {
@@ -88,19 +86,19 @@ public class Mod : IMod
                 var cfg = Configurable<Config>.FromFile(configPath, "FFT Treasure Master Configuration");
                 enabled = cfg.Enabled;
                 claimDetection = cfg.HideClaimedTiles;
-                _grantEnabled = cfg.AllUnitsTreasureHunter;
+                _allUnitsHunter = cfg.AllUnitsTreasureHunter;
                 _rareOnlyEnabled = cfg.RareTreasureOnly;
                 ModLogger.EventWithTrace(LogVerb.Config,
-                    $"Configuration loaded: Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_grantEnabled} RareTreasureOnly={_rareOnlyEnabled}.",
+                    $"Configuration loaded: Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_allUnitsHunter} RareTreasureOnly={_rareOnlyEnabled}.",
                     $"config source {configPath}");
             }
             catch (Exception cfgEx)
             {
                 ModLogger.Warn(LogVerb.Config,
-                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_grantEnabled} RareTreasureOnly={_rareOnlyEnabled}: {cfgEx.Message}");
+                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_allUnitsHunter} RareTreasureOnly={_rareOnlyEnabled}: {cfgEx.Message}");
             }
 
-            _engine = new Engine(modDir, enabled, claimDetection, _grantEnabled);
+            _engine = new Engine(modDir, enabled, claimDetection, _allUnitsHunter);
             _engine.Start();
         }
         catch (Exception ex)

@@ -21,8 +21,9 @@ ability to the units the player deployed, and to nobody else.
 ### What the research found
 
 One read of the game's code, plus the original PlayStation version, which works the same
-way. Nothing below about treasure has been seen live yet, and the facts behind it are owed to
-the fact keeper, so this part keeps no addresses either.
+way. The switch alone letting a unit pick up treasure, and the switch holding through the
+battle start and enemy turns, were seen live on 2026-11-25, and the leads went to the fact
+keeper and were filed, so this part keeps no addresses.
 
 - Whether a unit picks up treasure is decided when it stops moving, from one switch on that
   unit. The job list is not looked at then; it matters only because the game copies it onto
@@ -116,8 +117,9 @@ Results so far, 2026-11-25, on Grogh Heights with the Mod Loader off:
 
 ### Owed before any code
 
-- The research leads go to the fact keeper, together with part 2's.
-- Gates 1 and 2 pass.
+- Done: the research leads went to the fact keeper and were filed, and gate 1's first half
+  and gate 2's battle start and enemy turn parts passed live on 2026-11-25.
+- Left for the owner's live check: gate 3, the charm check, and suspend and resume.
 
 ## Part 2: equipped hunters find more rares (TM-24, TM-23)
 

@@ -25,13 +25,13 @@ public class Config : Configurable<Config>
     public bool HideClaimedTiles { get; set; } = true;
 
     [DisplayName("All units gain Treasure Hunter")]
-    [Description("Give every unit of the standard player jobs the Treasure Hunter movement " +
-                 "ability for free, so anyone can pick up Move-Find treasure just by stepping on " +
-                 "the tile (no more dragging a Chemist everywhere). Fair warning: enemy humans " +
-                 "with those same jobs get it too, and a treasure an enemy grabs is gone for good. " +
-                 "Requires the separately installed FFT: The Ivalice Chronicles Mod Loader (by " +
-                 "Nenkai); without it this setting quietly does nothing. Changes apply the next " +
-                 "time the game is launched. Default: off.")]
+    [Description("In every battle, each unit you deploy can pick up Move-Find treasure just by " +
+                 "stepping on the tile, recruited monsters included (no more dragging a Chemist " +
+                 "everywhere). Enemies never get it from this setting, and guests do not get it " +
+                 "yet. Chemists are left as they are: they find treasure anyway, and equipping " +
+                 "Treasure Hunter on one still earns its bonus. The ability does not show on the " +
+                 "Formation screen. Needs Enable Treasure Master on. Changes apply the next time " +
+                 "the game is launched. Default: off.")]
     [DefaultValue(false)]
     public bool AllUnitsTreasureHunter { get; set; } = false;
 

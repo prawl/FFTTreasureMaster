@@ -3,7 +3,7 @@ using System;
 namespace FFTTreasureMaster;
 
 /// <summary>
-/// The two job bodies the host runs. Each acquires its loader controller. A loader that is
+/// The one job body the host runs. It acquires its loader controller. A loader that is
 /// present but handed out no controller gets its own warn line; a missing loader is left to
 /// the grant, which reports its own outcome.
 /// </summary>
@@ -26,19 +26,5 @@ internal static class LoaderJobs
             return;
         }
         new RareTreasureGrant(table, log, sleep).Run();
-    }
-
-    public static void RunTreasureHunter(Func<IJobTable?> tryCreate, Func<bool> loaderActive,
-                                         Action<string> log, Action<string> warn, Action<int> sleep)
-    {
-        var table = tryCreate();
-        if (table == null && loaderActive())
-        {
-            warn("The FFT Ivalice Chronicles Mod Loader is installed, but its job-table " +
-                 "controller could not be acquired, so the Treasure Hunter grant is off this " +
-                 "session. " + ControllerTail);
-            return;
-        }
-        new TreasureHunterGrant(enabled: true, table, Tuning.TreasureHunterGrantJobIds, log, sleep).Run();
     }
 }
