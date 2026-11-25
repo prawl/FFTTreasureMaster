@@ -8,6 +8,16 @@ with a date and no hash.
 
 ## 1.7.0 cycle
 
+- [TM-34] SHIPPED dfa2d58 2026-11-25: A player whose Config.json got broken no longer sees every
+  setting reset without a word. The settings still fall back to their defaults and the mod
+  leaves the broken file alone, but the log now names the file and the reason instead of
+  claiming the settings loaded, and the launcher's Configure window still opens on it to repair
+  it. Live pass 2026-11-25 on Zeklaus Desert, Patrick at the PC: the warning named the file and
+  the JSON reason, the tiles showed the default look, and Configure opened; closing Configure
+  saves clean defaults over the broken file, since Reloaded saves on close. (Tech:
+  Configurable.LoadError carries the failure, hidden from the launcher grid and never saved;
+  Mod.DescribeConfig picks the warn or loaded line; the launcher path test followed in adfac4d;
+  the old swallow put back turns 7 of 40 config tests red.)
 - [TM-25] SHIPPED cdd40f0 2026-11-25: With All units gain Treasure Hunter on, only the player's own
   deployed units get the free ability now, so enemies stop grabbing tile treasure first, as a
   player reported. Chemists keep the game's own bonus, guests get none, and a unit that changes
