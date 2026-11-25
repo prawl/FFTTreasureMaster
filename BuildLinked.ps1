@@ -71,6 +71,18 @@ try {
     # --- [5/5] Done ---
     Write-Host "`n[5/5] Deployed FFTTreasureMaster.dll + treasure.json -> $dest" -ForegroundColor Green
     Write-Host "Launch the game to apply (the DLL loads on next launch)." -ForegroundColor Green
+
+    # Reloaded loads only the mods ticked for the game, and a deploy does not tick it.
+    $appCfg = Join-Path (Split-Path $modsDir -Parent) "Apps\fft_enhanced.exe\AppConfig.json"
+    try {
+        $enabled = (Get-Content $appCfg -Raw -Encoding UTF8 -ErrorAction Stop | ConvertFrom-Json).EnabledMods
+        if ($enabled -notcontains $modId) {
+            Write-Host "`nWARNING: $modId is deployed but NOT enabled in Reloaded. Tick it before you boot." -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "`nWARNING: could not read $appCfg, so the enabled check did not run." -ForegroundColor Yellow
+    }
 }
 catch {
     Write-Host "`n$_" -ForegroundColor Red
