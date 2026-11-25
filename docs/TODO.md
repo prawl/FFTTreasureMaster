@@ -11,7 +11,7 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-- **[TM-19] Delete the dead marker path so a normal battle logs no false warning** (opened 2026-11-02) [QUEUED]
+- **[TM-19] Delete the dead marker path so a normal battle logs no false warning** (opened 2026-11-02) [AWAITING-LIVE]
   - Done means: a battle on default settings logs no marker line at all, and no code for the
     abandoned marker path is left in the mod or its tests. Today every battle logs a false
     warning that enhanced markers could not be written, so a player reading the log thinks the

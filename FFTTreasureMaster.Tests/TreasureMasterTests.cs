@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using FFTTreasureMaster;
+using ModGates.Tests.Logging;
 using Newtonsoft.Json;
 using Xunit;
 
@@ -261,6 +262,27 @@ public class TreasureMasterTests : IDisposable
         Assert.True(mem.Written.ContainsKey(addrs[1]));
         Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[0]]);
         Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[1]]);
+    }
+
+    // A player reads any warning in the log as the mod being broken, so a plain battle on the
+    // shipped settings must arm, hold its tiles and log nothing at warning level or above.
+    [Fact]
+    public void Default_settings_battle_logs_no_warning()
+    {
+        var dir = TempDir();
+        var terrain = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07 };
+        var addrs = new[] { TileAddr(0), TileAddr(1) };
+        var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
+            addrs: addrs.Select(a => (a, (byte)0x00)));
+        var mem = BuildMem(74, terrain, addrs);
+
+        using var log = LogCapture.Start();
+        var tm = new TreasureMaster(db, mem);
+        StabilizeAndArm(tm, extra: 30);
+
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[0]]);
+        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[1]]);
+        Assert.DoesNotContain(log.File, l => l.Contains("[WARN]") || l.Contains("[ERROR]"));
     }
 
     // addr with low bit set (0x01): flat mark, NOT 0x80|0x01 -- the byte value is the colour,

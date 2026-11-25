@@ -36,7 +36,6 @@ internal sealed partial class TreasureMaster : ISignature
     private readonly Func<TreasureDb, AnchorResolution?>? _resolver;
     private readonly ArmAudit _audit;
     private readonly TileHolder _holder;
-    private readonly MarkerWriter _markers;   // native yellow-diamond path (dark until verified)
     private readonly ClaimAudit _claims;
     private readonly bool _claimDetection;
 
@@ -60,8 +59,6 @@ internal sealed partial class TreasureMaster : ISignature
     private readonly Dictionary<int, int> _armCount = new();   // itemId -> count at arm (immutable refund baseline)
     private readonly Dictionary<(int, int), int> _claimItem = new();   // claimed tile -> item id that triggered the claim
     private string? _lastClaimDiag = null;    // last logged scan diagnostic (log on change)
-    private string? _lastStateDiag = null;    // TEMP (RetryDiagnostics): dedupe inLive/phase logs
-    private string? _lastHoldDiag = null;    // TEMP (RetryDiagnostics): dedupe hold-breakdown logs
 
     private Phase _phase = Phase.Disarmed;
     private TreasureMap? _map = null;    // the full map (identity/audit/fingerprint)
@@ -76,8 +73,6 @@ internal sealed partial class TreasureMaster : ISignature
     private bool _naggedThisBattle = false; // stub/missing nag once per battle
     private bool _capLoggedThisBattle = false;
     private bool _foreignLoggedThisBattle = false; // armed off-screen log once per battle
-    private bool _markersLoggedThisBattle = false; // enhanced-marker first-write log once per battle
-    private string? _lastMarkerProbe = null;           // last logged marker failure-probe (dedupe)
     private bool _flapLoggedThisBattle = false;    // fingerprint-mismatch log once per battle (arm or mid-battle)
 
     private int _stampCheckCountdown = 0;   // ticks until the next stamp comparison
@@ -122,7 +117,6 @@ internal sealed partial class TreasureMaster : ISignature
         _resolver = resolver;
         _audit = new ArmAudit(_mem, _addrs);
         _holder = new TileHolder(_mem);
-        _markers = new MarkerWriter(_mem);   // Tuning.EnhancedMarkersEnabled gates it (off)
         _claims = new ClaimAudit(_mem, _addrs);
         _collect = new CollectAudit(_mem, _addrs);
         _enabled = enabled ?? Tuning.TreasureEnabled;
@@ -155,8 +149,6 @@ internal sealed partial class TreasureMaster : ISignature
         _naggedThisBattle = false;
         _capLoggedThisBattle = false;
         _foreignLoggedThisBattle = false;
-        _markersLoggedThisBattle = false;
-        _lastMarkerProbe = null;
         _flapLoggedThisBattle = false;
         _claimed.Clear();
         _collected.Clear();
@@ -164,8 +156,6 @@ internal sealed partial class TreasureMaster : ISignature
         _armCount.Clear();
         _claimItem.Clear();
         _lastClaimDiag = null;
-        _lastStateDiag = null;
-        _lastHoldDiag = null;
         // _globalIdle and _globalIdleChecked persist, since the L0 check runs once per startup.
         _fastHold.Publish(null);    // stop holding right away, before Tick runs again
     }
@@ -217,14 +207,6 @@ internal sealed partial class TreasureMaster : ISignature
             if (!_globalIdleChecked) { _fastHold.Publish(null); return; }
         }
         if (_globalIdle) { _fastHold.Publish(null); return; }
-
-        // TEMP (RetryDiagnostics): log inLive/phase transitions so a Retry that drops the battle-map
-        // gate (inLive=false) or fails to re-arm (phase stuck) is visible in the log.
-        if (Tuning.RetryDiagnostics)
-        {
-            string sd = $"inLive={inLive} phase={_phase}";
-            if (sd != _lastStateDiag) { _lastStateDiag = sd; ModLogger.Debug(LogVerb.Trace, $"state {sd}"); }
-        }
 
         if (!inLive)
         {
@@ -398,7 +380,6 @@ internal sealed partial class TreasureMaster : ISignature
                     (map.IsMapIdOnly ? " (matched by map id only)" : "") + ".");
                 Flight.Record("arm", $"armed map={map.MapId} tiles={armMap.Tiles.Count} collected={_collected.Count}");
                 _holder.Hold(armMap);
-                WriteMarkers(armMap);
                 break;
 
             case ArmVerdict.Retry:
@@ -485,48 +466,13 @@ internal sealed partial class TreasureMaster : ISignature
         // The hold loop writes the mark on Resting bytes only. Foreign bytes, off screen tiles
         // from a camera pan, are skipped by the ClassifyAddr check inside TileHolder.Hold.
         var holdMap = _activeMap ?? map;
-        var (wrote, foreign) = _holder.Hold(holdMap);
-        WriteMarkers(holdMap);
+        var (_, foreign) = _holder.Hold(holdMap);
         if (foreign > 0 && !_foreignLoggedThisBattle)
         {
             _foreignLoggedThisBattle = true;
             ModLogger.Warn(LogVerb.Treasure,
                 $"Map {map.MapId} has {foreign} flag byte(s) away from their expected value (tiles off-screen?); skipping those and holding the rest.");
         }
-        if (Tuning.RetryDiagnostics) LogHoldDiag(holdMap, wrote, foreign);
-    }
-
-    /// <summary>Temporary retry diagnostics. Logs a per armed tick breakdown of the held map's
-    /// render bytes, the write count this tick and the resting, held, foreign and unreadable
-    /// totals, with each tile's first byte sampled, deduped on change. After a Retry it shows
-    /// whether the bytes are Foreign, Resting or Held. All reads guarded.</summary>
-    private void LogHoldDiag(TreasureMap map, int wrote, int foreign)
-    {
-        int rest = 0, held = 0, frgn = 0, unread = 0;
-        var samples = new System.Collections.Generic.List<string>();
-        foreach (var tile in map.Tiles)
-        {
-            foreach (var (addr, _) in tile.Addrs)
-            {
-                long live = ImageBase.At(addr);   // tile addrs are dataset space
-                if (!_mem.Readable(live, 1)) { unread++; continue; }
-                switch (ClassifyAddr(_mem.U8(live)))
-                {
-                    case AddrState.Resting: rest++; break;
-                    case AddrState.Held: held++; break;
-                    case AddrState.Foreign: frgn++; break;
-                }
-            }
-            if (tile.Addrs.Count > 0)
-            {
-                long a0 = ImageBase.At(tile.Addrs[0].Addr);
-                string vv = _mem.Readable(a0, 1) ? _mem.U8(a0).ToString("X2") : "??";
-                samples.Add($"({tile.X},{tile.Y}):{vv}");
-            }
-        }
-        string diag = $"hold: tiles={map.Tiles.Count} wrote={wrote} rest={rest} held={held} " +
-                      $"foreign={frgn} unread={unread} [{string.Join(" ", samples)}]";
-        if (diag != _lastHoldDiag) { _lastHoldDiag = diag; ModLogger.Debug(LogVerb.Trace, diag); }
     }
 
     // ── claim map rebuild ─────────────────────────────────────────────────────────
@@ -728,38 +674,5 @@ internal sealed partial class TreasureMaster : ISignature
         if (itemId <= 0) return;
         int cur = _claims.ReadCount(itemId);
         if (cur >= 0) _lastCount[itemId] = cur;
-    }
-
-    // ── enhanced-marker write (native yellow diamonds) ─────────────────────────────
-
-    /// <summary>
-    /// Drives the native marker write path and logs the first successful write per battle, so a
-    /// live test is not blind. The active line means the utility pointer resolved and markers were
-    /// written, and its absence with no diamonds means the pointer never resolved. A silent no-op
-    /// while the path is gated off.
-    /// </summary>
-    private void WriteMarkers(TreasureMap map)
-    {
-        int wrote = _markers.Write(map);
-        if (wrote > 0)
-        {
-            if (!_markersLoggedThisBattle)
-            {
-                _markersLoggedThisBattle = true;
-                ModLogger.Event(LogVerb.Treasure, $"Enhanced markers are active: {wrote} marker slot(s) written for map {map.MapId} {map.Name}.");
-            }
-            return;
-        }
-
-        // Wrote nothing, so log which guard failed, deduped so a stable state logs once.
-        var (readable, basePtr, writable) = _markers.Resolve();
-        string probe = $"readable={readable} base=0x{basePtr:X} writable={writable}";
-        if (probe != _lastMarkerProbe)
-        {
-            _lastMarkerProbe = probe;
-            ModLogger.WarnWithTrace(LogVerb.Treasure,
-                "Enhanced markers could not be written; the marking utility pointer did not resolve.",
-                $"marker ptr@0x{Offsets.EnhancedMarkingUtilityPtr:X} {probe}");
-        }
     }
 }

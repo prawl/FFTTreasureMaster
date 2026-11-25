@@ -64,12 +64,4 @@ internal static class Offsets
     // the tile's position in the map's native X1 to X4 order. CollectAudit reads it behind a
     // Readable guard, so an unreadable byte leaves the tile lit rather than hiding it.
     public static long TreasureCollectedBase => ImageBase.At(0x1411A7680L);
-
-    // The native yellow move find diamonds, unverified on our 1.5 build. A static slot holds a
-    // pointer to the game's EnhancedMarkingUtility object, whose marker array begins 8 bytes in
-    // with a 0x18 stride. MarkerWriter sets Enabled to 2 and the grid X and Y per treasure tile,
-    // and the game renders a yellow diamond. The value is dicene's FFT-MoveFind_Markers address
-    // and is not confirmed against our build key, so the write path stays off in Tuning until a
-    // live probe matches it.
-    public static long EnhancedMarkingUtilityPtr => ImageBase.At(0x143CD3AA0);
 }

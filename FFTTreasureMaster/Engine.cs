@@ -21,7 +21,6 @@ internal sealed class Engine
     private readonly BattleState _battle = new();   // debounced in/out edges (slot9 sticks; mode flickers)
     private readonly AddrMap _addrs = new();   // shared sentinel addresses; rebased by AnchorResolver on a build-key mismatch
     private CancellationTokenSource? _cts;
-    private string? _lastDispKey;   // TEMP (RetryDiagnostics): dedupe sentinel-transition logs
 
     /// <param name="modDir">Mod deployment directory (treasure.json + Config.json live here).</param>
     /// <param name="enabled">Master on/off gate, read from Config.Enabled at startup.
@@ -107,20 +106,6 @@ internal sealed class Engine
         // Treasure gates on a battle map being on screen rather than strict in live, which stays
         // stable through formation, enemy turns and cast animations while excluding the world map.
         bool battleDisplayed = BattleState.BattleDisplayed(slot9, battleMode);
-
-        // TEMP (RetryDiagnostics): log battle-presence transitions. Keyed on displayed + the two
-        // sticky sentinels (NOT mode, which flickers every action) so a Retry's reload shows up
-        // without spamming. Reveals whether "Retry from Start of Battle" drops battleDisplayed.
-        if (Tuning.RetryDiagnostics)
-        {
-            string key = $"{battleDisplayed}|{slot0:X}|{slot9:X}";
-            if (key != _lastDispKey)
-            {
-                _lastDispKey = key;
-                ModLogger.Debug(LogVerb.Trace, $"engine displayed={battleDisplayed} slot0={slot0:X} slot9={slot9:X} " +
-                                               $"mode={battleMode} event={eventId} paused={paused}");
-            }
-        }
 
         _treasure.Tick(now, battleDisplayed);
         Flight.DrainPending();   // performs any error-triggered flush queued since the last tick

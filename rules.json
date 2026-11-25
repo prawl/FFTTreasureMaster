@@ -27,7 +27,6 @@
     "0x140C6B440": "TerrainGrid, the per map terrain records",
     "0x141851F2F": "UnitArrayBaseX, grid X of the lowest unit slot",
     "0x1411A7C00": "InventoryCountBase, the item count array",
-    "0x1411A7680": "TreasureCollectedBase, the collected treasure bitfield",
-    "0x143CD3AA0": "EnhancedMarkingUtilityPtr, the native marker object pointer, unverified"
+    "0x1411A7680": "TreasureCollectedBase, the collected treasure bitfield"
   }
 }

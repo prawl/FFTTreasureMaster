@@ -42,15 +42,6 @@ internal static class Tuning
     /// Out-paces the running-water wipe that clears 0x80 between 33 ms loop re-stamps.</summary>
     public const int TreasureFastHoldMs = 8;
 
-    /// <summary>Master gate for the experimental native marker write path in MarkerWriter. While
-    /// false, MarkerWriter.Write is a guaranteed no-op that reads no game memory.
-    ///
-    /// Dark. The floating diamond path was abandoned because dicene's build differs from our 1.5,
-    /// his utility pointer reads null here, and an idle marker array cannot be fingerprinted. We
-    /// get yellow tiles from the flat MarkValue write instead. Left wired in case the pointer is
-    /// ever found by disassembly.</summary>
-    public const bool EnhancedMarkersEnabled = false;
-
     /// <summary>
     /// The documented default for Config.HideClaimedTiles. The runtime value comes from the
     /// config through Mod.cs, and this is the fallback when the ctor gets a null claimDetection.
@@ -59,15 +50,6 @@ internal static class Tuning
     /// tile that stays lit. Default on.
     /// </summary>
     public const bool ClaimDetectionEnabled = true;
-
-    /// <summary>Investigation flag for the missing tiles after "Retry from Start of Battle". The
-    /// game rebuilds its tile highlight overlay only on a full battle load, so an in battle Retry
-    /// never re-consumes the held mark, see handoff.md. When true, the engine logs the battle
-    /// presence sentinel transitions and the module logs its phase transitions and a per tick
-    /// hold breakdown, all deduped on change. Left wired off for a future session. Reads are
-    /// guarded. Static readonly rather than const so the gated blocks do not trip
-    /// CS0162.</summary>
-    public static readonly bool RetryDiagnostics = false;
 
     /// <summary>Live test instrument for claim detection. When true, DetectClaims logs the set of
     /// treasure tiles a unit stands on and each tile's item counts, deduped on change. Left wired
