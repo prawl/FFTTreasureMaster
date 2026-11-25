@@ -48,20 +48,33 @@ that checklist.
 
 - [TM-25] 2026-11-25: With All units on, enemies of the granted jobs get Treasure Hunter too, so an
   enemy can walk onto a hidden treasure and take it before the player gets there. A player
-  reported it and the owner saw it in the game. A proposal went to Duet on 2026-11-25: stop
-  adding the ability to the job list, which both sides share, and give it to the player's own
-  units in each battle instead, so enemies never get it. Taking it back from enemies each battle
-  is the second choice and a patch on the game's pick up check the fallback. Not decided, not
-  started. (Tech: one code read, still owed to the fact keeper, says the pick up test reads one
-  bit on each unit's battle record and not the job list; the player's deployed units sit in
-  seats 16 and up, enemies below, per the fact keeper's party-units-start-at-slot-16. The same
-  read says the unmodded game lets enemy Chemists find treasure, which no data fix can stop.)
+  reported it and the owner saw it in the game. Chosen 2026-11-25 on Duet's review: the setting
+  stops changing the job list, which both sides share, and in each battle the mod gives the
+  ability to the units the player deployed instead, recruited monsters included and Chemists
+  skipped, so enemies never get it from the mod. The plan is part 1 of
+  [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md) and goes before TM-24 and TM-23. Not
+  started: two live gates come first and wait for the go.
+  - Done means: with All units on, every unit the player deploys picks up tile treasure,
+    Chemists by the game's own rule and everyone else through the mod, and no enemy picks one
+    up because of the mod. A charmed player unit has no free ability while charmed, guests stay
+    out for now, and the setting's description says what changed, since the Treasure Hunter
+    tag leaves the Formation screen. A unit the mod cannot read plays as in the unmodded game.
+    (Tech: the job table grant retires; each battle the mod holds one bit on each qualifying
+    battle unit record, found through the signature anchored array base and its real seats,
+    never through the claim scan's wider window. One code read, still owed to the fact keeper,
+    says the pick up test reads that bit and not the job list. The same read says the unmodded
+    game lets enemy Chemists find treasure, which no data fix can stop.)
+  - Verify: gates 1 and 2 of the plan pass live before any code; suite green; then owner-only in
+    the game: an enemy of a standard job walked onto a lit tile leaves the treasure, deployed
+    units of several jobs pick treasure up, and a charmed player unit gets nothing while
+    charmed.
 
 - [TM-24] 2026-11-24: Take Chemists out of the All units grant, so equipping Treasure Hunter on
   a Chemist is worth something again, then check in the game that the Chemist bonus works the
   way the research says. This is step zero of the plan in
   [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md), chosen by the owner on 2026-11-24, and it
-  goes before TM-23. Not started.
+  goes before TM-23. Not started. TM-25 goes first, and its new grant already skips Chemists, so
+  once it lands only the check in the game is left here.
   - Done means: with All units on, a Chemist still picks up tile treasure with nothing
     equipped, but no longer gets the game's 25 points of rare chance for free. A Chemist who
     equips Treasure Hunter gets them, as with the mod off. Every other job keeps its grant.
