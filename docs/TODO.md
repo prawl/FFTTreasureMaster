@@ -13,6 +13,23 @@ that checklist.
 
 ## Backlog
 
+- [TM-34] 2026-11-25: When the settings file cannot be read, every setting quietly falls back
+  to its default and the log reads as if the file said so, so a player who broke the file by
+  hand never learns why their choices vanished. Warn in the log instead. (Tech:
+  Configurable.LoadFromFile catches every exception and returns a new Config, so the warning
+  in Mod.cs around line 94 never fires. Found in the TM-33 plan review.)
+
+- [TM-33] 2026-11-25: Let a player press a key in battle to step the treasure tiles through
+  every highlight style on the real map, so nobody has to pick a look from its name, and keep
+  the last pick for the next launch. The plan is step 2 of
+  [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: a polled F key behind a focus check, a
+  Stale state so lit tiles follow the change, the choice saved to Config.json.)
+
+- [TM-32] 2026-11-25: Give players a "Tile highlight style" setting with a short list of
+  looks, such as green, pink or a dotted outline, today's blue border with a yellow fill
+  staying the default. The plan is step 1 of [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech:
+  MarkValue becomes the chosen style's value, from a table of looks seen live 2026-11-25.)
+
 - [TM-31] 2026-11-25: Nobody has yet watched an enemy walk onto a lit treasure tile with All
   units on and leave the treasure there, or an enemy Chemist pick one up unaided. Catch either
   in any battle with the setting on and note it here. (Tech: the one part of TM-25's live list
