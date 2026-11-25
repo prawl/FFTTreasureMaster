@@ -98,6 +98,7 @@ internal sealed class HunterHold
 
     private Verdict ApplySeat(int i, ReadOnlySpan<byte> rec, Verdict v)
     {
+        if (v == Verdict.Held) _setByUs.Add(i);
         if (v != Verdict.Hold && v != Verdict.TakeBack) return v;
         long addr = SeatRecord(_addrs, i) + HunterByte;
         if (!_mem.Writable(addr, 1)) return v;

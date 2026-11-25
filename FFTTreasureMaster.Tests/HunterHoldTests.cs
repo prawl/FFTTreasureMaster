@@ -205,15 +205,66 @@ public sealed class HunterHoldTests : IDisposable
         Assert.Equal(0x01, HunterByte(16));
     }
 
+    // A Retry or a resume hands the bit back from the game's own copy, as seen live, so the hold
+    // finds it already set and must still own it.
     [Fact]
-    public void T11_A_bit_the_game_set_is_not_taken_back()
+    public void T11_A_restored_bit_on_a_qualifying_unit_is_adopted_and_taken_back_on_a_side_change()
     {
         Qualifying(16);
         _pin.Bytes[Off(16) + 0x9E] = 0x01;
         Ticks(1);
+        Assert.Equal(0, _mem.Writes);
         _pin.Bytes[Off(16) + 5] = 0x1B;
         Ticks(1);
+        Assert.Equal(0, HunterByte(16));
+        Assert.Equal(1, _log.Count("info", "Treasure Hunter was taken back"));
+        _pin.Bytes[Off(16) + 5] = 0x0B;
+        Ticks(1);
         Assert.Equal(0x01, HunterByte(16));
+        Assert.Equal(1, _log.Count("debug", "hunter set"));
+    }
+
+    [Theory]
+    [InlineData(0x18)]
+    [InlineData(0x0A)]
+    public void T29_A_real_Treasure_Hunter_bit_is_never_adopted(int word)
+    {
+        Qualifying(16);
+        _pin.Bytes[Off(16) + word] = 0xFD;
+        _pin.Bytes[Off(16) + word + 1] = 0x01;
+        _pin.Bytes[Off(16) + 0x9E] = 0x01;
+        Ticks(2);
+        _pin.Bytes[Off(16) + 5] = 0x1B;
+        Ticks(2);
+        Assert.Equal(0x01, HunterByte(16));
+        Assert.Equal(0, _mem.Writes);
+        Assert.Equal(0, _log.Count("info", "Treasure Hunter was taken back"));
+    }
+
+    [Fact]
+    public void T29_An_enemy_in_a_party_seat_is_never_adopted()
+    {
+        Qualifying(16);
+        _pin.Bytes[Off(16) + 5] = 0x9B;
+        _pin.Bytes[Off(16) + 0x9E] = 0x01;
+        Ticks(2);
+        _pin.Bytes[Off(16) + 5] = 0x1B;
+        Ticks(2);
+        Assert.Equal(0x01, HunterByte(16));
+        Assert.Equal(0, _mem.Writes);
+        Assert.Equal(0, _log.Count("info", "Treasure Hunter was taken back"));
+    }
+
+    [Fact]
+    public void T29_A_Chemist_with_a_set_bit_is_never_adopted()
+    {
+        Qualifying(16, job: 75);
+        _pin.Bytes[Off(16) + 0x9E] = 0x01;
+        Ticks(2);
+        _pin.Bytes[Off(16) + 5] = 0x1B;
+        Ticks(2);
+        Assert.Equal(0x01, HunterByte(16));
+        Assert.Equal(0, _mem.Writes);
     }
 
     [Fact]

@@ -52,7 +52,10 @@ that checklist.
     jobs pick treasure up, a Chemist with nothing equipped picks up treasure, an enemy of a
     standard job walked onto a lit tile leaves the treasure, a charmed player unit gets nothing
     while charmed and gets it back after, and the hold comes back after a Retry and after a
-    suspend and resume.
+    suspend and resume. The owner's check on Grogh Heights (2026-11-25) passed all of that
+    except three parts still open for a later owner session: a real in-game charm (a forced side
+    change stood in), a live look at a bonus adopted after a Retry or a resume being taken back,
+    and an enemy walking onto a lit tile, which never happened in that battle.
 
 ## Backlog
 
