@@ -11,6 +11,18 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
+- **[TM-34] Warn when the settings file cannot be read** (opened 2026-11-25) [AWAITING-LIVE]
+  - Done means: a player whose Config.json is broken still gets every setting at its default,
+    the file is left as it is for them to fix, and the log says which file could not be read
+    and why instead of claiming the settings loaded. The launcher's Configure window still
+    opens on a broken file, since it is the way to repair it. (Tech: built in dfa2d58, the
+    launcher path test in adfac4d; Configurable.LoadError keeps the failure in a hidden field
+    instead of quietly returning a new Config, and Mod.DescribeConfig picks the warn line. The
+    old swallow put back turns 7 of 40 config tests red. Fixed first inside TM-32.)
+  - Verify: suite green; then owner only, step L6 of the TM-32 live check: a broken
+    Config.json gives a log warning naming the file and the reason, the tiles show the default
+    look, the file's hash is unchanged after the game closes, and Configure still opens.
+
 - **[TM-32] Let players pick how the treasure tiles look** (opened 2026-11-25) [AWAITING-LIVE]
   - Done means: a "Tile highlight style" setting offers six looks, today's blue border with a
     yellow fill staying the default, and a battle shows the chosen look after a relaunch; a
