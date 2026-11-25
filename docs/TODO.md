@@ -56,6 +56,12 @@ that checklist.
 
 ## Backlog
 
+- [TM-27] 2026-11-25: When a unit picks up a treasure the party already holds 99 of, the game
+  sells the extra, so Treasure Master never sees the pickup and keeps that tile lit for the rest
+  of the battle. Seen live on Grogh Heights on 2026-11-25 with an Ether at 99. (Tech: claim
+  detection reads only item counts, and a full stack never moves. A second signal, such as the
+  tile's own trap row or the found item the game records, would close it.)
+
 - [TM-26] 2026-11-25: A normal battle can still log a warning that some treasure flag bytes are
   away from their expected value, which reads like trouble even though every tile lights. Seen
   twice on Grogh Heights on 2026-11-25, both times with all four tiles lit. Decide whether it is
