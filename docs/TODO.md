@@ -59,6 +59,18 @@ that checklist.
 
 ## Backlog
 
+- [TM-30] 2026-11-25: The test proving the Treasure Hunter summary costs nothing on a quiet tick
+  only tries units that hold the bonus and Chemists, so a guest or an odd looking unit in a party
+  seat goes unmeasured. Extend it to those seats. (Tech: HunterHoldTests T33 measures Held and
+  Chemist seats only; Guest and LooksWrong seats run the skip set's Add every tick. Review nit
+  on 15b2d2a.)
+
+- [TM-29] 2026-11-25: The Treasure Hunter summary spots a change by packing every seat's state
+  into one small number, and nothing stops a later edit from breaking that without a sound. Add
+  a test that fails if the states stop fitting. (Tech: HunterHold.LogSettled packs Verdict at 4
+  bits per seat and needs Empty to be 0; a seventeenth Verdict or a reorder would merge
+  summaries silently, and no test pins either. Review nit on 15b2d2a.)
+
 - [TM-27] 2026-11-25: When a unit picks up a treasure the party already holds 99 of, the game
   sells the extra, so Treasure Master never sees the pickup and keeps that tile lit for the rest
   of the battle. Seen live on Grogh Heights on 2026-11-25 with an Ether at 99. (Tech: claim

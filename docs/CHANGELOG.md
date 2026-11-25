@@ -8,6 +8,15 @@ with a date and no hash.
 
 ## 1.7.0 cycle
 
+- [TM-28] SHIPPED 15b2d2a 2026-11-25: The All units Treasure Hunter setting no longer writes out
+  its seat summary about thirty times a second only to throw it away; it writes it only when the
+  summary goes into the log. Players see no difference. The unit record bytes it reads for
+  presence, team and guest also got names. (Tech: HunterHold.LogSettled packs the five settled
+  verdicts into an int key and builds the held count and seat text only after the key changes;
+  Decide and the take back use ExistByte, Flags1, Flags2, GuestMask1 and GuestMask2, named from
+  FFTGameFacts unit-guest-flags and unit-existence-byte-0x1b5; tests T32 pin today's summary text
+  and T33 proves an unchanged tick allocates only its block read; 652 tests; blind review YES;
+  follow-ups TM-29 and TM-30.)
 - [TM-21] SHIPPED d69f209 2026-11-25: All four treasure tiles on Grogh Heights light up now. The
   one at x 9, y 8 on the east edge never lit, although its treasure could still be picked up, as
   a Nexus player reported; the mod had the wrong memory spots on file for that one tile. The
