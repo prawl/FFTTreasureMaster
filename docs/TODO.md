@@ -46,6 +46,38 @@ that checklist.
 
 ## Backlog
 
+- [TM-24] 2026-11-24: Take Chemists out of the All units grant, so equipping Treasure Hunter on
+  a Chemist is worth something again, then check in the game that the Chemist bonus works the
+  way the research says. This is step zero of the plan in
+  [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md), chosen by the owner on 2026-11-24, and it
+  goes before TM-23. Not started.
+  - Done means: with All units on, a Chemist still picks up tile treasure with nothing
+    equipped, but no longer gets the game's 25 points of rare chance for free. A Chemist who
+    equips Treasure Hunter gets them, as with the mod off. Every other job keeps its grant.
+    (Tech: the Chemist row, job 75, leaves the grant list in Tuning.cs, so 30 rows become 29;
+    the setting's description and CLAUDE.md say 30 today.)
+  - Verify: suite green with the grant tests moved to 29 rows; then owner-only, in the game:
+    at Brave 25 or lower a Chemist with Treasure Hunter equipped gets the rare on every claim,
+    and at Brave 100 a Chemist with nothing equipped gets the common item on every claim. One
+    miss either way means the research is wrong and TM-23 is planned again.
+
+- [TM-23] 2026-11-24: A forum player asked that a unit who equips Treasure Hunter find the rare
+  treasure more often than a unit who only has it for free, so the ability is still worth its
+  slot when All units is on. The owner chose the lucky turn on 2026-11-24, to be built after
+  TM-24. The plan is [EQUIPPED_HUNTER_PLAN.md](EQUIPPED_HUNTER_PLAN.md). Not started: nothing
+  is built and nothing has been watched live.
+  - Done means: one new number setting, 0 to 100 and 0 by default, sets how often the turn of
+    a player unit with Treasure Hunter equipped is a lucky one. On a lucky turn any tile
+    treasure that unit finds is the rare item. On any other turn, and for a unit that only has
+    the granted ability, the odds are the game's own. It does nothing while Rare treasure only
+    is on. (Tech: data writes only, no game code changed. The mod holds the rare item on both
+    sides of the battle's treasure rows for the turn and holds the rows' own items otherwise.
+    The game facts it leans on come from one read of the exe and are owed to the fact keeper
+    before any code.)
+  - Verify: the four live gates in the plan pass before any code; suite green; then owner-only
+    with the setting at 100: a unit with Treasure Hunter equipped gets the rare on two claims
+    running, and a unit with only the granted ability still gets its usual mix.
+
 - [TM-22] 2026-11-12: The mod writes its mark into some memory spots that seem to light nothing,
   and nobody has checked whether they are needed. On Grogh Heights 19 of the 28 spots on file took
   the mark and kept it, the game never touched them through three and a half minutes of battle,
