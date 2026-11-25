@@ -57,6 +57,7 @@ public sealed class HunterHoldTests : IDisposable
     {
         _addrs.Apply(new AnchorResolution { UnitArrayBaseX = _pin.Addr + 0x200 + 0x4F - 31 * 0x200 });
         _hold = new HunterHold(_mem, _addrs);
+        _hold.ResetBattle(entered: true);
         ModLogger.Instance = _log;
     }
 
@@ -116,7 +117,7 @@ public sealed class HunterHoldTests : IDisposable
         _hold.Tick(true, false);
         Assert.Equal(0, _mem.Reads + _mem.U8Reads + _mem.Writes);
         Assert.Equal(1, _log.Count("info", "The All units gain"));
-        _hold.ResetBattle();
+        _hold.ResetBattle(entered: true);
         _hold.Tick(true, false);
         Assert.Equal(2, _log.Count("info", "The All units gain"));
     }
@@ -231,7 +232,7 @@ public sealed class HunterHoldTests : IDisposable
     {
         Qualifying(16);
         Ticks(1);
-        _hold.ResetBattle();
+        _hold.ResetBattle(entered: true);
         _pin.Bytes[Off(16) + 5] = 0x1B;
         Ticks(1);
         Assert.Equal(0x01, HunterByte(16));
@@ -441,5 +442,47 @@ public sealed class HunterHoldTests : IDisposable
         _pin.Bytes[Off(16) + 5] = 0x1B;
         Ticks(1);
         Assert.Equal(0x01, HunterByte(16));
+    }
+
+    // Seen live on a Continue into a mid battle autosave. The battle drew 263 ms before the
+    // engine's start edge, the hold set four bits, and the edge's reset then forgot them.
+    [Fact]
+    public void T28_A_Continue_writes_nothing_before_the_battle_start_edge()
+    {
+        var hold = new HunterHold(_mem, _addrs);
+        Qualifying(16);
+        hold.Tick(true, true);
+        hold.Tick(true, true);
+        Assert.Equal(0, HunterByte(16));
+        Assert.Equal(0, _mem.Writes);
+    }
+
+    [Fact]
+    public void T28_A_unit_charmed_after_a_Continue_loses_the_bit_the_mod_set()
+    {
+        var hold = new HunterHold(_mem, _addrs);
+        Qualifying(16);
+        hold.Tick(true, true);
+        hold.ResetBattle(entered: true);
+        hold.Tick(true, true);
+        Assert.Equal(0x01, HunterByte(16));
+        _pin.Bytes[Off(16) + 5] = 0x1B;
+        hold.Tick(true, true);
+        Assert.Equal(0, HunterByte(16));
+        Assert.Equal(1, _log.Count("info", "Treasure Hunter was taken back"));
+    }
+
+    [Fact]
+    public void T28_After_a_battle_exit_the_next_load_waits_for_its_own_start_edge()
+    {
+        Qualifying(16);
+        _hold.ResetBattle(entered: false);
+        Ticks(3);
+        Assert.Equal(0, HunterByte(16));
+        Assert.Equal(0, _mem.Writes);
+        _hold.ResetBattle(entered: true);
+        Ticks(1);
+        Assert.Equal(0x01, HunterByte(16));
+        Assert.Equal(1, _log.Count("debug", "hunter set"));
     }
 }

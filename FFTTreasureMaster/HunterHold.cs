@@ -22,7 +22,7 @@ internal sealed class HunterHold
     private readonly int[] _streak = new int[Seats];
     private readonly HashSet<(int, Verdict)> _skipLogged = new();
     private string _summary = "";
-    private bool _warned, _untrustedLogged;
+    private bool _warned, _untrustedLogged, _entered;
 
     public HunterHold(IGameMemory mem, AddrMap addrs) { _mem = mem; _addrs = addrs; }
 
@@ -62,8 +62,9 @@ internal sealed class HunterHold
         return bitSet ? Verdict.Held : Verdict.Hold;
     }
 
-    public void ResetBattle()
+    public void ResetBattle(bool entered)
     {
+        _entered = entered;
         _setByUs.Clear();
         Array.Clear(_last); Array.Clear(_settled); Array.Clear(_streak);
         _skipLogged.Clear();
@@ -73,7 +74,7 @@ internal sealed class HunterHold
 
     public void Tick(bool battleDisplayed, bool trusted)
     {
-        if (!battleDisplayed) return;
+        if (!battleDisplayed || !_entered) return;
         if (!trusted)
         {
             if (!_untrustedLogged)

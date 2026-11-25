@@ -1,5 +1,5 @@
 {
- "sha": "6bd2fc1",
+ "sha": "d01853c",
  "date": "2026-11-25",
  "columns": [
   "comments",
@@ -31,7 +31,7 @@
   "Flight.cs": [18, 7, 16, 0, 0],
   "FlightRecorder.cs": [37, 14, 128, 4, 0],
   "GameMemory.cs": [7, 4, 23, 0, 0],
-  "HunterHold.cs": [5, 3, 129, 0, 0],
+  "HunterHold.cs": [5, 3, 130, 0, 0],
   "ILoaderEvents.cs": [8, 4, 24, 0, 0],
   "ISignature.cs": [15, 6, 19, 0, 0],
   "ITrapTable.cs": [11, 4, 8, 0, 0],

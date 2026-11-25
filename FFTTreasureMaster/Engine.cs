@@ -103,7 +103,7 @@ internal sealed class Engine
                 ModLogger.NoteBattleEdge();
             }
             _treasure.ResetBattle();
-            _hunter?.ResetBattle();
+            _hunter?.ResetBattle(edge == BattleEdge.Entered);
         }
 
         // Treasure gates on a battle map being on screen rather than strict in live, which stays
