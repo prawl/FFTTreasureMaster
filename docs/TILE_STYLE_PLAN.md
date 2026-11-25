@@ -1,9 +1,10 @@
 # Tile highlight styles: a setting and a key that cycles them
 
-STATUS: PLAN, round 2, 2026-11-25. Round 1 went to a blind reviewer, who answered CHANGES
-NEEDED with one blocker and five should-fixes; this round folds all ten findings in (see the
-last section). Nothing built. Two steps, worked in this order: a style setting (TM-32), then
-a key that cycles the style in game (TM-33). Ledger rows are in [TODO.md](TODO.md).
+STATUS: PLAN, round 2, 2026-11-25, key choice updated the same day. Round 1 went to a blind
+reviewer, who answered CHANGES NEEDED with one blocker and five should-fixes; this round folds
+all ten findings in (see the last section). Nothing built. Two steps, worked in this order:
+a style setting (TM-32), then a key that cycles the style in game (TM-33). Ledger rows are in
+[TODO.md](TODO.md).
 
 ## In plain words
 
@@ -41,8 +42,10 @@ Not proven, and the plan does not lean on it:
 - Re-shoot each listed look alone: no trap marker nearby and the cursor a few tiles off, with
   the existing sweep probe on the listed values only. The pictures are for the Nexus page and
   the setting's description, and ship nowhere else.
-- Press each candidate key, F2 to F9, bare, in battle and on the world map, and note any the
-  game answers. The default comes from the ones that do nothing.
+- Press T, then 3 to 9, bare, in battle (cursor, menus, the battlefield view) and on the world
+  map, and note any the game answers. T is the owner's pick for the default (2026-11-25) and
+  holds only if the game ignores it; otherwise the default is the first listed key that does
+  nothing.
 
 ## Step 1 (TM-32): the style setting
 
@@ -108,12 +111,16 @@ relaunch on Grogh Heights (R2 to R6), Gollund Colliery Ridge (R1, R3, R5) and Ze
 
 Changes:
 
-- `Config.cs`: a `StyleCycleKey` setting, Off or F2 to F9, default from the step 0 check. F1 is
-  Color Customizer's; F10 and F12 are left out (the ShadowPlay and Steam screenshot keys).
+- `Config.cs`: a `StyleCycleKey` setting, one of Off, T, 3, 4, 5, 6, 7, 8 or 9, default T (T
+  for treasure, the owner's pick), held on the step 0 check. The owner ruled out the F keys.
+  The game's own battle keys are left off the list: 1 (Change Display), 2 (Marker), C, V, Z,
+  Tab, Shift, Esc and Backspace.
 - New `StyleHotkey.cs`, called from the engine's tick behind an `IKeySource` seam. The live
   source reads the key with `GetAsyncKeyState` and counts it only while the foreground window
-  belongs to the game's own process and Alt, Ctrl and Shift are all up, so Alt+F4 or typing in
-  another program never cycles. A press fires once on its down edge; holding does not repeat.
+  belongs to the game's own process, Alt, Ctrl and Shift are all up, and the engine says a
+  battle map is on screen. So typing in another program, a unit's name in a menu, or Shift
+  (the game's Tactical View) with T never cycles. A press fires once on its down edge; holding
+  does not repeat.
   The tick runs every 31 to 47 ms, so a tap shorter than that can be missed; a normal press
   lasts longer.
 - On a press: the next listed style, wrapping. The old value joins a retired set for this run,
@@ -135,28 +142,31 @@ Changes:
   the retired set are one immutable snapshot, swapped in one write, read fresh on each pass and
   never cached. A pass that read the old snapshot can write the old value once; it is Stale on
   the next pass and corrected.
-- The key does nothing while `Enabled` is off. Outside a battle a press still changes and saves
-  the choice.
+- The key does nothing while `Enabled` is off, and nothing outside a battle map, where letters
+  can be typed.
 - Tests, again about twice the production lines: the down edge fires once, a held key does not
-  repeat, no focus or a held modifier means no press and no edge carried over; the order wraps;
-  after a full wrap the current value reads Held, not Stale; a Stale byte is rewritten; 0x80
-  and any value never listed are never written; Unlight reverts a Stale byte; the save changes
-  only TileStyle in a file holding other changed settings; an unparsable file is not written;
-  a throwing save warns once; disabled means no poll.
+  repeat, no focus, a held modifier or no battle on screen means no press and no edge carried
+  over; the order wraps; after a full wrap the current value reads Held, not Stale; a Stale
+  byte is rewritten; 0x80 and any value never listed are never written; Unlight reverts a
+  Stale byte; the save changes only TileStyle in a file holding other changed settings; an
+  unparsable file is not written; a throwing save warns once; disabled means no poll.
 - Size: about 80 to 110 production lines, in `StyleHotkey.cs` and `TileStyles.cs`, plus small
   edits to `TileHolder`, `Engine` and `Mod`. Engine and Mod are each at their two allowed silent
   catches, so the new code adds none.
-- A key read in a release build is by design, like Color Customizer's F1. Living Weapons bans
+- A key read in a release build is by design, like Color Customizer's F1 window. Living Weapons
+  bans
   release key reads for its dev tricks (LW-413); the shared rulebook has no such rule.
 
 Live check (owner): the key steps through every style on a lit map, each look matching the
 sheet; a claimed tile still goes dark after a change; a relaunch keeps the last style; a
 setting changed in the launcher mid session survives a press; the key does nothing while the
-game is in the background or with Alt held; no clash with Color Customizer's F1.
+game is in the background, with a modifier held, or outside a battle (renaming a unit with a
+T in the name changes nothing).
 
 ## Calls for the owner
 
-- The default key, after the step 0 check.
+- Decided 2026-11-25: the default key is T, chosen from a list, if step 0 finds the game
+  ignores it.
 - Whether any left out look goes in. 0x80 cannot, for the reason above.
 
 ## Out of scope
@@ -178,7 +188,8 @@ game is in the background or with Alt held; no clash with Color Customizer's F1.
 4. Only R2, R4 and R6 were swept: the live checks cover R0, R1, R3 and R5 maps.
 5. The bit 0x01 premise was wrong: no longer relied on; the fact is marked CONTRADICTED and a
    clean trap marker fact filed.
-6. No modifier check: Alt, Ctrl and Shift must be up, F10 and F12 left out.
+6. No modifier check: Alt, Ctrl and Shift must be up. Round 2 also drops the F keys at the
+   owner's word for T, and the key counts only on a battle map.
 7. 12 versus 16 looks: wording fixed, the near repeats named.
 8. Text updates: listed in step 1.
 9. Test hygiene: round trips, the Tuning default, the unknown name, `finally` restores.
