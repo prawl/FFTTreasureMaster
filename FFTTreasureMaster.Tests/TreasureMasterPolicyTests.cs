@@ -14,7 +14,7 @@ namespace FFTTreasureMaster.Tests;
 /// (2) Fnv1a64 -- standard FNV-1a 64-bit hash, shared verbatim with the Python capture tool so
 ///     the two implementations can never silently drift. Three pinned vectors: empty, "a", "foobar".
 ///
-/// (3) and (4) moved to TileStylesTests, since the mark is now the chosen style value.
+/// (3) and (4) The per byte classification and the mark are tested in TileStylesTests.
 ///
 /// (5) DecideArm -- two-outcome arm gate: okCount >= minPlausible -> Arm; otherwise -> Retry.
 ///     Foreign bytes are NOT a disarm at arm time (they are off-screen render bytes and will

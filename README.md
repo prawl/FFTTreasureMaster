@@ -9,7 +9,7 @@ highlight value on the render-flag bytes of every known treasure tile, keeping t
 lit for the whole fight. There are five settings in the Reloaded mod config:
 Enable Treasure Master (on), Hide tiles after their treasure is claimed (on), All units gain
 Treasure Hunter (off), Rare treasure only (off), and Tile highlight style (BlueAndYellow, the
-look the mod has always had).
+look the mod has used since 1.1.0).
 
 ## Install
 

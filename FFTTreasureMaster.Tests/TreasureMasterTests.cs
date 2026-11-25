@@ -16,11 +16,11 @@ namespace FFTTreasureMaster.Tests;
 ///
 /// House invariant matrix:
 ///   (1)  !inLive ticks issue ZERO writes (Written empty throughout).
-///   (2)  Arms after stable map id + fingerprint + audit, then writes MarkValue (0xCC) to
+///   (2)  Arms after stable map id + fingerprint + audit, then writes DefaultMark (0xCC) to
 ///        each Resting addr.
 ///   (3)  Re-stamps after a simulated engine clear (reset byte to off -> next tick re-writes).
 ///   (4)  Pre-marked 0xCC byte (Held): never written at all.
-///   (5)  Mark-value structural assert: every value in Written equals MarkValue (0xCC).
+///   (5)  Mark-value structural assert: every value in Written equals DefaultMark (0xCC).
 ///   (6)  Fingerprint mismatch at arm: zero writes ever + once log.
 ///   (7)  Fingerprint drift mid-battle (mutate terrain bytes, advance past the revalidate
 ///        tick): writes CONTINUE -- identity is proven at ARM time, so a mid-battle drift is
@@ -38,7 +38,7 @@ namespace FFTTreasureMaster.Tests;
 ///        to Resting (camera-pan round-trip).
 ///
 /// Plus one PinnedBuf fact through LiveMemory: hold a 6-byte tile against pinned
-/// process memory, assert MarkValue (0xCC) lands at the target offset and neighbors are untouched.
+/// process memory, assert DefaultMark (0xCC) lands at the target offset and neighbors are untouched.
 /// </summary>
 public class TreasureMasterTests : IDisposable
 {
@@ -243,7 +243,7 @@ public class TreasureMasterTests : IDisposable
         Assert.Empty(mem.Written);
     }
 
-    // ── (2) Arms and writes MarkValue (0xCC) to each Resting addr ─────────────────
+    // ── (2) Arms and writes DefaultMark (0xCC) to each Resting addr ─────────────────
 
     [Fact]
     public void Armed_writes_mark_value_to_each_resting_addr()
@@ -286,7 +286,7 @@ public class TreasureMasterTests : IDisposable
     }
 
     // addr with low bit set (0x01): flat mark, NOT 0x80|0x01 -- the byte value is the colour,
-    // so a low-bit-resting tile gets exactly MarkValue (0xCC), same as a 0x00-resting tile.
+    // so a low-bit-resting tile gets exactly DefaultMark (0xCC), same as a 0x00-resting tile.
     [Fact]
     public void Armed_writes_flat_mark_value_on_low_bit_resting_addr()
     {
@@ -338,7 +338,7 @@ public class TreasureMasterTests : IDisposable
         var addr = TileAddr(4);
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
             addrs: new[] { (addr, (byte)0x00) });
-        // MarkValue (0xCC) = Held -- the flat mark already present on the tile
+        // DefaultMark (0xCC) = Held -- the flat mark already present on the tile
         var mem = BuildMem(74, terrain, new[] { addr }, initialByte: TileStyles.DefaultMark);
 
         var tm = Make(db, mem);
@@ -349,7 +349,7 @@ public class TreasureMasterTests : IDisposable
         Assert.False(mem.Written.ContainsKey(addr));
     }
 
-    // ── (5) mark-value structural assert: every write is exactly MarkValue ────────
+    // ── (5) mark-value structural assert: every write is exactly DefaultMark ────────
 
     [Fact]
     public void Every_Written_value_equals_mark_value()
@@ -1082,7 +1082,7 @@ public class TreasureMasterTests : IDisposable
         Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
-    // ── PinnedBuf fact: MarkValue lands at target, neighbors untouched ────────────
+    // ── PinnedBuf fact: DefaultMark lands at target, neighbors untouched ────────────
 
     /// <summary>
     /// Drive a 6-byte pinned buffer through LiveMemory (RPM/WPM on our own process),
@@ -1093,7 +1093,7 @@ public class TreasureMasterTests : IDisposable
     public void PinnedBuf_hold_mark_value_lands_and_neighbors_untouched()
     {
         using var pin = PinnedBuf.Of(6);
-        pin.Bytes[0] = 0x00;   // target -- should become MarkValue (0xCC)
+        pin.Bytes[0] = 0x00;   // target -- should become DefaultMark (0xCC)
         pin.Bytes[1] = 0x42;   // neighbor
         pin.Bytes[2] = 0x11;
         pin.Bytes[3] = 0xFE;
@@ -1454,11 +1454,11 @@ public class TreasureMasterTests : IDisposable
     // ── FastHold tests ────────────────────────────────────────────────────────────
     // No real threads are spawned (Start/StartFastHold never called).
     // All tests drive HoldOnce() directly -- the thread-safe property is argued by
-    // construction: TileHolder is stateless and set-only (writes the same MarkValue), so
+    // construction: TileHolder is stateless and set-only (writes the same DefaultMark), so
     // concurrent callers are idempotent and safe.
 
     /// <summary>
-    /// FastHold.HoldOnce with a published map writes MarkValue to the tile addresses via
+    /// FastHold.HoldOnce with a published map writes DefaultMark to the tile addresses via
     /// the underlying TileHolder (same fake-memory path as the normal tick).
     /// </summary>
     [Fact]
@@ -1478,7 +1478,7 @@ public class TreasureMasterTests : IDisposable
         fh.HoldOnce();
         Assert.Empty(mem.Written);
 
-        // Publish a map: HoldOnce writes MarkValue to each resting addr.
+        // Publish a map: HoldOnce writes DefaultMark to each resting addr.
         var map = db.Maps[0];
         fh.Publish(map);
         fh.HoldOnce();
@@ -1772,10 +1772,10 @@ public class TreasureMasterTests : IDisposable
     /// <summary>
     /// LOAD-BEARING: Two tiles C (claimed) and S (sibling, unclaimed), each with a rare item id.
     /// A unit stands on C; C's item count ticks up (the claim). After the detect tick:
-    ///   - addrC byte is reverted (mem.U8s[addrC] != MarkValue) AND a write is recorded.
+    ///   - addrC byte is reverted (mem.U8s[addrC] != DefaultMark) AND a write is recorded.
     ///   - After FastHold.HoldOnce + 5 more ticks, addrC stays unlit; addrS stays held.
     /// Non-vacuous: byte-state assertion (not just Written log) + HoldOnce exercised.
-    /// Red-trigger: publishing _map instead of _activeMap would re-stamp addrC -> MarkValue.
+    /// Red-trigger: publishing _map instead of _activeMap would re-stamp addrC -> DefaultMark.
     /// </summary>
     [Fact]
     public void ClaimDetection_claimed_tile_unlit_and_stays_unlit_through_FastHold()
@@ -1849,7 +1849,7 @@ public class TreasureMasterTests : IDisposable
     /// the filtered publish alone cannot close -- a stale FastHold pass re-stamps a claimed tile
     /// after the unit has already moved off -- and proves a later armed tick re-reverts it.
     /// Red-trigger: gating the Unlight loop behind "_claimed grew" (one-shot) leaves the
-    /// re-stamped byte at MarkValue, since this tick adds no new claim.
+    /// re-stamped byte at DefaultMark, since this tick adds no new claim.
     /// </summary>
     [Fact]
     public void ClaimDetection_unlight_reasserted_every_tick_after_stale_restamp()
@@ -1889,7 +1889,7 @@ public class TreasureMasterTests : IDisposable
         Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);   // claimed + unlit
 
         // Move the unit OFF C (latch must hold, no new claim this tick) and simulate a stale
-        // FastHold pass re-stamping C to MarkValue.
+        // FastHold pass re-stamping C to DefaultMark.
         MoveClaimUnit(mem, 1, 1);
         mem.U8s[addrC] = TileStyles.DefaultMark;   // stale re-stamp
         mem.Written.Clear();
@@ -2095,7 +2095,7 @@ public class TreasureMasterTests : IDisposable
         SeedItemCount(mem, 200, 1);
         tm.Tick(DateTime.Now, inLive: true);
 
-        // C is un-latched and re-lit (Hold re-stamps MarkValue the same tick).
+        // C is un-latched and re-lit (Hold re-stamps DefaultMark the same tick).
         Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC]);
     }
 

@@ -14,7 +14,8 @@ with a date and no hash.
   now names the file and the reason instead of claiming the settings loaded. (Tech:
   Configurable.LoadError carries the failure, hidden from the launcher grid and never saved;
   Mod.DescribeConfig picks the warn or loaded line; ModConfigTests cover a broken, empty, null
-  and locked file and the launcher path; fixed first inside TM-32 at the coordinator's ask.)
+  and locked file, and the launcher path test followed in adfac4d; fixed first inside TM-32 at
+  the coordinator's ask.)
 - [TM-25] SHIPPED cdd40f0 2026-11-25: With All units gain Treasure Hunter on, only the player's own
   deployed units get the free ability now, so enemies stop grabbing tile treasure first, as a
   player reported. Chemists keep the game's own bonus, guests get none, and a unit that changes

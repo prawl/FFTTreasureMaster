@@ -68,11 +68,30 @@ public class TileStylesTests
         Assert.Equal(0xCC, TileStyles.MarkOf((TileStyle)99));
         try
         {
+            TileStyles.Publish(TileStyle.Green);
             TileStyles.Publish((TileStyle)99);
             Assert.Equal(TileStyle.BlueAndYellow, TileStyles.Current);
             Assert.Equal(0xCC, TileStyles.Mark);
         }
         finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Theory]
+    [InlineData(0x00, "Resting")]
+    [InlineData(0x01, "Resting")]
+    [InlineData(0xCC, "Held")]
+    [InlineData(0x02, "Foreign")]
+    [InlineData(0x40, "Foreign")]
+    [InlineData(0x7F, "Foreign")]
+    [InlineData(0x80, "Foreign")]
+    [InlineData(0x81, "Foreign")]
+    [InlineData(0xCB, "Foreign")]
+    [InlineData(0xCD, "Foreign")]
+    [InlineData(0xFF, "Foreign")]
+    public void Default_style_classifies_the_full_truth_table(byte cur, string expected)
+    {
+        Assert.Equal(TileStyle.BlueAndYellow, TileStyles.Current);
+        Assert.Equal(Enum.Parse<TreasureMaster.AddrState>(expected), TileStyles.Classify(cur));
     }
 
     [Theory]
