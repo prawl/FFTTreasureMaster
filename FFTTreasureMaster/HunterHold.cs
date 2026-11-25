@@ -9,9 +9,10 @@ namespace FFTTreasureMaster;
 internal sealed class HunterHold
 {
     private const int Seats = 5, FirstSeatSlot = 31, RecLen = (int)Offsets.UnitRecordStride, SettleTicks = 5;
-    private const int XField = 0x4F, MoveField = 0x9C, HunterByte = 0x9E, NameId = 0x1FC;
+    private const int XField = 0x4F, MoveField = 0x9C, HunterByte = 0x9E, NameId = 0x1FC, ExistByte = 0x1B5;
+    private const int Flags2 = 0x05, Flags1 = 0x06;
     private const int ChemistJob = 75, HunterId = 509, FirstMoveId = 486;
-    private const byte Bit = 0x01, TeamMask = 0x30;
+    private const byte Bit = 0x01, TeamMask = 0x30, GuestMask1 = 0x09, GuestMask2 = 0x04;
 
     internal enum Verdict { Empty, Owns, Chemist, OtherTeam, Guest, LooksWrong, Held, Hold, TakeBack }
 
@@ -21,7 +22,7 @@ internal sealed class HunterHold
     private readonly Verdict[] _last = new Verdict[Seats], _settled = new Verdict[Seats];
     private readonly int[] _streak = new int[Seats];
     private readonly HashSet<(int, Verdict)> _skipLogged = new();
-    private string _summary = "";
+    private int _logged;
     private bool _warned, _untrustedLogged, _entered;
 
     public HunterHold(IGameMemory mem, AddrMap addrs) { _mem = mem; _addrs = addrs; }
@@ -52,11 +53,11 @@ internal sealed class HunterHold
     internal static Verdict Decide(ReadOnlySpan<byte> r, bool owned)
     {
         bool bitSet = (r[HunterByte] & Bit) != 0, ours = owned && bitSet;
-        if (r[1] == 0xFF || r[0x1B5] != 1) return Verdict.Empty;
+        if (r[1] == 0xFF || r[ExistByte] != 1) return Verdict.Empty;
         if (U16(r, 0x18) == HunterId || U16(r, 0x0A) == HunterId || U16(r, 0x0C) == HunterId
             || U16(r, 0x0E) == HunterId || U16(r, 0x10) == HunterId) return Verdict.Owns;
-        if ((r[5] & TeamMask) != 0) return ours ? Verdict.TakeBack : Verdict.OtherTeam;
-        if ((r[6] & 0x09) != 0 || (r[5] & 0x04) != 0) return ours ? Verdict.TakeBack : Verdict.Guest;
+        if ((r[Flags2] & TeamMask) != 0) return ours ? Verdict.TakeBack : Verdict.OtherTeam;
+        if ((r[Flags1] & GuestMask1) != 0 || (r[Flags2] & GuestMask2) != 0) return ours ? Verdict.TakeBack : Verdict.Guest;
         if (r[3] == ChemistJob) return Verdict.Chemist;
         if (!FieldMatches(r)) return Verdict.LooksWrong;
         return bitSet ? Verdict.Held : Verdict.Hold;
@@ -68,7 +69,7 @@ internal sealed class HunterHold
         _owned.Clear();
         Array.Clear(_last); Array.Clear(_settled); Array.Clear(_streak);
         _skipLogged.Clear();
-        _summary = "";
+        _logged = 0;
         _warned = _untrustedLogged = false;
     }
 
@@ -110,7 +111,7 @@ internal sealed class HunterHold
         if (v == Verdict.TakeBack)
         {
             _owned.Remove(i);
-            bool team = (rec[5] & TeamMask) != 0;
+            bool team = (rec[Flags2] & TeamMask) != 0;
             if ((cur & Bit) == 0) return team ? Verdict.OtherTeam : Verdict.Guest;
             _mem.W8(addr, (byte)(cur & ~Bit));
             string detail = Who(i, rec) + " reason=" + (team ? "changed sides" : "guest marker");
@@ -134,22 +135,27 @@ internal sealed class HunterHold
 
     private void LogSettled(byte[] block)
     {
-        int held = 0;
-        string detail = "";
+        int key = 0;
         for (int i = 0; i < Seats; i++)
         {
             var rec = new ReadOnlySpan<byte>(block, i * RecLen, RecLen);
             var s = _settled[i];
-            if (s == Verdict.Held) held++;
-            if (s != Verdict.Empty) detail += $" [{Who(i, rec)} {s}]";
+            key = key << 4 | (int)s;
             if ((s != Verdict.Guest && s != Verdict.LooksWrong) || !_skipLogged.Add((i, s))) continue;
             string why = s == Verdict.Guest ? "shows the guest marker" : "does not look right";
             string extra = s == Verdict.LooksWrong ? $" field={Convert.ToHexString(rec.Slice(MoveField, 3))} words={U16(rec, 0x18):X}/{U16(rec, 0x0A):X}/{U16(rec, 0x0C):X}/{U16(rec, 0x0E):X}/{U16(rec, 0x10):X}" : "";
             ModLogger.EventWithTrace(LogVerb.Treasure, $"A deployed unit gets no Treasure Hunter from the mod because it {why}.", "hunter skip " + Who(i, rec) + extra);
         }
-        string key = string.Join(",", _settled);
-        if (key == _summary || detail.Length == 0) return;
-        _summary = key;
+        if (key == _logged || key == 0) return;
+        _logged = key;
+        int held = 0;
+        string detail = "";
+        for (int i = 0; i < Seats; i++)
+        {
+            var s = _settled[i];
+            if (s == Verdict.Held) held++;
+            if (s != Verdict.Empty) detail += $" [{Who(i, new ReadOnlySpan<byte>(block, i * RecLen, RecLen))} {s}]";
+        }
         ModLogger.EventWithTrace(LogVerb.Treasure, $"Treasure Hunter is on for {held} deployed unit(s).", "hunter summary" + detail);
     }
 }

@@ -584,4 +584,81 @@ public sealed class HunterHoldTests : IDisposable
         Assert.Equal(0x01, HunterByte(16));
         Assert.Equal(1, _log.Count("debug", "hunter set"));
     }
+
+    private int Summaries => _log.Count("info", "Treasure Hunter is on");
+
+    [Fact]
+    public void T32_The_summary_names_each_occupied_seat_in_order_and_skips_the_empty_one()
+    {
+        Qualifying(16);
+        Qualifying(18, job: 75, name: 902);
+        Ticks(5);
+        Assert.Equal(1, Summaries);
+        Assert.Contains(("info", "Treasure Hunter is on for 1 deployed unit(s)."), _log.Lines);
+        Assert.Contains(("debug", "hunter summary [seat=16 job=74 name=900 Held] [seat=18 job=75 name=902 Chemist]"), _log.Lines);
+    }
+
+    [Fact]
+    public void T32_A_lone_Chemist_logs_a_summary_for_none()
+    {
+        Qualifying(16, job: 75);
+        Ticks(6);
+        Assert.Equal(1, Summaries);
+        Assert.Contains(("info", "Treasure Hunter is on for 0 deployed unit(s)."), _log.Lines);
+        Assert.Contains(("debug", "hunter summary [seat=16 job=75 name=900 Chemist]"), _log.Lines);
+    }
+
+    [Fact]
+    public void T32_Five_empty_seats_log_no_summary()
+    {
+        Ticks(8);
+        Assert.Equal(0, Summaries);
+        Assert.Equal(0, _log.Count("debug", "hunter summary"));
+    }
+
+    [Fact]
+    public void T32_Coming_back_to_the_logged_seats_after_all_go_empty_logs_no_second_summary()
+    {
+        Qualifying(16);
+        Ticks(5);
+        Assert.Equal(1, Summaries);
+        _pin.Bytes[Off(16) + 0x1B5] = 0;
+        Ticks(6);
+        _pin.Bytes[Off(16) + 0x1B5] = 1;
+        Ticks(6);
+        Assert.Equal(1, Summaries);
+    }
+
+    [Fact]
+    public void T32_A_settled_change_logs_a_second_summary_with_the_new_count_and_seats()
+    {
+        Qualifying(16);
+        Ticks(5);
+        Qualifying(17, name: 901);
+        Ticks(4);
+        Assert.Equal(1, Summaries);
+        Ticks(1);
+        Assert.Equal(2, Summaries);
+        Assert.Contains(("info", "Treasure Hunter is on for 2 deployed unit(s)."), _log.Lines);
+        Assert.Contains(("debug", "hunter summary [seat=16 job=74 name=900 Held] [seat=17 job=74 name=901 Held]"), _log.Lines);
+    }
+
+    // A settled tick may allocate only the block read, so any summary text built there shows up.
+    [Fact]
+    public void T33_An_unchanged_settled_tick_allocates_nothing_beyond_its_block_read()
+    {
+        Qualifying(16);
+        Qualifying(17, job: 75, name: 901);
+        long addr = HunterHold.SeatRecord(_addrs, 0);
+        Ticks(12);
+        for (int i = 0; i < 4; i++) _mem.TryReadBytes(addr, 5 * 0x200, out _);
+        long t0 = GC.GetAllocatedBytesForCurrentThread();
+        Ticks(20);
+        long ticks = GC.GetAllocatedBytesForCurrentThread() - t0;
+        long r0 = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 20; i++) _mem.TryReadBytes(addr, 5 * 0x200, out _);
+        long reads = GC.GetAllocatedBytesForCurrentThread() - r0;
+        Assert.Equal(1, Summaries);
+        Assert.Equal(reads, ticks);
+    }
 }
