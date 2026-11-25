@@ -3,8 +3,9 @@
 STATUS: PLAN, APPROVED in review round 2, 2026-11-25. Round 1 went to a blind reviewer, who
 answered CHANGES NEEDED with one blocker and five should-fixes; round 2 checked every fix
 against the code and answered APPROVE, and its notes are folded in (see the last section).
-Step 1 built 2026-11-25 (dfa2d58, adfac4d, 603d6fa), blind build review SHIP in round 2,
-waiting on the owner's Zeklaus live check. Two steps, worked in this order: a style setting
+Step 1 built 2026-11-25 (dfa2d58, adfac4d, 603d6fa), blind build review SHIP in round 2, live
+check passed except Yellow, which rides step 2's check. Step 2 gained the live launcher save the
+same day and waits on a plan review of that part. Two steps, worked in this order: a style setting
 (TM-32), then a key that cycles the style in game (TM-33). Ledger rows are in
 [TODO.md](TODO.md).
 
@@ -122,7 +123,12 @@ and an ability range over a lit tile and cancel, and under Green open a Move ran
 tile: the game's overlay must draw normally and the style must come back after. (Build review
 round 1, premise 7, PLAUSIBLE and cosmetic only.)
 
-## Step 2 (TM-33): the cycle key
+## Step 2 (TM-33): the cycle key, and a launcher save that applies live
+
+Added 2026-11-25 after the step 1 live check, at the owner's word ("Implement the button press
+to update them live first"): a style saved in the launcher applies in the running game, not only
+at the next launch, through the same swap as the key. Only the style goes live; the other
+settings still apply at the next launch.
 
 Changes:
 
@@ -151,13 +157,27 @@ Changes:
   log line names the new style and the key.
 - The save rewrites one field, not the file. At the press the config path is resolved again, since
   the launcher can create the User file mid session, and the live Config.json is read fresh as a
-  JSON node tree, not through `Configurable.FromFile`, whose loader cannot tell a broken file from
-  a default one. If it does not parse, nothing is written and the log warns once; otherwise only
-  the `TileStyle` field is replaced and the file is written back. A setting the player changed in
-  the launcher since launch survives, and a failed load is never made permanent. If the launcher's
-  Configure window is open and saved afterwards, the launcher's own copy may win; the plan accepts
-  that, and the live check notes which way it goes. A save that throws warns once and never stops
-  the game.
+  JSON node tree, so no other field is rewritten from launch values. If it does not parse, nothing
+  is written and the log warns once; otherwise only the `TileStyle` field is replaced and the file
+  is written back. A setting the player changed in the launcher since launch survives, and a
+  failed load is never made permanent. A save that throws warns once and never stops the game.
+- The launcher save applies live. Once a second the engine tick resolves the config path again
+  and compares the file's last write time with the last one it acted on; a User file created mid
+  session counts as a change. On a change it reads the file through the step 1 loader with no
+  watcher and no save (`Configurable.LoadError` now tells a broken file from a good one). A read
+  with a LoadError, which is what a half written launcher save looks like, changes nothing and
+  warns once per write time; the next write is read again. A read style equal to the current one
+  changes nothing and logs nothing, which also makes the mod's own key press save a no-op. Any
+  other style goes through the same swap as a key press, with one log line naming the launcher
+  as its cause. The FileSystemWatcher `FromFile` arms is not used for this: it fires on a pool
+  thread, and the swap must stay on the engine thread, the only one that ever swaps.
+- Reloaded saves the whole config when its Configure window closes, changed or not (seen live
+  2026-11-25 in the step 1 check). So a key press made while that window is open is undone when
+  it closes: the window writes the style it showed, and the once a second check applies it. The
+  last save wins, the plan accepts that, and the live check shows it.
+- Text: the TileStyle description's "Changes apply the next time the game is launched" becomes
+  a line saying a saved change applies in the running game and the key steps through the looks
+  in battle. The other settings' descriptions keep their next launch wording.
 - The swap. The safety rule never writes a value the mod does not own, so without help every
   lit tile would freeze on the old look. Classification gains `Stale`, an exact match of a
   retired value: `TileHolder.Hold` rewrites a Stale byte to the current value and `Unlight`
@@ -165,8 +185,9 @@ Changes:
   included, stays Foreign and untouched.
 - Threads: the engine thread and FastHold's 8 ms thread both classify. The current value and
   the retired set are one immutable snapshot, swapped in one write, read fresh on each pass and
-  never cached. A pass that read the old snapshot can write the old value once; it is Stale on
-  the next pass and corrected.
+  never cached. Only the engine thread swaps, for the key and for a launcher save alike. A pass
+  that read the old snapshot can write the old value once; it is Stale on the next pass and
+  corrected.
 - The key does nothing while `Enabled` is off, nothing outside a battle map, and nothing while
   the mod has stood down for an unknown game build (the battle signal then comes from baked
   addresses that may be wrong). That last gate reads an existing TreasureMaster member, so the
@@ -176,9 +197,14 @@ Changes:
   over; the order wraps; after a full wrap the current value reads Held, not Stale; a Stale
   byte is rewritten; 0x80 and any value never listed are never written; Unlight reverts a
   Stale byte; the save changes only TileStyle in a file holding other changed settings; an
-  unparsable file is not written; a throwing save warns once; disabled means no poll.
-- Size: about 80 to 110 production lines, in `StyleHotkey.cs` and `TileStyles.cs`, plus small
-  edits to `TileHolder`, `Engine` and `Mod`. Engine and Mod are each at their two allowed silent
+  unparsable file is not written; a throwing save warns once; disabled means no poll. For the
+  live apply: a newer write time with a new style swaps once and logs once; the same style
+  swaps and logs nothing; the mod's own save then reads as no change; a read with a LoadError
+  swaps nothing and warns once for that write time; a User file appearing mid session is picked
+  up; an unchanged write time reads nothing; a check runs at most once a second.
+- Size: about 110 to 150 production lines, in `StyleHotkey.cs`, a small new file for the once
+  a second config check, and `TileStyles.cs`, plus small edits to `TileHolder`, `Engine` and
+  `Mod`. Engine and Mod are each at their two allowed silent
   catches, so the new code adds none.
 - A key read in a release build is by design, like Color Customizer's F1 window. Living Weapons
   bans
@@ -188,7 +214,10 @@ Live check (owner): the key steps through every style on a lit map, each look ma
 sheet; a claimed tile still goes dark after a change; a relaunch keeps the last style; a
 setting changed in the launcher mid session survives a press; the key does nothing while the
 game is in the background, with a modifier held, or outside a battle (renaming a unit with a
-a 4 in the name changes nothing).
+a 4 in the name changes nothing). A style saved in the launcher while a battle is on screen
+shows within about a second; with Configure open, a key press is undone when the window closes.
+Step 1's leftovers ride this check: Yellow, and a Move range and an ability range over a lit
+tile under Yellow and under RedOutline, on Zeklaus Desert.
 
 ## Calls for the owner
 

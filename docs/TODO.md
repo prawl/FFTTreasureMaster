@@ -11,6 +11,20 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
+- **[TM-33] Change the tile look live, by key 4 or the launcher** (opened 2026-11-25) [QUEUED]
+  - Done means: in battle, key 4 steps the treasure tiles through every look on the real map
+    and the last pick is kept for the next launch, and a look saved in the launcher shows in the
+    running game within about a second, so nobody restarts the game to try a look. Lit tiles
+    follow the change and a claimed tile still goes dark. The plan is step 2 of
+    [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: key 4 polled behind focus, modifier and
+    battle checks; a retired values set and a Stale state so lit tiles follow; a once a second
+    config write time check on the engine thread; the save rewrites only TileStyle.)
+  - Verify: suite green with the down edge and held key tests and the live apply tests; then
+    owner only, on Zeklaus Desert: key 4 steps through all six looks, Yellow included, with a
+    Move range and an ability range over a lit tile under Yellow and under RedOutline; a
+    launcher save shows within a second; a claimed tile still goes dark; a relaunch keeps the
+    last pick.
+
 - **[TM-32] Let players pick how the treasure tiles look** (opened 2026-11-25) [AWAITING-LIVE]
   - Done means: a "Tile highlight style" setting offers six looks, today's blue border with a
     yellow fill staying the default, and a battle shows the chosen look after a relaunch; a
@@ -30,13 +44,6 @@ that checklist.
     read well; a broken Config.json warns in the log and is left untouched.
 
 ## Backlog
-
-- [TM-33] 2026-11-25: Let a player press a key in battle to step the treasure tiles through
-  every highlight style on the real map, so nobody has to pick a look from its name, and keep
-  the last pick for the next launch. The plan is step 2 of
-  [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: key 4 by default, polled behind focus,
-  modifier and battle checks, a Stale state so lit tiles follow the change, the choice saved
-  to Config.json.)
 
 - [TM-31] 2026-11-25: Nobody has yet watched an enemy walk onto a lit treasure tile with All
   units on and leave the treasure there, or an enemy Chemist pick one up unaided. Catch either
