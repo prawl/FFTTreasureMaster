@@ -1,8 +1,7 @@
 # Treasure Hunter for the player's units, and worth equipping
 
-STATUS: PLAN. Part 1 is built (TM-25, go from Duet on 2026-11-25) and waits on the owner's
-live check and the fact keeper's GF-19 review; part 2 is not started, and nothing here has been
-watched in the game beyond part 1's gates. Two parts, both decided, worked in this order:
+STATUS: PLAN. Part 1 shipped (TM-25, owner live pass 2026-11-25); part 2 is not started, and
+nothing of it has been watched in the game. Two parts, both decided, worked in this order:
 first keep the free ability away from enemies (TM-25, chosen 2026-11-25 on Duet's review),
 then make an equipped Treasure Hunter find more rares (TM-24, then TM-23, chosen by the
 owner on 2026-11-24). Ledger rows are in [TODO.md](TODO.md).

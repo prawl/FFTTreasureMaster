@@ -8,6 +8,21 @@ with a date and no hash.
 
 ## 1.7.0 cycle
 
+- [TM-25] SHIPPED cdd40f0 2026-11-25: With All units gain Treasure Hunter on, only the player's own
+  deployed units get the free ability now, so enemies stop grabbing tile treasure first, as a
+  player reported. Chemists keep the game's own bonus, guests get none, and a unit that changes
+  sides, charmed or otherwise, loses the mod's bonus until it comes back. Owner live passes on
+  2026-11-25 on Grogh Heights: pick-ups by several jobs, a Chemist finding treasure unaided, the
+  hold back after a Retry and a resume, a real Steal Heart charm taking the bonus away and a hit
+  giving it back, and a bonus restored by a save taken back on a side change. Still unseen live:
+  an enemy walking onto a lit tile, kept as TM-31. (Tech: HunterHold holds bit 0x01 of +0x9E in
+  party seats 16 to 20 each battle and the job table grant retires; commits 161313d, dae0b3b,
+  a4618fc, 7dbaa4e and cdd40f0; game facts in FFTGameFacts 91d3bdf.)
+- [TM-19] SHIPPED c265b84 2026-11-25: A normal battle no longer logs a false warning that
+  enhanced markers could not be written, because the abandoned marker path behind it is gone
+  from the mod and its tests. Owner live pass 2026-11-25 on Grogh Heights: three launch logs,
+  none with a marker line. (Tech: MarkerWriter, its offset, its tests, the tuning gate and the
+  Retry diagnostics blocks removed in c265b84.)
 - [TM-28] SHIPPED 15b2d2a 2026-11-25: The All units Treasure Hunter setting no longer writes out
   its seat summary about thirty times a second only to throw it away; it writes it only when the
   summary goes into the log. Players see no difference. The unit record bytes it reads for
