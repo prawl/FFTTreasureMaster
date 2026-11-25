@@ -1,5 +1,5 @@
 {
- "sha": "161313d",
+ "sha": "dae0b3b",
  "date": "2026-11-25",
  "columns": [
   "comments",
@@ -31,7 +31,7 @@
   "Flight.cs": [18, 7, 16, 0, 0],
   "FlightRecorder.cs": [37, 14, 128, 4, 0],
   "GameMemory.cs": [7, 4, 23, 0, 0],
-  "HunterHold.cs": [5, 3, 127, 0, 0],
+  "HunterHold.cs": [5, 3, 129, 0, 0],
   "ILoaderEvents.cs": [8, 4, 24, 0, 0],
   "ISignature.cs": [15, 6, 19, 0, 0],
   "ITrapTable.cs": [11, 4, 8, 0, 0],
@@ -40,7 +40,7 @@
   "LoaderJobs.cs": [5, 5, 22, 0, 0],
   "LogVerb.cs": [5, 4, 34, 0, 0],
   "Mem.cs": [23, 10, 100, 0, 0],
-  "Mod.cs": [24, 6, 99, 2, 0],
+  "Mod.cs": [23, 6, 99, 2, 0],
   "Offsets.cs": [43, 13, 16, 0, 0],
   "RareTreasureGrant.cs": [8, 6, 75, 0, 0],
   "ReadinessWait.cs": [3, 2, 16, 0, 0],

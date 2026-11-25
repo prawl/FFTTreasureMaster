@@ -2,7 +2,7 @@ using System;
 
 namespace FFTTreasureMaster;
 
-/// <summary>Poll loop shared by the loader-backed grants.</summary>
+/// <summary>Poll loop behind the Rare treasure only grant.</summary>
 internal static class ReadinessWait
 {
     /// <summary>True as soon as a probe succeeds, false once the slept time reaches the cap.

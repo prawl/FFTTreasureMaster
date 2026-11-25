@@ -7,7 +7,7 @@ namespace FFTTreasureMaster.Tests;
 
 /// <summary>
 /// AuditOverlay: the pure effective-view helper behind FftivcTrapTable. The
-/// modloader's GetJob serves a startup-time snapshot that programmatic ApplyTablePatch
+/// modloader's trap table read serves a startup-time snapshot that programmatic ApplyTablePatch
 /// never refreshes; the ChangedProperties audit is the only surface reflecting this
 /// session's patches. The overlay lays audit values over the stale base so read-backs
 /// tell the truth.

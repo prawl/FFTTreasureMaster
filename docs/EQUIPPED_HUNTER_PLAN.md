@@ -1,10 +1,11 @@
 # Treasure Hunter for the player's units, and worth equipping
 
-STATUS: PLAN. Part 1 is being built (TM-25, go from Duet on 2026-11-25); part 2 is not
-started, and nothing here has been watched in the game beyond part 1's gates. Two parts,
-both decided, worked in this order: first keep the free ability away from enemies (TM-25,
-chosen 2026-11-25 on Duet's review), then make an equipped Treasure Hunter find more rares
-(TM-24, then TM-23, chosen by the owner on 2026-11-24). Ledger rows are in [TODO.md](TODO.md).
+STATUS: PLAN. Part 1 is built (TM-25, go from Duet on 2026-11-25) and waits on the owner's
+live check and the fact keeper's GF-19 review; part 2 is not started, and nothing here has been
+watched in the game beyond part 1's gates. Two parts, both decided, worked in this order:
+first keep the free ability away from enemies (TM-25, chosen 2026-11-25 on Duet's review),
+then make an equipped Treasure Hunter find more rares (TM-24, then TM-23, chosen by the
+owner on 2026-11-24). Ledger rows are in [TODO.md](TODO.md).
 
 ## Part 1: enemies get none (TM-25)
 
@@ -55,8 +56,8 @@ Chosen 2026-11-25, on Duet's review of the proposal.
 - The setting's description is rewritten. The Treasure Hunter tag leaves the Formation
   screen, because it comes from the job list, and the warning about enemies goes. Units
   still pick up treasure in battle.
-- The jobs left out today, for having no free slot in the job list or for sharing a row
-  with enemies, get it too, since every deployed unit qualifies.
+- The jobs the old grant left out, for having no free slot in the job list or for sharing a
+  row with enemies, now get it too, since every qualifying deployed unit does.
 - The setting no longer needs the Mod Loader; Rare treasure only still does. It also
   follows Enable Treasure Master, and a guest marked unit is skipped and named in the log.
 
@@ -120,6 +121,7 @@ Results so far, 2026-11-25, on Grogh Heights with the Mod Loader off:
 - Done: the research leads went to the fact keeper and were filed, and gate 1's first half
   and gate 2's battle start and enemy turn parts passed live on 2026-11-25.
 - Left for the owner's live check: gate 3, the charm check, and suspend and resume.
+- Ship gate: the fact keeper's GF-19 review must pass first (Duet, note 376).
 
 ## Part 2: equipped hunters find more rares (TM-24, TM-23)
 

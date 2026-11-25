@@ -151,6 +151,8 @@ public sealed class HunterHoldTests : IDisposable
     [Theory]
     [InlineData(0x18)]
     [InlineData(0x0A)]
+    [InlineData(0x0C)]
+    [InlineData(0x0E)]
     [InlineData(0x10)]
     public void T7_Owning_509_is_never_written_or_taken_back(int word)
     {
@@ -249,6 +251,7 @@ public sealed class HunterHoldTests : IDisposable
     {
         _addrs.Apply(new AnchorResolution { UnitArrayBaseX = 0x10 });
         Ticks(2);
+        Assert.Equal(0, _mem.U8Reads);
         Assert.Equal(0, _mem.Writes);
     }
 
@@ -293,11 +296,46 @@ public sealed class HunterHoldTests : IDisposable
         Assert.Equal(0, HunterByte(17));
         Assert.Equal(0x01, HunterByte(18));
         Assert.Equal(2, _log.Count("info", "A deployed unit gets no Treasure Hunter from the mod because it shows the guest marker"));
-        Assert.True(_log.Has("seat=16 job=74 name=900"));
+        Assert.True(_log.Has("hunter skip seat=16 job=74 name=900"));
         _pin.Bytes[Off(18) + 6] = 0x08;
         Ticks(1);
         Assert.Equal(0, HunterByte(18));
         Assert.Equal(1, _log.Count("info", "Treasure Hunter was taken back from a deployed unit because it shows the guest marker"));
+    }
+
+    [Fact]
+    public void A2_A_take_back_whose_bit_is_already_clear_logs_nothing()
+    {
+        Qualifying(16);
+        Ticks(1);
+        _mem.HookAddr = HunterHold.SeatRecord(_addrs, 0) + 0x9E;
+        _mem.Hook = () => _pin.Bytes[Off(16) + 0x9E] = 0;
+        _pin.Bytes[Off(16) + 5] = 0x1B;
+        Ticks(1);
+        Assert.Equal(0, _log.Count("info", "Treasure Hunter was taken back"));
+        Assert.Equal(0, _log.Lines.Count(l => l.Msg.StartsWith("hunter take")));
+        Assert.Equal(1, _mem.Writes);
+    }
+
+    [Fact]
+    public void A2_A_take_back_trace_names_the_unit_and_the_reason()
+    {
+        Qualifying(16);
+        Ticks(1);
+        _pin.Bytes[Off(16) + 5] = 0x1B;
+        Ticks(1);
+        Assert.True(_log.Has("hunter take seat=16 job=74 name=900 reason=changed sides"));
+    }
+
+    [Fact]
+    public void A3_Changing_the_name_bytes_of_a_held_unit_logs_no_new_summary()
+    {
+        Qualifying(16);
+        Ticks(6);
+        Assert.Equal(1, _log.Count("info", "Treasure Hunter is on"));
+        _pin.Bytes[Off(16) + 0x1FC] = 0x77;
+        Ticks(8);
+        Assert.Equal(1, _log.Count("info", "Treasure Hunter is on"));
     }
 
     [Fact]
@@ -307,7 +345,7 @@ public sealed class HunterHoldTests : IDisposable
         _pin.Bytes[Off(16) + 0x9C] |= 0x04;
         Ticks(12);
         Assert.Equal(1, _log.Count("info", "A deployed unit gets no Treasure Hunter from the mod because it does not look right"));
-        Assert.True(_log.Has("seat=16 job=74 name=1234"));
+        Assert.True(_log.Has("hunter skip seat=16 job=74 name=1234"));
     }
 
     [Fact]
@@ -347,6 +385,7 @@ public sealed class HunterHoldTests : IDisposable
         _mem.DropWrites = true;
         Ticks(10);
         Assert.Equal(1, _log.Count("warn", "Treasure Hunter could not be written"));
+        _mem.DropWrites = false;
         _pin.Bytes[Off(16) + 0x9E] = 0x01;
         _pin.Bytes[Off(16) + 5] = 0x1B;
         Ticks(1);

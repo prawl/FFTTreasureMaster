@@ -67,9 +67,9 @@ internal static class Tuning
 
     // --- Treasure Hunter for deployed units (HunterHold) ---
 
-    /// <summary>Fallback for Config.AllUnitsTreasureHunter when the config file cannot be read.
-    /// When true, each unit the player deploys holds the Treasure Hunter bit in battle. Default
-    /// off, because it changes battle balance, so the player opts in.</summary>
+    /// <summary>Fallback for Config.AllUnitsTreasureHunter when the config cannot be read. True
+    /// makes each qualifying deployed unit hold the Treasure Hunter bit, and Chemists, guests and
+    /// units that do not look right are skipped. Default off, since it changes balance.</summary>
     public const bool AllUnitsTreasureHunterEnabled = false;
 
     // --- rare treasure only (loader trap-table patch) ---

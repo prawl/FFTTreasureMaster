@@ -32,9 +32,8 @@ public class Mod : IMod
     public void StartEx(IModLoaderV1 modLoader, IModConfigV1 modConfig) => ArmLoaderJobs(modLoader);
 
     /// <summary>
-    /// Hands the jobs for the switched-on loader features to the host. All switches off, or no
-    /// loader handle, arms nothing and logs nothing. Both entry points land here and the host
-    /// arms only once.
+    /// Hands the Rare treasure only job to the host. Switched off, or no loader handle, arms
+    /// nothing and logs nothing. Both entry points land here and the host arms only once.
     /// </summary>
     private void ArmLoaderJobs(IModLoaderV1? loader)
     {

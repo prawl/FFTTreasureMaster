@@ -26,7 +26,7 @@ internal sealed class HunterHold
 
     public HunterHold(IGameMemory mem, AddrMap addrs) { _mem = mem; _addrs = addrs; }
 
-    // Seat 16 is slot 31 of the unit array, and the anchor points at the X field inside a record.
+    // The anchor starts the claim scan window where seat 16 is slot 31, and points at an X field.
     internal static long SeatRecord(AddrMap a, int i) => a.UnitArrayBaseX - XField + (FirstSeatSlot + i) * Offsets.UnitRecordStride;
 
     private static int U16(ReadOnlySpan<byte> r, int o) => r[o] | r[o + 1] << 8;
@@ -103,12 +103,14 @@ internal sealed class HunterHold
         byte cur = _mem.U8(addr);
         if (v == Verdict.TakeBack)
         {
-            if ((cur & Bit) != 0) _mem.W8(addr, (byte)(cur & ~Bit));
             _setByUs.Remove(i);
-            string why = (rec[5] & TeamMask) != 0 ? "changed sides" : "shows the guest marker";
-            ModLogger.EventWithTrace(LogVerb.Treasure, $"Treasure Hunter was taken back from a deployed unit because it {why}.", "hunter take " + Who(i, rec));
-            Flight.Record("hunter", "take " + Who(i, rec));
-            return Verdict.OtherTeam;
+            bool team = (rec[5] & TeamMask) != 0;
+            if ((cur & Bit) == 0) return team ? Verdict.OtherTeam : Verdict.Guest;
+            _mem.W8(addr, (byte)(cur & ~Bit));
+            string detail = Who(i, rec) + " reason=" + (team ? "changed sides" : "guest marker");
+            ModLogger.EventWithTrace(LogVerb.Treasure, $"Treasure Hunter was taken back from a deployed unit because it {(team ? "changed sides" : "shows the guest marker")}.", "hunter take " + detail);
+            Flight.Record("hunter", "take " + detail);
+            return team ? Verdict.OtherTeam : Verdict.Guest;
         }
         if ((cur & Bit) != 0) return Verdict.Held;
         _mem.W8(addr, (byte)(cur | Bit));
@@ -139,7 +141,7 @@ internal sealed class HunterHold
             string extra = s == Verdict.LooksWrong ? $" field={Convert.ToHexString(rec.Slice(MoveField, 3))} words={U16(rec, 0x18):X}/{U16(rec, 0x0A):X}/{U16(rec, 0x0C):X}/{U16(rec, 0x0E):X}/{U16(rec, 0x10):X}" : "";
             ModLogger.EventWithTrace(LogVerb.Treasure, $"A deployed unit gets no Treasure Hunter from the mod because it {why}.", "hunter skip " + Who(i, rec) + extra);
         }
-        string key = held + detail;
+        string key = string.Join(",", _settled);
         if (key == _summary || detail.Length == 0) return;
         _summary = key;
         ModLogger.EventWithTrace(LogVerb.Treasure, $"Treasure Hunter is on for {held} deployed unit(s).", "hunter summary" + detail);
