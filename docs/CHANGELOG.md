@@ -8,6 +8,16 @@ with a date and no hash.
 
 ## 1.7.0 cycle
 
+- [TM-21] SHIPPED d69f209 2026-11-25: All four treasure tiles on Grogh Heights light up now. The
+  one at x 9, y 8 on the east edge never lit, although its treasure could still be picked up, as
+  a Nexus player reported; the mod had the wrong memory spots on file for that one tile. The
+  build now refuses any tile that holds no spot the game paints from, so a bad capture like this
+  cannot ship again. Owner live pass 2026-11-25 on Grogh Heights: four lit tiles on screen.
+  (Tech: commit of 2026-11-12; map 81 tile 9,8 gains 0x140E894F3, 0x14103CC5B and 0x141187617;
+  the guard is TreasureSchemaTests.Every_tile_owns_bytes_in_the_lists_the_game_paints_from; 620
+  tests. A read of the live game in the same pass found all 15 of that tile's bytes and every
+  byte of the other three holding 0xCC, on the running build reached through the signature
+  re-resolve. The twelve old bytes stay for now, see TM-22.)
 - [TM-18] SHIPPED b8287c9 2026-11-03: Treasure Master now builds under the shared rulebook, the
   same quality checks every FFT mod will run, and today's numbers are the floor nothing may fall
   below. Comments were cut down to plain words to pass the shared rules, and the tests now delete
