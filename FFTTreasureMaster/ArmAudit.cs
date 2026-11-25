@@ -115,7 +115,7 @@ internal sealed class ArmAudit
 
     /// <summary>
     /// Reads each tile address across all tiles, classifies each byte via
-    /// <see cref="TreasureMaster.ClassifyAddr"/>, tallies ok/foreign/unreadable, and
+    /// <see cref="TileStyles.Classify"/>, tallies ok/foreign/unreadable, and
     /// calls <see cref="TreasureMaster.DecideArm"/>. Returns the verdict + the foreign
     /// count so the caller can log on first occurrence.
     /// Foreign addresses contribute to the foreign tally but do not produce a Disarm verdict;
@@ -133,7 +133,7 @@ internal sealed class ArmAudit
                 totalAddrs++;
                 long live = ImageBase.At(addr);   // tile addrs are dataset space; read the LIVE image
                 if (!_mem.Readable(live, 1)) { unreadableCount++; continue; }
-                var state = TreasureMaster.ClassifyAddr(_mem.U8(live));
+                var state = TileStyles.Classify(_mem.U8(live));
                 if (state == TreasureMaster.AddrState.Foreign) foreignCount++;
                 else okCount++;
             }

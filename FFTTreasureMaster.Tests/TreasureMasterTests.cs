@@ -260,8 +260,8 @@ public class TreasureMasterTests : IDisposable
 
         Assert.True(mem.Written.ContainsKey(addrs[0]));
         Assert.True(mem.Written.ContainsKey(addrs[1]));
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[0]]);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[1]]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrs[0]]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrs[1]]);
     }
 
     // A player reads any warning in the log as the mod being broken, so a plain battle on the
@@ -280,8 +280,8 @@ public class TreasureMasterTests : IDisposable
         var tm = new TreasureMaster(db, mem);
         StabilizeAndArm(tm, extra: 30);
 
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[0]]);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[1]]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrs[0]]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrs[1]]);
         Assert.DoesNotContain(log.File, l => l.Contains("[WARN]") || l.Contains("[ERROR]"));
     }
 
@@ -300,7 +300,7 @@ public class TreasureMasterTests : IDisposable
         var tm = Make(db, mem);
         StabilizeAndArm(tm);
 
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── (3) Re-stamps after a simulated engine clear ──────────────────────────────
@@ -325,7 +325,7 @@ public class TreasureMasterTests : IDisposable
 
         // Next tick should re-write
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── (4) Pre-marked 0x81 byte (Held): never written ───────────────────────────
@@ -339,7 +339,7 @@ public class TreasureMasterTests : IDisposable
         var db = BuildDb(dir, fpLen: terrain.Length, fpHash: TerrainFpHash(terrain),
             addrs: new[] { (addr, (byte)0x00) });
         // MarkValue (0xCC) = Held -- the flat mark already present on the tile
-        var mem = BuildMem(74, terrain, new[] { addr }, initialByte: TreasureMaster.MarkValue);
+        var mem = BuildMem(74, terrain, new[] { addr }, initialByte: TileStyles.DefaultMark);
 
         var tm = Make(db, mem);
         StabilizeAndArm(tm);
@@ -367,7 +367,7 @@ public class TreasureMasterTests : IDisposable
 
         Assert.NotEmpty(mem.Written);
         foreach (var kv in mem.Written)
-            Assert.Equal(TreasureMaster.MarkValue, kv.Value);
+            Assert.Equal(TileStyles.DefaultMark, kv.Value);
     }
 
     // ── (6) Fingerprint mismatch at arm: ARMS ANYWAY (advisory fingerprint) ────────
@@ -395,7 +395,7 @@ public class TreasureMasterTests : IDisposable
         // The resting tile addr meets quorum, so the module arms and holds despite the
         // fingerprint mismatch.
         Assert.True(mem.Written.ContainsKey(addr));
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── (7) Fingerprint drift mid-battle: KEEP HOLDING (no disarm) ────────────────
@@ -438,7 +438,7 @@ public class TreasureMasterTests : IDisposable
 
         Assert.True(mem.Written.ContainsKey(addr),
             "mid-battle fingerprint drift must keep holding, not disarm");
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── (8) Map-id flip mid-ARMED ─────────────────────────────────────────────────
@@ -542,7 +542,7 @@ public class TreasureMasterTests : IDisposable
 
         Assert.False(mem.Written.ContainsKey(addrA));
         Assert.True(mem.Written.ContainsKey(addrB));
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrB]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrB]);
     }
 
     // ── (11) ResetBattle clears state, writes nothing, fresh battle re-arms ───────
@@ -592,7 +592,7 @@ public class TreasureMasterTests : IDisposable
         TickN(tm, Tuning.TreasureArmStableTicks + 5);
 
         Assert.NotEmpty(mem.Written);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── (12) Stub map: no writes, zero tile-addr writes ───────────────────────────
@@ -695,7 +695,7 @@ public class TreasureMasterTests : IDisposable
         TickN(tm, Tuning.TreasureArmStableTicks + 10);
 
         Assert.True(mem.Written.ContainsKey(addr));
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── (14) Foreign bytes while ARMED: stay armed, skip foreign, resume on return ──
@@ -1010,7 +1010,7 @@ public class TreasureMasterTests : IDisposable
 
         Assert.True(mem.Written.ContainsKey(addr),
             "v3 static-field drift mid-battle must keep holding (LIVE INCIDENT #4)");
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     /// <summary>
@@ -1079,7 +1079,7 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         Assert.True(mem.Written.ContainsKey(addr));
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── PinnedBuf fact: MarkValue lands at target, neighbors untouched ────────────
@@ -1104,10 +1104,10 @@ public class TreasureMasterTests : IDisposable
         // Guard is satisfied: our own process memory is always Writable + Readable
         Assert.True(live.Writable(pin.Addr, 1));
         int cur = live.U8(pin.Addr);
-        byte want = TreasureMaster.WantWrite((byte)cur);
+        byte want = TileStyles.WantWrite((byte)cur);
         live.W8(pin.Addr, want);
 
-        Assert.Equal(TreasureMaster.MarkValue, pin.Bytes[0]);
+        Assert.Equal(TileStyles.DefaultMark, pin.Bytes[0]);
         Assert.Equal(0x42, pin.Bytes[1]);
         Assert.Equal(0x11, pin.Bytes[2]);
         Assert.Equal(0xFE, pin.Bytes[3]);
@@ -1334,7 +1334,7 @@ public class TreasureMasterTests : IDisposable
         {
             Assert.True(mem.Written.ContainsKey(a),
                 $"map-id-only: addr {a:x} should be written even with garbage terrain");
-            Assert.Equal(TreasureMaster.MarkValue, mem.Written[a]);
+            Assert.Equal(TileStyles.DefaultMark, mem.Written[a]);
         }
     }
 
@@ -1448,7 +1448,7 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         Assert.True(mem.Written.ContainsKey(addr));
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── FastHold tests ────────────────────────────────────────────────────────────
@@ -1485,8 +1485,8 @@ public class TreasureMasterTests : IDisposable
 
         Assert.True(mem.Written.ContainsKey(addrs[0]));
         Assert.True(mem.Written.ContainsKey(addrs[1]));
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[0]]);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrs[1]]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrs[0]]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrs[1]]);
     }
 
     /// <summary>
@@ -1632,7 +1632,7 @@ public class TreasureMasterTests : IDisposable
         // One more tick tips past the threshold -- now armed + write.
         TickN(tm, 6, inLive: true);
         Assert.NotEmpty(mem.Written);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     /// <summary>
@@ -1699,7 +1699,7 @@ public class TreasureMasterTests : IDisposable
         // Full stability window passes -> arms and writes again.
         TickN(tm, Tuning.TreasureArmStableTicks + 5, inLive: true);
         Assert.NotEmpty(mem.Written);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     /// <summary>
@@ -1728,7 +1728,7 @@ public class TreasureMasterTests : IDisposable
         TickN(tm, Tuning.TreasureArmStableTicks + 10, inLive: true);
 
         Assert.NotEmpty(mem.Written);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addr]);
     }
 
     // ── Claim detection integration tests ────────────────────────────────────────
@@ -1821,13 +1821,13 @@ public class TreasureMasterTests : IDisposable
         Assert.True(mem.Written.ContainsKey(addrS), "S should be marked after arm");
 
         // Claim C: its rare item count ticks up while the unit stands on C.
-        mem.U8s[addrC] = TreasureMaster.MarkValue;   // Held so Unlight can revert it
+        mem.U8s[addrC] = TileStyles.DefaultMark;   // Held so Unlight can revert it
         BumpItemCount(mem, 200);
         mem.Written.Clear();
         tm.Tick(DateTime.Now, inLive: true);
 
         // Assert: C reverted (byte state AND write log)
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);
         Assert.True(mem.Written.ContainsKey(addrC), "Unlight must record a write for addrC");
         Assert.Equal(offC, mem.Written[addrC]);
 
@@ -1838,9 +1838,9 @@ public class TreasureMasterTests : IDisposable
 
         Assert.False(mem.Written.ContainsKey(addrC),
             "FastHold must not re-stamp claimed addrC");
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);
         // Sibling S is still held (no unit on it, its count never rose)
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrS]);
     }
 
     /// <summary>
@@ -1883,22 +1883,22 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         // Claim C: its item count ticks up while the unit stands on C.
-        mem.U8s[addrC] = TreasureMaster.MarkValue;   // Held so Unlight can revert it
+        mem.U8s[addrC] = TileStyles.DefaultMark;   // Held so Unlight can revert it
         BumpItemCount(mem, 200);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed + unlit
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);   // claimed + unlit
 
         // Move the unit OFF C (latch must hold, no new claim this tick) and simulate a stale
         // FastHold pass re-stamping C to MarkValue.
         MoveClaimUnit(mem, 1, 1);
-        mem.U8s[addrC] = TreasureMaster.MarkValue;   // stale re-stamp
+        mem.U8s[addrC] = TileStyles.DefaultMark;   // stale re-stamp
         mem.Written.Clear();
 
         // One more armed tick: the every-tick un-light must re-revert the latched claimed tile,
         // even though _claimed did not grow this tick.
         tm.Tick(DateTime.Now, inLive: true);
 
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);
         Assert.True(mem.Written.ContainsKey(addrC),
             "every-tick un-light must re-revert a stale re-stamp of a latched claimed tile");
         Assert.Equal(offC, mem.Written[addrC]);
@@ -1942,10 +1942,10 @@ public class TreasureMasterTests : IDisposable
         Assert.True(mem.Written.ContainsKey(addrC), "C should be marked after arm");
 
         // Claim C: count ticks up while the unit stands on it.
-        mem.U8s[addrC] = TreasureMaster.MarkValue;   // ensure Held so Unlight fires
+        mem.U8s[addrC] = TileStyles.DefaultMark;   // ensure Held so Unlight fires
         BumpItemCount(mem, 200);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);
 
         // Reset battle: _claimed and the count baseline must be cleared.
         tm.ResetBattle();
@@ -1957,7 +1957,7 @@ public class TreasureMasterTests : IDisposable
         TickN(tm, Tuning.TreasureArmStableTicks + 5);
 
         Assert.True(mem.Written.ContainsKey(addrC), "Fresh battle must re-light C after reset");
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrC]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrC]);
     }
 
     /// <summary>
@@ -2086,17 +2086,17 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         // Claim C: rare count 1 -> 2 while the unit stands on it.
-        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        mem.U8s[addrC] = TileStyles.DefaultMark;
         BumpItemCount(mem, 200);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed + unlit
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);   // claimed + unlit
 
         // In-battle restart REFUNDS the rare item: count 2 -> 1 (== arm baseline). No ResetBattle.
         SeedItemCount(mem, 200, 1);
         tm.Tick(DateTime.Now, inLive: true);
 
         // C is un-latched and re-lit (Hold re-stamps MarkValue the same tick).
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC]);
     }
 
     /// <summary>
@@ -2123,17 +2123,17 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         // Claim C via the common item: count 5 -> 6.
-        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        mem.U8s[addrC] = TileStyles.DefaultMark;
         BumpItemCount(mem, 50);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed + unlit
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);   // claimed + unlit
 
         // Player USES the found consumable: count 6 -> 5 (== baseline). Single drop, common item.
         SeedItemCount(mem, 50, 5);
         TickN(tm, 3);
 
         // Must STAY dark -- the treasure is still gone; a lone common-count dip is not a reset.
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);
     }
 
     /// <summary>
@@ -2161,13 +2161,13 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         // Claim both via their common items in one tick.
-        mem.U8s[addrC1] = TreasureMaster.MarkValue;
-        mem.U8s[addrC2] = TreasureMaster.MarkValue;
+        mem.U8s[addrC1] = TileStyles.DefaultMark;
+        mem.U8s[addrC2] = TileStyles.DefaultMark;
         BumpItemCount(mem, 50);
         BumpItemCount(mem, 51);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC1]);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC1]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC2]);
 
         // Battle restart refunds BOTH: counts drop to baseline together. No ResetBattle.
         SeedItemCount(mem, 50, 5);
@@ -2175,8 +2175,8 @@ public class TreasureMasterTests : IDisposable
         tm.Tick(DateTime.Now, inLive: true);
 
         // Both un-latched and re-lit.
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC1]);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC1]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC2]);
     }
 
     /// <summary>
@@ -2206,8 +2206,8 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         // Claim both via their common items in one tick.
-        mem.U8s[addrC1] = TreasureMaster.MarkValue;
-        mem.U8s[addrC2] = TreasureMaster.MarkValue;
+        mem.U8s[addrC1] = TileStyles.DefaultMark;
+        mem.U8s[addrC2] = TileStyles.DefaultMark;
         BumpItemCount(mem, 50);
         BumpItemCount(mem, 51);
         tm.Tick(DateTime.Now, inLive: true);
@@ -2220,8 +2220,8 @@ public class TreasureMasterTests : IDisposable
         TickN(tm, 3);
 
         // Neither re-lights -- both treasures were genuinely consumed; this is not a reset.
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC1]);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC1]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC2]);
     }
 
     /// <summary>
@@ -2247,22 +2247,22 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         // Claim C (1 -> 2), then a second copy of the same rare turns up over later ticks (2 -> 3).
-        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        mem.U8s[addrC] = TileStyles.DefaultMark;
         SeedItemCount(mem, 200, 2);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed + unlit
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);   // claimed + unlit
         SeedItemCount(mem, 200, 3);
         TickN(tm, 2);
 
         // Partial drop 3 -> 2: still ABOVE the arm baseline of 1 -> must stay dark.
         SeedItemCount(mem, 200, 2);
         TickN(tm, 2);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);
 
         // Full refund 2 -> 1 (== arm baseline) -> re-lights, proving baseline stayed pinned at 1.
         SeedItemCount(mem, 200, 1);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC]);
     }
 
     /// <summary>
@@ -2288,19 +2288,19 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         // Claim, then refund (restart) -> re-lit.
-        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        mem.U8s[addrC] = TileStyles.DefaultMark;
         SeedItemCount(mem, 200, 2);
         tm.Tick(DateTime.Now, inLive: true);
         SeedItemCount(mem, 200, 1);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);   // re-lit
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC]);   // re-lit
 
         // Re-claim the same treasure post-restart: count rises again with the unit on the tile.
-        mem.U8s[addrC] = TreasureMaster.MarkValue;   // currently lit/Held
+        mem.U8s[addrC] = TileStyles.DefaultMark;   // currently lit/Held
         SeedItemCount(mem, 200, 2);
         tm.Tick(DateTime.Now, inLive: true);
 
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // re-claimed + unlit again
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);   // re-claimed + unlit again
     }
 
     /// <summary>
@@ -2323,7 +2323,7 @@ public class TreasureMasterTests : IDisposable
 
         var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: true);
         StabilizeAndArm(tm);
-        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        mem.U8s[addrC] = TileStyles.DefaultMark;
         SeedItemCount(mem, 200, 2);
         tm.Tick(DateTime.Now, inLive: true);   // claim in battle 1
 
@@ -2332,16 +2332,16 @@ public class TreasureMasterTests : IDisposable
         mem.U8s[addrC] = 0x00;
         SeedItemCount(mem, 200, 5);   // battle 2 baseline = 5
         TickN(tm, Tuning.TreasureArmStableTicks + 5);
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[addrC]);   // re-armed + lit in battle 2
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[addrC]);   // re-armed + lit in battle 2
 
         // Claim in battle 2 (5 -> 6), then refund to the FRESH baseline 5 -> must re-light.
-        mem.U8s[addrC] = TreasureMaster.MarkValue;
+        mem.U8s[addrC] = TileStyles.DefaultMark;
         SeedItemCount(mem, 200, 6);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);   // claimed in battle 2
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);   // claimed in battle 2
         SeedItemCount(mem, 200, 5);
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);      // refund at fresh baseline re-lights
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC]);      // refund at fresh baseline re-lights
     }
 
     /// <summary>
@@ -2372,20 +2372,20 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         // One pickup of the shared item latches both occupied tiles (same-tick double-latch).
-        mem.U8s[addrC1] = TreasureMaster.MarkValue;
-        mem.U8s[addrC2] = TreasureMaster.MarkValue;
+        mem.U8s[addrC1] = TileStyles.DefaultMark;
+        mem.U8s[addrC2] = TileStyles.DefaultMark;
         BumpItemCount(mem, 50);   // 5 -> 6
         tm.Tick(DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC1]);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC1]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC2]);
 
         // Use ONE of the found consumables: the single shared count drops to baseline (6 -> 5).
         SeedItemCount(mem, 50, 5);
         TickN(tm, 3);
 
         // Not a reset (one distinct item id dropped) -- both stay dark.
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC1]);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC2]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC1]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC2]);
     }
 
     // ── Collected-tile exclusion (persistent prior-battle detection) ─────────────────────────
@@ -2406,8 +2406,8 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
         tm.FastHold.HoldOnce();
         Assert.False(mem.Written.ContainsKey(addrC));                       // C excluded -> never written
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);          // C still resting
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);            // S lit
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);          // C still resting
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrS]);            // S lit
     }
 
     [Fact]
@@ -2428,10 +2428,10 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
         BumpItemCount(mem, 201);                       // claim S: 1 -> 2
         tm.Tick(System.DateTime.Now, inLive: true);
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrS]);   // S unlit
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrS]);   // S unlit
         SeedItemCount(mem, 201, 1);                    // refund S: 2 -> 1
         tm.Tick(System.DateTime.Now, inLive: true);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);      // S re-lit
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrS]);      // S re-lit
         Assert.False(mem.Written.ContainsKey(addrC));               // C never written -> outlived refund
     }
 
@@ -2465,8 +2465,8 @@ public class TreasureMasterTests : IDisposable
         var mem = BuildMem(74, terrain, new[] { addrC, addrS }, initialByte: 0x00);
         var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false);
         StabilizeAndArm(tm);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrS]);
     }
 
     /// <summary>
@@ -2486,8 +2486,8 @@ public class TreasureMasterTests : IDisposable
         // returns false -> IsCollected returns false -> neither tile is excluded -> both lit.
         var tm = new TreasureMaster(db, mem, enabled: true, claimDetection: false, collectDetection: true);
         StabilizeAndArm(tm);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrC]);
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrC]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrS]);
     }
 
     [Fact]
@@ -2521,7 +2521,7 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
         TickN(tm, 5);
         Assert.False(mem.Written.ContainsKey(addrC));
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrS]);
         Assert.False(mem.ReadCount.ContainsKey(Offsets.UnitArrayBaseX));
         Assert.False(mem.ReadCount.ContainsKey(Offsets.InventoryCountBase + 200));
     }
@@ -2580,10 +2580,10 @@ public class TreasureMasterTests : IDisposable
 
         // C: collected bit set -> excluded -> never written, still resting (0x00).
         Assert.False(mem.Written.ContainsKey(addrC));
-        Assert.NotEqual(TreasureMaster.MarkValue, mem.U8s[addrC]);
+        Assert.NotEqual(TileStyles.DefaultMark, mem.U8s[addrC]);
 
         // S: collected bit clear -> lit.
-        Assert.Equal(TreasureMaster.MarkValue, mem.U8s[addrS]);
+        Assert.Equal(TileStyles.DefaultMark, mem.U8s[addrS]);
     }
 
     // ── Signature re-resolve (update hardening): resolver seam on a build-key mismatch ───────
@@ -2687,7 +2687,7 @@ public class TreasureMasterTests : IDisposable
         StabilizeAndArm(tm);
 
         Assert.True(mem.Written.ContainsKey(remappedAddr));
-        Assert.Equal(TreasureMaster.MarkValue, mem.Written[remappedAddr]);
+        Assert.Equal(TileStyles.DefaultMark, mem.Written[remappedAddr]);
         Assert.False(mem.Written.ContainsKey(bakedAddr));
         Assert.False(mem.ReadCount.ContainsKey(bakedAddr));
     }

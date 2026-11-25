@@ -8,9 +8,9 @@ namespace FFTTreasureMaster;
 /// mark between the 33 ms loop's stamps and flickers. Stamping twice per animation frame keeps
 /// the mark set whenever a frame renders.
 ///
-/// TileHolder is stateless and only ever sets bits, so the fast thread and the 33 ms loop
-/// holding the same addresses at once is safe. The thread is not started in the ctor, so unit
-/// tests can drive <see cref="HoldOnce"/> directly without OS threads.
+/// TileHolder is stateless and writes one mark, the style chosen at launch, so the fast thread
+/// and the 33 ms loop holding the same addresses at once is safe. The thread is not started in
+/// the ctor, so unit tests can drive <see cref="HoldOnce"/> directly without OS threads.
 /// </summary>
 internal sealed class FastHold
 {

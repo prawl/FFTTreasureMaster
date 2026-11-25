@@ -5,7 +5,7 @@ namespace FFTTreasureMaster;
 /// ArmAudit reads and never writes, and TileHolder writes and never evaluates arm gates.
 ///
 /// <see cref="Hold"/> visits each tile address in the map behind a Writable guard, classifies
-/// the byte with <see cref="TreasureMaster.ClassifyAddr"/>, writes the mark on a Resting byte,
+/// the byte with <see cref="TileStyles.Classify"/>, writes the mark on a Resting byte,
 /// leaves a Held byte alone, and counts a Foreign byte without writing it, since those are off
 /// screen render bytes from a camera pan that return to Resting when the tile scrolls back.
 /// Returns the written and foreign counts so the caller can log the first foreign bytes
@@ -32,10 +32,10 @@ internal sealed class TileHolder
                 long live = ImageBase.At(addr);   // tile addrs are dataset space; write the LIVE image
                 if (!_mem.Writable(live, 1)) continue;
                 byte cur = _mem.U8(live);
-                switch (TreasureMaster.ClassifyAddr(cur))
+                switch (TileStyles.Classify(cur))
                 {
                     case TreasureMaster.AddrState.Resting:
-                        byte want = TreasureMaster.WantWrite(cur);
+                        byte want = TileStyles.WantWrite(cur);
                         if (cur != want) { _mem.W8(live, want); written++; }
                         break;
                     case TreasureMaster.AddrState.Held:
@@ -63,7 +63,7 @@ internal sealed class TileHolder
             long live = ImageBase.At(addr);   // tile addrs are dataset space; write the LIVE image
             if (!_mem.Writable(live, 1)) continue;
             byte cur = _mem.U8(live);
-            if (TreasureMaster.ClassifyAddr(cur) == TreasureMaster.AddrState.Held)
+            if (TileStyles.Classify(cur) == TreasureMaster.AddrState.Held)
             {
                 _mem.W8(live, off);
                 n++;

@@ -1,5 +1,5 @@
 {
- "sha": "51aa99a",
+ "sha": "dfa2d58",
  "date": "2026-11-25",
  "columns": [
   "comments",
@@ -21,10 +21,11 @@
   "BattleState.cs": [47, 14, 56, 0, 0],
   "ClaimAudit.cs": [19, 14, 32, 0, 0],
   "CollectAudit.cs": [15, 11, 22, 0, 0],
-  "Configuration/Config.cs": [4, 4, 42, 0, 0],
+  "Configuration/Config.cs": [4, 4, 52, 0, 0],
   "Configuration/Configurable.cs": [17, 7, 83, 1, 0],
   "Configuration/Configurator.cs": [14, 6, 69, 1, 0],
   "Configuration/ConfiguratorMixinBase.cs": [6, 5, 13, 0, 0],
+  "Configuration/ForgivingEnumConverter.cs": [4, 4, 29, 0, 0],
   "Engine.cs": [17, 6, 90, 2, 0],
   "FastHold.cs": [23, 10, 40, 1, 0],
   "FftivcTrapTable.cs": [10, 5, 75, 0, 0],
@@ -40,14 +41,15 @@
   "LoaderJobs.cs": [5, 5, 22, 0, 0],
   "LogVerb.cs": [5, 4, 34, 0, 0],
   "Mem.cs": [23, 10, 100, 0, 0],
-  "Mod.cs": [23, 6, 106, 2, 0],
+  "Mod.cs": [23, 6, 109, 2, 0],
   "Offsets.cs": [43, 13, 16, 0, 0],
   "RareTreasureGrant.cs": [8, 6, 75, 0, 0],
   "ReadinessWait.cs": [3, 2, 16, 0, 0],
   "TileHolder.cs": [22, 11, 48, 0, 0],
+  "TileStyles.cs": [10, 5, 30, 0, 0],
   "TreasureDb.cs": [55, 8, 166, 0, 1],
-  "Tuning.cs": [74, 7, 28, 0, 0],
+  "Tuning.cs": [74, 7, 29, 0, 0],
   "partial FlightRecorder": [13, 5, 51, 0, 0],
-  "partial TreasureMaster": [228, 16, 537, 0, 0]
+  "partial TreasureMaster": [209, 16, 529, 0, 0]
  }
 }

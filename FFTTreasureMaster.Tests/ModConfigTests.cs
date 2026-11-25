@@ -1,6 +1,8 @@
 using System;
 using System.IO;
+using System.Text.Json;
 using FFTTreasureMaster.Configuration;
+using Reloaded.Mod.Interfaces;
 using Xunit;
 
 namespace FFTTreasureMaster.Tests;
@@ -29,6 +31,8 @@ namespace FFTTreasureMaster.Tests;
 ///  (15) Every toggle default equals its Tuning fallback constant.
 ///  (16) Save never writes LoadError; DescribeConfig is Ok on a clean load and names source and
 ///       reason on a failed one.
+///  (17) TileStyle defaults to the Tuning fallback, saves as a name, and any unreadable value
+///       loads the default without touching the other settings or setting LoadError.
 /// </summary>
 public class ModConfigTests : IDisposable
 {
@@ -309,5 +313,105 @@ public class ModConfigTests : IDisposable
         Assert.Equal(Tuning.ClaimDetectionEnabled, c.HideClaimedTiles);
         Assert.Equal(Tuning.AllUnitsTreasureHunterEnabled, c.AllUnitsTreasureHunter);
         Assert.Equal(Tuning.RareTreasureOnlyEnabled, c.RareTreasureOnly);
+    }
+
+    // ── Tile highlight style ──────────────────────────────────────────────────
+
+    [Fact]
+    public void DefaultConfig_TileStyle_MatchesTuningDefault()
+    {
+        Assert.Equal(Tuning.TileStyleDefault, new Config().TileStyle);
+    }
+
+    [Fact]
+    public void RoundTrip_NonDefaultTileStyle_IsSavedAsText()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        var written = Configurable<Config>.FromFile(path, "Test");
+        written.TileStyle = TileStyle.Pink;
+        written.Save();
+
+        Assert.Contains("\"TileStyle\": \"Pink\"", File.ReadAllText(path));
+        var loaded = Configurable<Config>.FromFile(path, "Test");
+        Assert.Equal(TileStyle.Pink, loaded.TileStyle);
+        Assert.Null(loaded.LoadError);
+    }
+
+    [Theory]
+    [InlineData("\"Purple\"")]
+    [InlineData("\"3\"")]
+    [InlineData("\"Green, Pink\"")]
+    [InlineData("3")]
+    [InlineData("true")]
+    [InlineData("null")]
+    [InlineData("{\"a\":1}")]
+    [InlineData("[1,2]")]
+    public void ForgivingRead_BadStyle_GivesDefaultAndKeepsTheOtherSettings(string styleJson)
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "{ \"Enabled\": false, \"TileStyle\": " + styleJson +
+            ", \"HideClaimedTiles\": false, \"AllUnitsTreasureHunter\": true, \"RareTreasureOnly\": true }");
+
+        var c = Configurable<Config>.FromFile(path, "Test");
+
+        Assert.Equal(Tuning.TileStyleDefault, c.TileStyle);
+        Assert.False(c.Enabled);
+        Assert.False(c.HideClaimedTiles);
+        Assert.True(c.AllUnitsTreasureHunter);
+        Assert.True(c.RareTreasureOnly);
+        Assert.Null(c.LoadError);
+    }
+
+    [Fact]
+    public void ForgivingRead_LowerCaseName_LoadsThatStyle()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "{ \"TileStyle\": \"green\" }");
+        Assert.Equal(TileStyle.Green, Configurable<Config>.FromFile(path, "Test").TileStyle);
+    }
+
+    [Fact]
+    public void OldFileWithoutTileStyle_LoadsDefaultStyleAndKeepsTheRest()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "{ \"Enabled\": false }");
+        var c = Configurable<Config>.FromFile(path, "Test");
+        Assert.Equal(Tuning.TileStyleDefault, c.TileStyle);
+        Assert.False(c.Enabled);
+        Assert.Null(c.LoadError);
+    }
+
+    [Fact]
+    public void DescribeConfig_NamesTheTileStyle()
+    {
+        var cfg = new Config { TileStyle = TileStyle.Green };
+        Assert.Contains("TileStyle=Green", Mod.DescribeConfig(cfg, "src.json").Line);
+    }
+
+    [Fact]
+    public void ForgivingConverter_WritesTheFallbackNameForAnUndefinedValue()
+    {
+        var json = JsonSerializer.Serialize(new Config { TileStyle = (TileStyle)99 }, Configurable<Config>.SerializerOptions);
+        Assert.Contains("\"TileStyle\": \"BlueAndYellow\"", json);
+    }
+
+    [Fact]
+    public void LauncherConfigurePath_BrokenFile_StillOpensWithDefaultsAndLeavesFileAlone()
+    {
+        var dir = TempDir();
+        var path = Path.Combine(dir, "Config.json");
+        File.WriteAllText(path, "{ this is not valid json !!!");
+        var before = File.ReadAllBytes(path);
+
+        IUpdatableConfigurable[]? configs = null;
+        var ex = Record.Exception(() => configs = new Configurator(dir).Configurations);
+
+        Assert.Null(ex);
+        var only = Assert.Single(configs!);
+        var c = Assert.IsType<Config>(only);
+        Assert.True(c.Enabled);
+        Assert.Equal(Tuning.TileStyleDefault, c.TileStyle);
+        Assert.NotNull(c.LoadError);
+        Assert.Equal(before, File.ReadAllBytes(path));
     }
 }

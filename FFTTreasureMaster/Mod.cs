@@ -77,6 +77,7 @@ public class Mod : IMod
             // folder, so read the user file when it exists and the shipped default otherwise.
             bool enabled = Tuning.TreasureEnabled;                 // documented default
             bool claimDetection = Tuning.ClaimDetectionEnabled;           // documented default
+            TileStyle tileStyle = Tuning.TileStyleDefault;            // documented default
             _allUnitsHunter = Tuning.AllUnitsTreasureHunterEnabled;   // documented default (false)
             _rareOnlyEnabled = Tuning.RareTreasureOnlyEnabled;         // documented default (false)
             try
@@ -85,6 +86,7 @@ public class Mod : IMod
                 var cfg = Configurable<Config>.FromFile(configPath, "FFT Treasure Master Configuration");
                 enabled = cfg.Enabled;
                 claimDetection = cfg.HideClaimedTiles;
+                tileStyle = cfg.TileStyle;
                 _allUnitsHunter = cfg.AllUnitsTreasureHunter;
                 _rareOnlyEnabled = cfg.RareTreasureOnly;
                 var (ok, line) = DescribeConfig(cfg, configPath);
@@ -94,9 +96,10 @@ public class Mod : IMod
             catch (Exception cfgEx)
             {
                 ModLogger.Warn(LogVerb.Config,
-                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_allUnitsHunter} RareTreasureOnly={_rareOnlyEnabled}: {cfgEx.Message}");
+                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_allUnitsHunter} RareTreasureOnly={_rareOnlyEnabled} TileStyle={tileStyle}: {cfgEx.Message}");
             }
 
+            TileStyles.Publish(tileStyle);
             _engine = new Engine(modDir, enabled, claimDetection, _allUnitsHunter);
             _engine.Start();
         }
@@ -108,7 +111,7 @@ public class Mod : IMod
 
     internal static (bool Ok, string Line) DescribeConfig(Config cfg, string source)
     {
-        var values = $"Enabled={cfg.Enabled} HideClaimedTiles={cfg.HideClaimedTiles} AllUnitsTreasureHunter={cfg.AllUnitsTreasureHunter} RareTreasureOnly={cfg.RareTreasureOnly}";
+        var values = $"Enabled={cfg.Enabled} HideClaimedTiles={cfg.HideClaimedTiles} AllUnitsTreasureHunter={cfg.AllUnitsTreasureHunter} RareTreasureOnly={cfg.RareTreasureOnly} TileStyle={cfg.TileStyle}";
         return cfg.LoadError == null
             ? (true, $"Configuration loaded: {values}.")
             : (false, $"The configuration file {source} could not be read ({cfg.LoadError}); every setting uses its default: {values}.");

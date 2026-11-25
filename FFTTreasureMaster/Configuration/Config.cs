@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Text.Json.Serialization;
 
 namespace FFTTreasureMaster.Configuration;
 
@@ -9,11 +10,21 @@ namespace FFTTreasureMaster.Configuration;
 public class Config : Configurable<Config>
 {
     [DisplayName("Enable Treasure Master")]
-    [Description("Highlight the battle tiles that hide Move-Find treasure (a yellow-fill mark is " +
-                 "held on each treasure tile's render flag so it stays lit on the battlefield). " +
+    [Description("Highlight the battle tiles that hide Move-Find treasure (the mark of the chosen Tile " +
+                 "highlight style is held on each treasure tile's render flag so it stays lit). " +
                  "Turn this off to disable the mod without uninstalling it. Default: on.")]
     [DefaultValue(true)]
     public bool Enabled { get; set; } = true;
+
+    [DisplayName("Tile highlight style")]
+    [Description("How a treasure tile is lit. BlueAndYellow is a cyan border with a yellow fill, the " +
+                 "default and the mod's look until now. BlueAndPink is a cyan border with a magenta " +
+                 "fill. Green is a green fill. Yellow is a yellow fill with no border. Pink is a pink " +
+                 "fill. RedOutline is a red dotted outline. Changes apply the next time the game is " +
+                 "launched. Default: BlueAndYellow.")]
+    [DefaultValue(TileStyle.BlueAndYellow)]
+    [JsonConverter(typeof(TileStyleConverter))]
+    public TileStyle TileStyle { get; set; } = Tuning.TileStyleDefault;
 
     [DisplayName("Hide tiles after their treasure is claimed")]
     [Description("When a treasure is claimed from a tile -- a Chemist, or any unit with the " +

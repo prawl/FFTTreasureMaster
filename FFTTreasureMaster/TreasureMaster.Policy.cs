@@ -7,10 +7,9 @@ namespace FFTTreasureMaster;
 /// memory. The stateful tick loop lives in TreasureMaster.cs.
 ///
 /// MapIdValid accepts 1 to 127, the only live battle map ids. Fnv1a64 is the standard 64 bit
-/// FNV-1a, shared verbatim with the Python capture tool so the two cannot drift. ClassifyAddr
-/// is the per byte safety contract over the only legitimate values, 0x00, 0x01 and MarkValue,
-/// and anything else is Foreign and never written. WantWrite is a flat write of MarkValue, with
-/// no clear path, since the engine clears marks itself. DecideArm arms once enough addresses
+/// FNV-1a, shared verbatim with the Python capture tool so the two cannot drift. The per byte
+/// safety contract lives in TileStyles, and anything but 0x00, 0x01 or the mark is Foreign and
+/// never written. The engine clears marks itself. DecideArm arms once enough addresses
 /// are ok and otherwise retries forever. Foreign bytes are not a veto, because they are off
 /// screen render bytes that return to Resting when the tile scrolls back, and TileHolder never
 /// writes them. Disarm is reserved for fingerprint mismatches in TreasureMaster.TickArming.
@@ -23,7 +22,7 @@ internal sealed partial class TreasureMaster
 
     /// <summary>
     /// The runtime-visible states of a tile's render-flag byte.
-    /// Only <see cref="Resting"/> bytes are candidates for a <see cref="WantWrite"/>; a
+    /// Only <see cref="Resting"/> bytes are candidates for a write of the mark; a
     /// <see cref="Held"/> byte is already marked; a <see cref="Foreign"/> byte is never written.
     /// </summary>
     internal enum AddrState { Resting, Held, Foreign }
@@ -66,37 +65,6 @@ internal sealed partial class TreasureMaster
         }
         return h;
     }
-
-    // ---- #3 ClassifyAddr ----
-
-    /// <summary>
-    /// Maps a raw byte from a tile's render flag address to its <see cref="AddrState"/>.
-    /// <see cref="MarkValue"/> is Held, 0x00 or 0x01 is Resting (the low bit is engine driven),
-    /// and anything else is Foreign. The mark is a flat value, not an OR of 0x80, because the
-    /// whole byte selects the highlight colour, so a held byte is exactly MarkValue.
-    /// </summary>
-    internal static AddrState ClassifyAddr(byte cur)
-    {
-        if (cur == MarkValue) return AddrState.Held;
-        if (cur == 0x00 || cur == 0x01) return AddrState.Resting;
-        return AddrState.Foreign;
-    }
-
-    // ---- #4 MarkValue / WantWrite ----
-
-    /// <summary>
-    /// The render flag byte that paints a treasure tile, a cyan border with a yellow fill. The
-    /// byte value is the colour, tuned live in June 2026 by cycling values on map 74.
-    /// </summary>
-    internal const byte MarkValue = 0xCC;
-
-    /// <summary>
-    /// The value to write for this byte, always <see cref="MarkValue"/> regardless of
-    /// <paramref name="cur"/>. Written flat rather than ORed, because the colour is the whole
-    /// byte and ORing a resting 0x01 would give 0xCD, a different colour. Still set only, since
-    /// the engine clears marks itself.
-    /// </summary>
-    internal static byte WantWrite(byte cur) => MarkValue;
 
     // ---- #5 DecideArm ----
 

@@ -78,6 +78,8 @@ internal static class Tuning
     /// Default OFF so the player opts in.</summary>
     public const bool RareTreasureOnlyEnabled = false;
 
+    public const TileStyle TileStyleDefault = TileStyle.BlueAndYellow;
+
     /// <summary>Map ids in the game's trap formation table, 0 through 127.</summary>
     public const int TrapTableMapCount = 128;
 

@@ -13,8 +13,8 @@ namespace FFTTreasureMaster;
 /// globally on a mismatch. L1 reads the map id behind a guard and needs it valid and present in
 /// the dataset. L2, the terrain fingerprint, is advisory only, logged on mismatch and never a
 /// block, because per battle weather perturbs the hashed fields. L3 guards every write with
-/// Writable and ClassifyAddr, so Foreign bytes are never written, and arming needs a quorum of
-/// TreasureMinPlausibleAddrs ok addresses, below which the module polls rather than disarming.
+/// Writable and TileStyles.Classify, so Foreign bytes are never written, and arming needs a
+/// quorum of TreasureMinPlausibleAddrs ok addresses, below which the module only polls.
 ///
 /// Set only by construction. Release means stop writing, and the engine clears marks itself.
 /// The stateless gate evaluations live in ArmAudit.cs as a separate class, and the pure policy
@@ -419,7 +419,7 @@ internal sealed partial class TreasureMaster : ISignature
         // maps, and once the first drift has been logged this battle.
         //
         // Terrain identity was already proven at arm time. The per tick map id re-check above is
-        // the live still in this battle guard, and the ClassifyAddr gate in the hold loop
+        // the live still in this battle guard, and the Classify gate in the hold loop
         // backstops stray writes. A map whose static terrain fields drift mid battle, seen live on
         // Siedge Weald where fields 2 to 5 changed 26 seconds into the same battle, must not
         // disarm. The old behavior dropped to Arming, stopped holding, and once the new terrain
@@ -463,7 +463,7 @@ internal sealed partial class TreasureMaster : ISignature
         }
 
         // The hold loop writes the mark on Resting bytes only. Foreign bytes, off screen tiles
-        // from a camera pan, are skipped by the ClassifyAddr check inside TileHolder.Hold.
+        // from a camera pan, are skipped by the Classify check inside TileHolder.Hold.
         var holdMap = _activeMap ?? map;
         var (_, foreign) = _holder.Hold(holdMap);
         if (foreign > 0 && !_foreignLoggedThisBattle)

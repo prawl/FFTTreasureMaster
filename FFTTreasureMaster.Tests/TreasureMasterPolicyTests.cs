@@ -14,12 +14,7 @@ namespace FFTTreasureMaster.Tests;
 /// (2) Fnv1a64 -- standard FNV-1a 64-bit hash, shared verbatim with the Python capture tool so
 ///     the two implementations can never silently drift. Three pinned vectors: empty, "a", "foobar".
 ///
-/// (3) AddrState / ClassifyAddr -- per-byte safety contract over the only legitimate values
-///     {0x00, 0x01, MarkValue (0xCC)}. 0xCC -> Held; 0x00/0x01 -> Resting; anything else ->
-///     Foreign (never written). Full truth table over representative bytes.
-///
-/// (4) WantWrite / MarkValue -- flat write of MarkValue (0xCC, the cyan-border/yellow-fill
-///     highlight) regardless of cur; set-only (the engine clears marks, the module never does).
+/// (3) and (4) moved to TileStylesTests, since the mark is now the chosen style value.
 ///
 /// (5) DecideArm -- two-outcome arm gate: okCount >= minPlausible -> Arm; otherwise -> Retry.
 ///     Foreign bytes are NOT a disarm at arm time (they are off-screen render bytes and will
@@ -65,49 +60,6 @@ public class TreasureMasterPolicyTests
     public void Fnv1a64_ascii_foobar()
     {
         Assert.Equal(0x85944171f73967e8UL, TreasureMaster.Fnv1a64("foobar"u8));
-    }
-
-    // ---- (3) AddrState / ClassifyAddr -- full truth table ----
-    // InlineData carries ints (enums are internal; the cast is inside the body).
-
-    [Theory]
-    [InlineData(0x00, 0)]   // Resting
-    [InlineData(0x01, 0)]   // Resting
-    [InlineData(0x02, 2)]   // Foreign -- low-bit noise but not a resting value
-    [InlineData(0x40, 2)]   // Foreign
-    [InlineData(0x7F, 2)]   // Foreign
-    [InlineData(0x80, 2)]   // Foreign -- the OLD mark bit is no longer our mark
-    [InlineData(0x81, 2)]   // Foreign
-    [InlineData(0xCB, 2)]   // Foreign -- adjacent colour, not our mark
-    [InlineData(0xCC, 1)]   // Held -- MarkValue (the flat yellow-fill mark)
-    [InlineData(0xCD, 2)]   // Foreign -- low-bit variant is a different colour, not Held
-    [InlineData(0xFF, 2)]   // Foreign
-    public void ClassifyAddr_full_truth_table(byte cur, int expectedOrdinal)
-    {
-        // Ordinals: Resting=0, Held=1, Foreign=2 (declaration order in the enum)
-        Assert.Equal((TreasureMaster.AddrState)expectedOrdinal, TreasureMaster.ClassifyAddr(cur));
-    }
-
-    // ---- (4) WantWrite / MarkValue -- flat write of the mark value ----
-
-    [Theory]
-    [InlineData(0x00)]
-    [InlineData(0x01)]
-    [InlineData(0x80)]
-    [InlineData(0x81)]
-    [InlineData(0x40)]
-    [InlineData(0xFF)]
-    public void WantWrite_always_returns_MarkValue_regardless_of_cur(byte input)
-    {
-        // Flat write: the byte value IS the highlight colour, so the resting byte never
-        // influences the result (unlike the old cur | 0x80 scheme).
-        Assert.Equal(TreasureMaster.MarkValue, TreasureMaster.WantWrite(input));
-    }
-
-    [Fact]
-    public void MarkValue_is_the_yellow_fill_highlight()
-    {
-        Assert.Equal(0xCC, TreasureMaster.MarkValue);
     }
 
     // ---- (5) DecideArm -- matrix ----

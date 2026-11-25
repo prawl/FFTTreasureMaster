@@ -11,23 +11,17 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-- **[TM-34] Warn in the log when the settings file cannot be read** (opened 2026-11-25) [BUILDING]
-  - Done means: a player whose Config.json is broken still gets every setting at its default,
-    the file is left as it is for them to fix, and the log says which file could not be read
-    and why instead of claiming the settings loaded. The launcher's Configure window still
-    opens on a broken file, since it is the way to repair it. (Tech: Configurable.LoadFromFile
-    keeps the failure in a hidden LoadError field instead of quietly returning a new Config;
-    Mod.DescribeConfig picks the warn line. Fixed first inside TM-32, as the coordinator asked.)
-  - Verify: suite green with the new ModConfigTests cases (a broken, empty, null or locked file
-    reports its error and is not overwritten; a good or missing file reports none).
-
 - **[TM-32] Let players pick how the treasure tiles look** (opened 2026-11-25) [BUILDING]
   - Done means: a "Tile highlight style" setting offers six looks, today's blue border with a
     yellow fill staying the default, and a battle shows the chosen look after a relaunch; a
     claimed tile still goes dark; a config saved by a newer version never resets the other
     settings. The plan is step 1 of [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: TileStyles
     holds the table, the published style, Classify and WantWrite, moved out of
-    TreasureMaster.Policy.cs; a forgiving converter maps an unknown value to the default.)
+    TreasureMaster.Policy.cs; a forgiving converter maps an unknown value to the default.
+    Built as a full high tier /build, since it changes the byte the mod writes into the running
+    game; the phases /build adds were done before the stage opened: the owner's live style
+    sweep (FFTGameFacts aa1629e, b25301f, 25e716a, 6781a48), the written plan cf0115b, two
+    blind review rounds folded in b8b9cda and fdecec3, and the coordinator's go 51aa99a.)
   - Verify: suite green with a non default style test that fails on the old constant; then
     owner only, in the game: three styles picked and each seen after a relaunch on Zeklaus
     Desert (all seven memory regions), a claimed tile going dark, the dropdown names reading

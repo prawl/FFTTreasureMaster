@@ -8,6 +8,13 @@ with a date and no hash.
 
 ## 1.7.0 cycle
 
+- [TM-34] SHIPPED dfa2d58 2026-11-25: A player whose Config.json got broken no longer sees every
+  setting reset without a word. The settings still fall back to their defaults and the broken
+  file is left alone, so the launcher's Configure window still opens it for repair, but the log
+  now names the file and the reason instead of claiming the settings loaded. (Tech:
+  Configurable.LoadError carries the failure, hidden from the launcher grid and never saved;
+  Mod.DescribeConfig picks the warn or loaded line; ModConfigTests cover a broken, empty, null
+  and locked file and the launcher path; fixed first inside TM-32 at the coordinator's ask.)
 - [TM-25] SHIPPED cdd40f0 2026-11-25: With All units gain Treasure Hunter on, only the player's own
   deployed units get the free ability now, so enemies stop grabbing tile treasure first, as a
   player reported. Chemists keep the game's own bonus, guests get none, and a unit that changes

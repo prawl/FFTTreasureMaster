@@ -9,7 +9,7 @@ namespace FFTTreasureMaster.Tests;
 /// per-addr resting value. Complements the Hold tests that live in TreasureMasterTests.cs.
 ///
 /// Contract:
-///   Held (0xCC == MarkValue) bytes: written with the tile's captured off value; counted.
+///   Held (0xCC == DefaultMark) bytes: written with the tile's captured off value; counted.
 ///   Resting (0x00, 0x01) bytes:      already unlit; no write.
 ///   Foreign (any other value) bytes:  never written (may be off-screen render).
 ///   Unwritable address:               skipped via Writable guard.
@@ -56,7 +56,7 @@ public class TileHolderTests
     [Fact]
     public void Unlight_Held_byte_is_written_with_off_value()
     {
-        var (mem, map, addr) = MakeScene(currentByte: TreasureMaster.MarkValue, restOff: 0x00);
+        var (mem, map, addr) = MakeScene(currentByte: TileStyles.DefaultMark, restOff: 0x00);
         var holder = new TileHolder(mem);
 
         int n = holder.Unlight(map.Tiles[0]);
@@ -69,7 +69,7 @@ public class TileHolderTests
     [Fact]
     public void Unlight_Held_byte_written_with_nonzero_off()
     {
-        var (mem, map, addr) = MakeScene(currentByte: TreasureMaster.MarkValue, restOff: 0x01);
+        var (mem, map, addr) = MakeScene(currentByte: TileStyles.DefaultMark, restOff: 0x01);
         var holder = new TileHolder(mem);
 
         int n = holder.Unlight(map.Tiles[0]);
@@ -117,7 +117,7 @@ public class TileHolderTests
     [Fact]
     public void Unlight_Unwritable_addr_is_skipped()
     {
-        var (mem, map, addr) = MakeScene(currentByte: TreasureMaster.MarkValue, writable: false);
+        var (mem, map, addr) = MakeScene(currentByte: TileStyles.DefaultMark, writable: false);
         var holder = new TileHolder(mem);
 
         int n = holder.Unlight(map.Tiles[0]);
@@ -136,7 +136,7 @@ public class TileHolderTests
         long addrForeign = 0x140300300L;
 
         var mem = new FakeSparseMemory();
-        mem.U8s[addrHeld] = TreasureMaster.MarkValue;
+        mem.U8s[addrHeld] = TileStyles.DefaultMark;
         mem.U8s[addrResting] = 0x00;
         mem.U8s[addrForeign] = 0xAB;
         foreach (var a in new[] { addrHeld, addrResting, addrForeign })
@@ -206,7 +206,7 @@ public class TileHolderTests
 
             Assert.Equal(1, written);
             Assert.True(mem.Written.ContainsKey(live), "the hold must write the LIVE address");
-            Assert.Equal(TreasureMaster.WantWrite(0x01), mem.Written[live]);
+            Assert.Equal(TileStyles.WantWrite(0x01), mem.Written[live]);
             Assert.False(mem.Written.ContainsKey(DatasetTileAddr), "the dataset address must never be written");
         }
         finally { ImageBase.ResetForTests(); }
@@ -220,7 +220,7 @@ public class TileHolderTests
             Assert.True(ImageBase.Set(RelocatedBase));
             long live = ImageBase.At(DatasetTileAddr);
             var mem = new FakeSparseMemory();
-            mem.U8s[live] = TreasureMaster.MarkValue;
+            mem.U8s[live] = TileStyles.DefaultMark;
             mem.ReadableAddrs.Add(live);
             mem.WritableAddrs.Add(live);   // the dataset address is deliberately NOT seeded
 
@@ -232,5 +232,55 @@ public class TileHolderTests
             Assert.False(mem.Written.ContainsKey(DatasetTileAddr), "the dataset address must never be written");
         }
         finally { ImageBase.ResetForTests(); }
+    }
+
+    // ── non default style ────────────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(0x00)]
+    [InlineData(0x01)]
+    public void Hold_under_Green_writes_the_Green_mark_on_a_Resting_byte(byte resting)
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.Green);
+            var (mem, map, addr) = MakeScene(currentByte: resting);
+            var (written, _) = new TileHolder(mem).Hold(map);
+            Assert.Equal(1, written);
+            Assert.Equal(0xD8, mem.Written[addr]);
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void Hold_under_Green_never_writes_a_byte_reading_the_default_mark()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.Green);
+            var (mem, map, addr) = MakeScene(currentByte: 0xCC);
+            var (written, foreign) = new TileHolder(mem).Hold(map);
+            Assert.Equal(0, written);
+            Assert.Equal(1, foreign);
+            Assert.False(mem.Written.ContainsKey(addr));
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void Unlight_under_Green_reverts_its_own_value_only()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.Green);
+            var (mem, map, addr) = MakeScene(currentByte: 0xD8, restOff: 0x01);
+            Assert.Equal(1, new TileHolder(mem).Unlight(map.Tiles[0]));
+            Assert.Equal(0x01, mem.Written[addr]);
+
+            var (mem2, map2, addr2) = MakeScene(currentByte: 0xCC, restOff: 0x01);
+            Assert.Equal(0, new TileHolder(mem2).Unlight(map2.Tiles[0]));
+            Assert.False(mem2.Written.ContainsKey(addr2));
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
     }
 }

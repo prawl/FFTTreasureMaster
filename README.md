@@ -4,10 +4,12 @@ A Reloaded-II mod for **Final Fantasy Tactics: The Ivalice Chronicles** (`fft_en
 that lights up the battlefield tiles hiding **Move-Find treasure**, so you never walk a unit
 past a hidden item again.
 
-It is an in-process C# runtime (`FFTTreasureMaster.dll`). On each battle map it holds the
-"lit" render-flag bit (`0x80`) on every known treasure tile, keeping those tiles highlighted
-for the whole fight. There is one setting: an on/off toggle in the Reloaded mod config
-(**on by default**).
+It is an in-process C# runtime (`FFTTreasureMaster.dll`). On each battle map it holds a
+highlight value on the render-flag bytes of every known treasure tile, keeping those tiles
+lit for the whole fight. There are five settings in the Reloaded mod config:
+Enable Treasure Master (on), Hide tiles after their treasure is claimed (on), All units gain
+Treasure Hunter (off), Rare treasure only (off), and Tile highlight style (BlueAndYellow, the
+look the mod has always had).
 
 ## Install
 
