@@ -69,8 +69,7 @@ public class Config : Configurable<Config>
                  "Chronicles Mod Loader (by Nenkai); without it this setting quietly does nothing. " +
                  "If you also have the Rare Treasure Only mod enabled you can disable it; the two do " +
                  "the same thing. Other mods that change treasure items still load; this setting " +
-                 "just takes the rare for every tile. A battle saved mid fight keeps its rare items " +
-                 "after you turn this off. " +
+                 "just takes the rare for every tile. " +
                  "Default: off.")]
     [DefaultValue(false)]
     public bool RareTreasureOnly { get; set; } = false;

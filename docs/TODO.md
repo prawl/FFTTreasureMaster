@@ -13,6 +13,13 @@ that checklist.
 
 ## Backlog
 
+- [TM-42] 2026-11-26: The Rare treasure only help still says the setting quietly does nothing
+  without the Mod Loader, but nobody has checked that since the mod began patching each battle's
+  own treasure copy through Reloaded's shared hooks library. With that library loaded and no Mod
+  Loader, the copy patch may give rare items anyway, so the line may now be wrong. Check it in one
+  battle before changing the text. (Tech: RareCopyHooks arms without fftivc.utility.modloader;
+  the line is in the RareTreasureOnly help in Configuration/Config.cs.)
+
 - [TM-41] 2026-11-26: Let players change Treasure Master's settings inside the game's own Settings
   screen, the way Ivalice ReMixed adds a tab there, instead of only in the launcher. Patrick asked
   for "a proposal on what it would take for us to do something similar"; no build is approved.

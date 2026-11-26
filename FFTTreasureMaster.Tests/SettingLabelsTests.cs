@@ -63,11 +63,11 @@ public class SettingLabelsTests
     }
 
     [Fact]
-    public void Rare_treasure_says_a_mid_fight_save_keeps_its_rare_items()
+    public void Rare_treasure_help_claims_nothing_unseen_about_saved_battles()
     {
         string help = Help(nameof(Config.RareTreasureOnly));
 
-        Assert.Contains("A battle saved mid fight keeps its rare items after you turn this off.", help);
+        Assert.DoesNotContain("saved mid fight", help);
         Assert.DoesNotContain("keeps its normal items", help);
     }
 
