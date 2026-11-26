@@ -157,12 +157,19 @@ Changes:
   and never treated as retired. 0x80 can never be in the set, because it is never listed. One
   log line names the new style and the key.
 - The save rewrites one field, not the file. At the press the config path is resolved again, since
-  the launcher can create the User file mid session, and the live Config.json is read fresh as a
+  the launcher can create the User file mid session, through the same function Mod hands the
+  launcher save check below, so the key writes exactly the file the check reads (a copy of
+  ResolveConfigPath in a new file would also need a silent catch, which a new file may not hold).
+  The live Config.json is read fresh as a
   JSON node tree, so no other field is rewritten from launch values. If it does not parse, nothing
   is written and the log warns once; otherwise only the `TileStyle` field is replaced and the file
   is written back. A setting the player changed in the launcher since launch survives, and a
   failed load is never made permanent. A save that throws warns once and never stops the game.
-- The launcher save applies live, in a small new file called from the engine tick. A tick
+- The launcher save applies live, in a small new file, `StyleLive.cs`, with one per tick entry
+  point, `Tick(edge, battleDisplayed)`, which Engine calls once per tick right after its battle
+  edge handling, passing the `BattleEdge` it already computes. In order, it clears the retired
+  set on an Entered edge, polls the key, and counts down to the launcher save check, so one
+  Engine line carries all three and the tests drive every one through it. A tick
   countdown (a Tuning constant, as the existing countdowns do, never the wall clock) runs the
   check about once a second. The check resolves the config path through a function Mod hands
   it (ResolveConfigPath stays in Mod with its catch, since a new file may hold no silent catch)
@@ -180,26 +187,40 @@ Changes:
   own read failures and logs them, with no empty catch. It does nothing while `Enabled` is off.
   The FileSystemWatcher `FromFile` arms is not used for this, since it fires on a pool thread
   and only the engine tick may swap.
-- The Configure window and the key. The launcher's ConfigureModDialog listens to
-  ConfigurationUpdated, which the watcher `FromFile` arms raises with a fresh read on every
-  change of the file, a failed read included (read from the launcher's compiled code in plan
-  review round 3, not run). The owner sees the window not change until he clicks Save
-  (2026-11-25), so the window may swap the object it saves without redrawing it. Decided
-  (notes 513 and 515, the owner's call): the last change wins, a Save in the window or a key
-  press. The key saves the style to the file, and the watcher stops raising updates, so the
-  window saves exactly what the player sees when he clicks Save. A key press made while the
-  window is open is overwritten only by a Save clicked after it, which the once a second check
-  then applies. That also ends the
-  case where a save mid write handed the window a default config. In the step 1 check a broken
-  file was replaced with clean defaults after a visit to Configure; whether closing it saves
-  without a click on Save is not settled, and the plan leans on neither.
+- The Configure window and the key. What the launcher does, read from its compiled code in plan
+  reviews 3 and 4 (Reloaded.Mod.Launcher.Lib and Reloaded-II, not run): every Configure click
+  builds a fresh `Configurator` through a new plugin loader, and `GetConfigurations` reads the
+  file then through `FromFile`, so a window opened after a key press shows the key's style. The
+  window saves when Save is clicked AND when it closes (`ConfigureModDialog.Window_Closing`
+  calls the same `Save`), and that save writes every field the window holds. The window also
+  listens to ConfigurationUpdated, which the watcher `FromFile` arms raises with a fresh read on
+  every change of the file, a failed read included. The owner sees the window not change until
+  he clicks Save (2026-11-25), so the window may swap the object it saves without redrawing it.
+  Decided (notes 513 and 515, the owner's call): the last change wins, a Save in the window or a
+  key press. The key saves the style to the file, and the watcher stops raising updates, so the
+  window saves exactly what the player sees. That also ends the case where a save mid write
+  handed the window a default config. The event itself stays, since `IUpdatableConfigurable`
+  requires it, with empty add and remove bodies (an event that is never raised is warning
+  CS0067, an error under this repo's build rules), and `Configurator.cs:30`'s subscription goes.
+  OPEN, the owner's call (round 4): a window open during a key press still holds the old style,
+  and closing it, with or without an edit, writes that style back, which the once a second check
+  then applies. Option A, Reloaded's own behaviour and no extra code: closing counts as a save,
+  so the key setting's description tells the player to close Configure before pressing the key.
+  Option B: the window writes only what the player changed in it. `Configurable.Save` reads the
+  file fresh as a node tree and replaces only the fields whose value differs from what the window
+  opened with, so a close with no edit leaves the key's style alone, an edit to another setting
+  keeps it too, and a style picked in the window still wins. A file that is missing or does not
+  parse at save time is written whole, as today; a window opened on a broken file and closed with
+  no edit leaves the file as it was (step 1's L6 saw that visit replace it with defaults), and
+  the mod keeps warning at launch. The plan recommends B. The build waits for this call.
 - Text: the TileStyle description's "Changes apply the next time the game is launched" becomes
   a line saying a saved change applies in the running game and the key steps through the looks
   in battle. Enabled and Hide tiles after their treasure is claimed say nothing about when a
   change applies today, so both gain "Changes apply the next time the game is launched", as the
   other two settings and the key setting say. When the check reads a file whose other settings
-  differ from the launch values, it logs once per pair that those apply at the next launch, so
-  an unticked Enable that keeps the tiles lit is explained in the log.
+  differ from the launch values, it logs that those apply at the next launch once for each new
+  set of those other values, not once per pair, since every key save makes a new pair. So an
+  unticked Enable that keeps the tiles lit is explained in the log once.
 - The swap. The safety rule never writes a value the mod does not own, so without help every
   lit tile would freeze on the old look. Classification gains `Stale`, an exact match of a
   retired value, added on the same line as the other `AddrState` members in the frozen partial:
@@ -209,22 +230,32 @@ Changes:
   tests' reset, and it clears the retired set; a new `SwapTo(style)` is the runtime swap the key
   and the config check call, and it adds the old value to the retired set. The retired set also
   clears at each battle enter edge, since a new battle's bytes start Resting, which keeps Stale
-  from reaching game drawn bytes in later battles.
+  from reaching game drawn bytes in later battles. The clear sits in `StyleLive.Tick` on an
+  Entered edge, not in `TreasureMaster.ResetBattle`, which is in the frozen partial and also runs
+  on a map change and a dataset reload.
 - Threads: the engine thread and FastHold's 8 ms thread both classify. The current value and
   the retired set are one immutable snapshot, swapped in one write, read fresh on each pass and
   never cached. Only the engine thread swaps, for the key and for a launcher save alike. A pass
   that read the old snapshot can write the old value once; it is Stale on the next pass and
   corrected.
 - The key does nothing while `Enabled` is off and nothing unless the mod is holding marks this
-  moment: a one line `FastHold.Holding`, true while FastHold has a published map, which the
-  engine reaches through the existing `TreasureMaster.FastHold` member, so the frozen partial
-  does not grow. Holding means armed on a battle map with tiles lit, so it covers outside a
-  battle, a map with no treasure, and a stood down build, and unlike `UnitArrayTrusted` it stays
-  true on a build healed by signature. The key's save runs on the engine thread; a file whose
+  moment: a one line `FastHold.Holding`, true while FastHold has a published map with at least
+  one tile (`Tiles.Count > 0`; never `TileCount`, which the claimed and collected filter in
+  `RebuildActiveMap` copies from the full map), which the engine reaches through the existing
+  `TreasureMaster.FastHold` member, so the frozen partial does not grow. FastHold is handed a
+  null map on both battle edges, while the build check waits, while the mod stands idle (Enabled
+  off, an empty dataset, an unknown build), out of a battle and in any phase but Armed, and an
+  empty map once every tile on the map is claimed or collected. So Holding means armed on a
+  battle map with tiles lit, and unlike `UnitArrayTrusted` it stays true on a build healed by
+  signature. It also stays true through the few bad map id ticks a map change can show, which is
+  accepted. The key's save runs on the engine thread; a file whose
   root is not an object is not written and warns once, and a missing TileStyle field is added.
 - Tests, again about twice the production lines: the down edge fires once, a held key does not
   repeat, no focus, a held modifier or no battle on screen means no press and no edge carried
-  over; the order wraps; after a full wrap the current value reads Held, not Stale; a Stale
+  over; a press while a battle shows but Holding is false (no map published, or a map whose
+  tiles are all claimed or collected) swaps nothing and saves nothing; the key's save writes the
+  file at the path the check's resolver returns, a User file that appears mid session included;
+  the order wraps; after a full wrap the current value reads Held, not Stale; a Stale
   byte is rewritten; 0x80 and any value never listed are never written; Unlight reverts a
   Stale byte; the save changes only TileStyle in a file holding other changed settings; an
   unparsable file is not written; a throwing save warns once; disabled means no poll. For the
@@ -234,19 +265,28 @@ Changes:
   check; a User file appearing mid session is picked up; an unchanged pair reads nothing; the
   countdown runs the check at most once a second; the launch pair is not read again; other
   changed settings log once that they apply at the next launch. For the swap: Publish clears
-  the retired set and SwapTo adds to it; a battle enter edge clears it; swapping back to a
+  the retired set and SwapTo adds to it; an Entered edge passed to `StyleLive.Tick` clears it
+  and an Exited edge or no edge does not; swapping back to a
   retired value makes it current and never Stale; Unlight under a swap reverts a claimed tile
-  holding the old value. For the window: a change to the file after `FromFile` raises no
-  ConfigurationUpdated.
-- Size: about 120 to 160 production lines, in `StyleHotkey.cs`, the small new config check
-  file and `TileStyles.cs`, plus small edits to `TileHolder`, `FastHold`, `Engine`, `Mod`,
-  `Configuration/Configurable.cs` (Read made internal; `FromFile` arms no watcher, so the watcher
-  field, `OnFileChanged` and its empty catch go), `Configuration/Config.cs`
-  (the key setting and the text) and the `AddrState` line in `TreasureMaster.Policy.cs`. Engine
-  and Mod are each at their two allowed silent catches, so the new code adds none. Comments that
-  stop being true are rewritten within each file's frozen comment budget: TileStyles.cs:12-13
-  ("chosen at launch"), FastHold.cs:11-12, TileHolder.cs:7-10, TreasureMaster.Policy.cs:10-12
-  and :23-26, and TreasureMaster.cs:465.
+  holding the old value. For the window: the `Configurator`'s config object keeps the values it
+  opened with after the file is rewritten and about half a second passes (on today's code the
+  watcher swaps in a fresh read, so this test is red before the change). Under option B also: a
+  save with no edit leaves a key's style in the file; a save after editing another setting
+  writes that setting and keeps the key's style; a style picked in the window is written; a
+  missing or unparsable file is written whole.
+- Size: about 130 to 170 production lines (about 20 more under option B), in `StyleHotkey.cs`,
+  `StyleLive.cs` and `TileStyles.cs`, plus small edits to `TileHolder`, `FastHold`, `Engine`,
+  `Mod`, `Configuration/Configurable.cs` (Read made internal; `FromFile` arms no watcher, so the
+  watcher field, `EnableWatcher`, `OnFileChanged` and its empty catch go; the event gets empty
+  add and remove bodies; under option B, `Save` merges), `Configuration/Configurator.cs` (the
+  dead subscription at :30 goes), `Configuration/Config.cs` (the key setting and the text) and
+  the `AddrState` line in `TreasureMaster.Policy.cs`. Engine and Mod are each at their two
+  allowed silent catches, so the new code adds none. `Configurable.cs` drops from one silent
+  catch to none, so `python gates/tools/health.py floor --write` runs in the same commit.
+  Comments that stop being true are rewritten within each file's frozen comment budget:
+  TileStyles.cs:12-13 ("chosen at launch"), FastHold.cs:11-12, TileHolder.cs:7-10 and :53-54
+  (Unlight reverts only Held bytes), TreasureMaster.Policy.cs:10-12 and :23-26,
+  TreasureMaster.cs:465, and Configurable.cs:41-42 and :49-54 (the watcher).
 - A key read in a release build is by design, like Color Customizer's F1 window. Living Weapons
   bans
   release key reads for its dev tricks (LW-413); the shared rulebook has no such rule.
@@ -257,7 +297,9 @@ setting changed in the launcher mid session survives a press; the key does nothi
 game is in the background, with a modifier held, or outside a battle (renaming a unit with a
 a 4 in the name changes nothing). A style saved in the launcher while a battle is on screen
 shows within about a second; with Configure open and another setting edited in it, a key
-press then Save keeps the edited setting and puts back the style the window shows. Step 1's
+press then Save keeps the edited setting, and the style that ends up on screen and in the file
+is the one the owner's call above says (A, the window's; B, the key's). Then the same with no
+edit and the window closed with X instead of Save. Step 1's
 leftovers ride this check: Yellow, and a Move range and an ability range over a lit tile under
 Yellow and under RedOutline, on Zeklaus Desert. And with Yellow and RedOutline retired (the key
 cycled past them), open the same ranges over a lit tile, and read the R0 bytes on Zeklaus after
@@ -272,6 +314,9 @@ a swap, since the game flips those bytes itself (FFTGameFacts zeklaus-r0-mark-by
 - Decided 2026-11-25 (notes 513 and 515): the last change wins, a Configure Save or key 4, and
   an open window keeps what the player sees. The owner: "the last update call is the winner so
   config save or 4".
+- OPEN (round 4): closing the Configure window saves it too, even with no edit. Does a close with
+  no edit count as the last change (A, Reloaded's way, no code), or does the window write only
+  what the player changed in it (B, recommended)? See "The Configure window and the key".
 - Decided 2026-11-25 (note 516, the owner's "Right."): only the tile style applies live, by key
   4 or a launcher save. Enable, Hide tiles and the key setting apply at the next launch, and
   their descriptions say so.
@@ -352,3 +397,23 @@ CHANGES NEEDED, 2026-11-25, one blocker and eight should-fixes, all folded into 
 Nits taken: the check never throws to the engine, a tick countdown rather than the wall clock,
 the log names the config file rather than the launcher, the launch pair seeds the check, and
 the key's save handles a non object root and a missing field.
+
+## Round 4 review (the round 3 fold), and where each finding went
+
+CHANGES NEEDED, 2026-11-25, one blocker, three should fixes and three nits, folded into step 2
+in place:
+
+1. Blocker, closing the Configure window saves it (`ConfigureModDialog.Window_Closing`), so a
+   key press made while the window is open is undone by a plain close: the launcher facts are
+   now written into step 2, and the choice between A and B went to the owner. The build waits.
+2. The key's save path was not tied to the check's: both use the function Mod hands in, and a
+   test ties them.
+3. The battle enter clear could not be tested in `Engine.Tick`: it lives in `StyleLive.Tick`,
+   the one per tick entry point Engine calls with the edge, and the test drives it there.
+4. The Holding gate had no test, and an all claimed map published an empty map, not null:
+   Holding needs at least one tile, and a test presses with Holding false.
+5. Nit, an event never raised is a build error: empty add and remove bodies, and the window test
+   now checks the config object keeps its values, which is red on today's code.
+6. Nit, stale comments and files: Configurable.cs:41-42 and :49-54, TileHolder.cs:53-54,
+   Configurator.cs and the health floor write are listed.
+7. Nit, "once per pair" repeated on every key save: once for each new set of other values.
