@@ -8,6 +8,12 @@ with a date and no hash.
 
 ## 1.8.1 cycle
 
+- [TM-42] SHIPPED 42db55b 2026-11-26: Rare treasure only no longer claims it needs the Mod Loader.
+  Patrick booted with only Treasure Master ticked, the Mod Loader off, and picked up a rare item
+  on Dorvauldar Marsh. The log showed the main table left alone and the battle copy patch turning
+  all four slots from 245/240 to the rare 245. The setting's help, the mod description and two
+  log lines no longer say it does nothing or gives normal items without the Mod Loader. (Tech:
+  the same boot showed the restore hook fire live for the first time.)
 - [TM-40] SHIPPED 4099841 2026-11-26: Rare treasure only now gives the rare item in real battles.
   A pickup reads the battle's own treasure copy, and the mod now puts the rare item in that copy
   right after the game fills it, from a map load or from saved battle data. Patrick's live check
