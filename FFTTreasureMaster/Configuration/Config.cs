@@ -12,7 +12,8 @@ public class Config : Configurable<Config>
     [DisplayName("Enable Treasure Master")]
     [Description("Highlight the battle tiles that hide Move-Find treasure (the mark of the chosen Tile " +
                  "highlight style is held on each treasure tile's render flag so it stays lit). " +
-                 "Turn this off to disable the mod without uninstalling it. Default: on.")]
+                 "Turn this off to disable the mod without uninstalling it. Changes apply the next " +
+                 "time the game is launched. Default: on.")]
     [DefaultValue(true)]
     public bool Enabled { get; set; } = true;
 
@@ -20,18 +21,30 @@ public class Config : Configurable<Config>
     [Description("How a treasure tile is lit. BlueAndYellow is a cyan border with a yellow fill, the " +
                  "default and the mod's look until now. BlueAndPink is a cyan border with a magenta " +
                  "fill. Green is a green fill. Yellow is a yellow fill with no border. Pink is a pink " +
-                 "fill. RedOutline is a red dotted outline. Changes apply the next time the game is " +
-                 "launched. Default: BlueAndYellow.")]
+                 "fill. RedOutline is a red dotted outline. A saved change shows in the running " +
+                 "game within about a second, and the Tile style key steps through the looks in " +
+                 "battle. Default: BlueAndYellow.")]
     [DefaultValue(TileStyle.BlueAndYellow)]
     [JsonConverter(typeof(TileStyleConverter))]
     public TileStyle TileStyle { get; set; } = Tuning.TileStyleDefault;
+
+    [DisplayName("Tile style key")]
+    [Description("In battle, this top row number key steps the treasure tiles through the looks of " +
+                 "Tile highlight style and saves the pick for next time. It works only while the game " +
+                 "window is in front, a battle map is on screen and no Shift, Ctrl, Alt or Windows key " +
+                 "is held; the number pad does not count. Off turns the key off. Changes apply the next " +
+                 "time the game is launched. Default: Key4.")]
+    [DefaultValue(StyleCycleKey.Key4)]
+    [JsonConverter(typeof(StyleCycleKeyConverter))]
+    public StyleCycleKey StyleCycleKey { get; set; } = Tuning.StyleCycleKeyDefault;
 
     [DisplayName("Hide tiles after their treasure is claimed")]
     [Description("When a treasure is claimed from a tile -- a Chemist, or any unit with the " +
                  "Treasure Hunter movement ability, picks up the hidden item -- that tile stops " +
                  "being highlighted for the rest of the battle. Also hides any tile whose Move-Find " +
                  "treasure you already collected and won in a previous battle (it does not respawn). " +
-                 "Turn this off to keep every treasure tile lit. Default: on.")]
+                 "Turn this off to keep every treasure tile lit. Changes apply the next time the " +
+                 "game is launched. Default: on.")]
     [DefaultValue(true)]
     public bool HideClaimedTiles { get; set; } = true;
 

@@ -80,10 +80,16 @@ public class Mod : IMod
             TileStyle tileStyle = Tuning.TileStyleDefault;            // documented default
             _allUnitsHunter = Tuning.AllUnitsTreasureHunterEnabled;   // documented default (false)
             _rareOnlyEnabled = Tuning.RareTreasureOnlyEnabled;         // documented default (false)
+            Config launchCfg = new();
+            string launchPath = "";
+            DateTime launchWrite = default;
             try
             {
                 var configPath = ResolveConfigPath(modDir);
                 var cfg = Configurable<Config>.FromFile(configPath, "FFT Treasure Master Configuration");
+                launchCfg = cfg;
+                launchPath = configPath;
+                launchWrite = File.GetLastWriteTimeUtc(configPath);
                 enabled = cfg.Enabled;
                 claimDetection = cfg.HideClaimedTiles;
                 tileStyle = cfg.TileStyle;
@@ -100,7 +106,8 @@ public class Mod : IMod
             }
 
             TileStyles.Publish(tileStyle);
-            _engine = new Engine(modDir, enabled, claimDetection, _allUnitsHunter);
+            _engine = new Engine(modDir, enabled, claimDetection, _allUnitsHunter,
+                style: new StyleSetup(launchCfg, () => ResolveConfigPath(modDir), launchPath, launchWrite));
             _engine.Start();
         }
         catch (Exception ex)
@@ -111,7 +118,7 @@ public class Mod : IMod
 
     internal static (bool Ok, string Line) DescribeConfig(Config cfg, string source)
     {
-        var values = $"Enabled={cfg.Enabled} HideClaimedTiles={cfg.HideClaimedTiles} AllUnitsTreasureHunter={cfg.AllUnitsTreasureHunter} RareTreasureOnly={cfg.RareTreasureOnly} TileStyle={cfg.TileStyle}";
+        var values = $"Enabled={cfg.Enabled} HideClaimedTiles={cfg.HideClaimedTiles} AllUnitsTreasureHunter={cfg.AllUnitsTreasureHunter} RareTreasureOnly={cfg.RareTreasureOnly} TileStyle={cfg.TileStyle} StyleCycleKey={cfg.StyleCycleKey}";
         return cfg.LoadError == null
             ? (true, $"Configuration loaded: {values}.")
             : (false, $"The configuration file {source} could not be read ({cfg.LoadError}); every setting uses its default: {values}.");

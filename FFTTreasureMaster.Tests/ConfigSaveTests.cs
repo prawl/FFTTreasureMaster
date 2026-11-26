@@ -213,4 +213,38 @@ public class ConfigSaveTests : IDisposable
         using var hold = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
         Assert.Throws<IOException>(() => ConfigFields.Replace(path, new JsonObject { ["A"] = 1 }));
     }
+
+    [Fact]
+    public void StyleCycleKey_RoundTripsByName()
+    {
+        var dir = TempDir();
+        var path = Path.Combine(dir, "Config.json");
+        var c = Open(dir);
+        c.StyleCycleKey = StyleCycleKey.Key7;
+        c.Save();
+        Assert.Contains("\"StyleCycleKey\": \"Key7\"", File.ReadAllText(path));
+        Assert.Equal(StyleCycleKey.Key7, Configurable<Config>.Read(path).StyleCycleKey);
+    }
+
+    [Theory]
+    [InlineData("\"Key99\"")]
+    [InlineData("5")]
+    [InlineData("{ \"a\": 1 }")]
+    public void StyleCycleKey_UnreadableValueReadsAsKey4(string json)
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, "{ \"Enabled\": false, \"StyleCycleKey\": " + json + " }");
+        var c = Configurable<Config>.Read(path);
+        Assert.Equal(StyleCycleKey.Key4, c.StyleCycleKey);
+        Assert.False(c.Enabled);
+        Assert.Null(c.LoadError);
+    }
+
+    [Fact]
+    public void StyleCycleKey_DefaultsToKey4AndIsDescribed()
+    {
+        Assert.Equal(StyleCycleKey.Key4, new Config().StyleCycleKey);
+        Assert.Equal(Tuning.StyleCycleKeyDefault, new Config().StyleCycleKey);
+        Assert.EndsWith("StyleCycleKey=Key4.", Mod.DescribeConfig(new Config(), "src.json").Line);
+    }
 }

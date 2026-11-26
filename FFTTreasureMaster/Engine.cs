@@ -21,6 +21,7 @@ internal sealed class Engine
     private readonly BattleState _battle = new();   // debounced in/out edges (slot9 sticks; mode flickers)
     private readonly AddrMap _addrs = new();   // shared sentinel addresses; rebased by AnchorResolver on a build-key mismatch
     private readonly HunterHold? _hunter;
+    private readonly StyleLive? _style;
     private CancellationTokenSource? _cts;
 
     /// <param name="modDir">Mod deployment directory (treasure.json + Config.json live here).</param>
@@ -28,7 +29,8 @@ internal sealed class Engine
     /// Null falls back to Tuning.TreasureEnabled.</param>
     /// <param name="claimDetection">Claim-detection gate, read from Config.HideClaimedTiles at
     /// startup. Null falls back to Tuning.ClaimDetectionEnabled.</param>
-    public Engine(string modDir, bool? enabled = null, bool? claimDetection = null, bool allUnitsHunter = false)
+    public Engine(string modDir, bool? enabled = null, bool? claimDetection = null, bool allUnitsHunter = false,
+                  StyleSetup? style = null)
     {
         var treasureJson = Path.Combine(modDir, "treasure.json");
         var liveMem = new LiveMemory();
@@ -47,6 +49,10 @@ internal sealed class Engine
             resolver: resolver.TryResolve,
             addrs: _addrs);
         if (allUnitsHunter && (enabled ?? Tuning.TreasureEnabled)) _hunter = new HunterHold(liveMem, _addrs);
+        if (style != null)
+            _style = new StyleLive(style, enabled ?? Tuning.TreasureEnabled, new LiveKeySource(),
+                () => _treasure.FastHold.Holding, m => ModLogger.Event(LogVerb.Config, m),
+                m => ModLogger.Warn(LogVerb.Config, m));
         _treasure.StartFastHold();
     }
 
@@ -110,6 +116,7 @@ internal sealed class Engine
         // stable through formation, enemy turns and cast animations while excluding the world map.
         bool battleDisplayed = BattleState.BattleDisplayed(slot9, battleMode);
 
+        _style?.Tick(edge, battleDisplayed);
         _treasure.Tick(now, battleDisplayed);
         _hunter?.Tick(battleDisplayed, _treasure.UnitArrayTrusted);
         Flight.DrainPending();   // performs any error-triggered flush queued since the last tick

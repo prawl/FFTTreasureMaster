@@ -38,3 +38,8 @@ public sealed class TileStyleConverter : ForgivingEnumConverter<TileStyle>
 {
     public TileStyleConverter() : base(Tuning.TileStyleDefault) { }
 }
+
+public sealed class StyleCycleKeyConverter : ForgivingEnumConverter<StyleCycleKey>
+{
+    public StyleCycleKeyConverter() : base(Tuning.StyleCycleKeyDefault) { }
+}

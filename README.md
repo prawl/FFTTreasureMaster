@@ -6,10 +6,12 @@ past a hidden item again.
 
 It is an in-process C# runtime (`FFTTreasureMaster.dll`). On each battle map it holds a
 highlight value on the render-flag bytes of every known treasure tile, keeping those tiles
-lit for the whole fight. There are five settings in the Reloaded mod config:
+lit for the whole fight. There are six settings in the Reloaded mod config:
 Enable Treasure Master (on), Hide tiles after their treasure is claimed (on), All units gain
-Treasure Hunter (off), Rare treasure only (off), and Tile highlight style (BlueAndYellow, the
-look the mod has used since 1.1.0).
+Treasure Hunter (off), Rare treasure only (off), Tile highlight style (BlueAndYellow, the
+look the mod has used since 1.1.0), and Tile style key (Key4, steps through the looks in
+battle). A look saved in the launcher shows in the running game within about a second; the
+other settings apply at the next launch.
 
 ## Install
 

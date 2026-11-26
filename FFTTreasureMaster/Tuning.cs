@@ -80,6 +80,10 @@ internal static class Tuning
 
     public const TileStyle TileStyleDefault = TileStyle.BlueAndYellow;
 
+    public const int StyleCheckTicks = 30;
+
+    public const StyleCycleKey StyleCycleKeyDefault = StyleCycleKey.Key4;
+
     /// <summary>Map ids in the game's trap formation table, 0 through 127.</summary>
     public const int TrapTableMapCount = 128;
 
