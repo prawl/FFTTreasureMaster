@@ -8,6 +8,15 @@ with a date and no hash.
 
 ## 1.8.0 cycle
 
+- [TM-40] SHIPPED 4099841 2026-11-26: Rare treasure only now gives the rare item in real battles.
+  A pickup reads the battle's own treasure copy, and the mod now puts the rare item in that copy
+  right after the game fills it, from a map load or from saved battle data. Patrick's live check
+  passed twice: Beddha Sandwaste gave the rare ninja star (item 124) where a High Potion came that
+  morning, and a fresh Dorvauldar Marsh battle gave the Elixir (245, not the common 240). The help
+  now says a battle saved mid fight keeps its rare items after the setting is turned off. (Tech:
+  hooks after the copy routines at 0x140251584 and 0x1402CE7A8 through reloaded.sharedlib.hooks
+  with Reloaded.Hooks.Definitions 1.11.0, the copy at 0x140D8DC90 found by three code sites; the
+  restore path was hooked but did not fire in the live check.)
 - [TM-38] SHIPPED 957e0fa 2026-11-26: The launcher now says which settings need a game restart:
   every setting but the tile look ends in *restart and its help opens with Needs a game restart.
   Names are short enough to show whole: Enable Treasure Master, Hide claimed tiles, All units

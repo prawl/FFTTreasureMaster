@@ -11,20 +11,6 @@ that checklist.
 
 ## Now (release: 1.8.0)
 
-- **[TM-40] Make Rare treasure only give the rare item in every battle** (opened 2026-11-26) [BUILDING]
-  - Done means: with the setting on, Beddha Sandwaste reached the way Patrick did on
-    2026-11-26 at 07:15, and one fresh battle from the world map, both hand out the rare item
-    where the common High Potion came before, and 1.8.1 ships only after that. Seen first on
-    2026-11-26: he picked up a High Potion while the battle's own treasure copy read unpatched.
-    (Tech: the pickup reads only the battle copy at 0x140D8DC90. TM patches it once right after
-    each of the two routines that make it, the map load copy 0x140251584 and the restore from
-    saved battle data 0x1402CE7A8, with the copy's address found by signature and checked against
-    two other code sites. Steps: the patch itself (RareCopyPatch), the address, the hooks, the
-    wiring. Plan approved through Duet 2026-11-26 13:05Z, offline only, one step at a time.)
-  - Verify: the full suite passes with each step's new tests, then Patrick's live check: the
-    battle copy reads the rare item before anyone moves, TM's log names the routine that made
-    the copy, and a pickup gives the rare item.
-
 ## Backlog
 
 - [TM-41] 2026-11-26: Let players change Treasure Master's settings inside the game's own Settings

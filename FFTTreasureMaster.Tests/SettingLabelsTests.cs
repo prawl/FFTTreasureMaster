@@ -63,10 +63,12 @@ public class SettingLabelsTests
     }
 
     [Fact]
-    public void Rare_treasure_says_a_battle_begun_before_it_keeps_its_normal_items()
+    public void Rare_treasure_says_a_mid_fight_save_keeps_its_rare_items()
     {
-        Assert.Contains("A battle begun before this setting took effect keeps its normal items, even when " +
-                        "resumed with Continue; new battles give the rare ones.", Help(nameof(Config.RareTreasureOnly)));
+        string help = Help(nameof(Config.RareTreasureOnly));
+
+        Assert.Contains("A battle saved mid fight keeps its rare items after you turn this off.", help);
+        Assert.DoesNotContain("keeps its normal items", help);
     }
 
     [Fact]
