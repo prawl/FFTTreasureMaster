@@ -116,4 +116,124 @@ public class TileStylesTests
         }
         finally { TileStyles.Publish(Tuning.TileStyleDefault); }
     }
+
+    private static TreasureMaster.AddrState St(byte b) => TileStyles.Classify(b);
+
+    [Fact]
+    public void Publish_empties_the_retired_set()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            TileStyles.SwapTo(TileStyle.Green);
+            TileStyles.Publish(TileStyle.Green);
+            Assert.Equal(TreasureMaster.AddrState.Foreign, St(0xCC));
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void SwapTo_retires_the_old_mark()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            Assert.True(TileStyles.SwapTo(TileStyle.Green));
+            Assert.Equal(TreasureMaster.AddrState.Stale, St(0xCC));
+            Assert.Equal(TreasureMaster.AddrState.Held, St(0xD8));
+            Assert.Equal(TileStyle.Green, TileStyles.Current);
+            Assert.Equal(0xD8, TileStyles.Mark);
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void SwapTo_current_or_unlisted_changes_nothing()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.Green);
+            Assert.False(TileStyles.SwapTo(TileStyle.Green));
+            Assert.False(TileStyles.SwapTo((TileStyle)99));
+            Assert.Equal(TileStyle.Green, TileStyles.Current);
+            Assert.Equal(TreasureMaster.AddrState.Foreign, St(0xCC));
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void Next_walks_every_style_and_wraps()
+    {
+        foreach (var start in All)
+        {
+            var seen = new System.Collections.Generic.HashSet<TileStyle>();
+            var s = start;
+            for (int i = 0; i < All.Length; i++) { seen.Add(s); s = TileStyles.Next(s); }
+            Assert.Equal(All.Length, seen.Count);
+            Assert.Equal(start, s);
+        }
+        Assert.Equal(TileStyle.BlueAndYellow, TileStyles.Next(TileStyle.RedOutline));
+        Assert.Equal(Tuning.TileStyleDefault, TileStyles.Next((TileStyle)99));
+    }
+
+    [Fact]
+    public void After_a_full_wrap_the_mark_is_held_and_the_rest_are_stale()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            for (int i = 0; i < All.Length; i++) TileStyles.SwapTo(TileStyles.Next(TileStyles.Current));
+            Assert.Equal(TileStyle.BlueAndYellow, TileStyles.Current);
+            foreach (var s in All)
+                Assert.Equal(s == TileStyle.BlueAndYellow ? TreasureMaster.AddrState.Held
+                                                          : TreasureMaster.AddrState.Stale,
+                    St(TileStyles.Table[s]));
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void ClearRetired_keeps_the_look_and_empties_the_set()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            TileStyles.SwapTo(TileStyle.Green);
+            TileStyles.ClearRetired();
+            Assert.Equal(TileStyle.Green, TileStyles.Current);
+            Assert.Equal(0xD8, TileStyles.Mark);
+            Assert.Equal(TreasureMaster.AddrState.Foreign, St(0xCC));
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void Only_retired_listed_marks_are_ever_stale()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            foreach (var s in All) TileStyles.SwapTo(s);
+            var marks = TileStyles.Table.Values.ToHashSet();
+            for (int b = 0; b < 256; b++)
+                if (!marks.Contains((byte)b))
+                    Assert.NotEqual(TreasureMaster.AddrState.Stale, St((byte)b));
+            Assert.NotEqual(TreasureMaster.AddrState.Stale, St(0x80));
+            Assert.Equal(TreasureMaster.AddrState.Resting, St(0x00));
+            Assert.Equal(TreasureMaster.AddrState.Resting, St(0x01));
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void A_retired_mark_plus_one_is_foreign()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            TileStyles.SwapTo(TileStyle.Green);
+            Assert.Equal(TreasureMaster.AddrState.Foreign, St(0xCD));
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
 }

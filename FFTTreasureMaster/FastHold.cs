@@ -8,7 +8,7 @@ namespace FFTTreasureMaster;
 /// mark between the 33 ms loop's stamps and flickers. Stamping twice per animation frame keeps
 /// the mark set whenever a frame renders.
 ///
-/// TileHolder is stateless and writes one mark, the style chosen at launch, so the fast thread
+/// TileHolder is stateless and writes one mark, the current style, so the fast thread
 /// and the 33 ms loop holding the same addresses at once is safe. The thread is not started in
 /// the ctor, so unit tests can drive <see cref="HoldOnce"/> directly without OS threads.
 /// </summary>
@@ -32,6 +32,8 @@ internal sealed class FastHold
     /// (the next HoldOnce / thread iteration becomes a no-op).
     /// </summary>
     public void Publish(TreasureMap? map) => _map = map;
+
+    internal bool Holding => _map is { Tiles.Count: > 0 };
 
     /// <summary>
     /// Executes one hold pass over the currently published map.

@@ -8,8 +8,8 @@ namespace FFTTreasureMaster;
 ///
 /// MapIdValid accepts 1 to 127, the only live battle map ids. Fnv1a64 is the standard 64 bit
 /// FNV-1a, shared verbatim with the Python capture tool so the two cannot drift. The per byte
-/// safety contract lives in TileStyles, and anything but 0x00, 0x01 or the mark is Foreign and
-/// never written. The engine clears marks itself. DecideArm arms once enough addresses
+/// safety contract lives in TileStyles. Anything but 0x00, 0x01, the mark or a retired mark is
+/// Foreign and never written. The engine clears marks itself. DecideArm arms once enough addresses
 /// are ok and otherwise retries forever. Foreign bytes are not a veto, because they are off
 /// screen render bytes that return to Resting when the tile scrolls back, and TileHolder never
 /// writes them. Disarm is reserved for fingerprint mismatches in TreasureMaster.TickArming.
@@ -22,10 +22,10 @@ internal sealed partial class TreasureMaster
 
     /// <summary>
     /// The runtime-visible states of a tile's render-flag byte.
-    /// Only <see cref="Resting"/> bytes are candidates for a write of the mark; a
-    /// <see cref="Held"/> byte is already marked; a <see cref="Foreign"/> byte is never written.
+    /// Resting and Stale bytes get the mark, a Stale one holding a look retired this run.
+    /// A <see cref="Held"/> byte is already marked; a <see cref="Foreign"/> byte is never written.
     /// </summary>
-    internal enum AddrState { Resting, Held, Foreign }
+    internal enum AddrState { Resting, Held, Foreign, Stale }
 
     // ---- #5 arm verdict ----
 

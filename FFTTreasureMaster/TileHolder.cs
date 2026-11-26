@@ -5,7 +5,7 @@ namespace FFTTreasureMaster;
 /// ArmAudit reads and never writes, and TileHolder writes and never evaluates arm gates.
 ///
 /// <see cref="Hold"/> visits each tile address in the map behind a Writable guard, classifies
-/// the byte with <see cref="TileStyles.Classify"/>, writes the mark on a Resting byte,
+/// the byte with <see cref="TileStyles.Classify"/>, writes the mark on a Resting or Stale byte,
 /// leaves a Held byte alone, and counts a Foreign byte without writing it, since those are off
 /// screen render bytes from a camera pan that return to Resting when the tile scrolls back.
 /// Returns the written and foreign counts so the caller can log the first foreign bytes
@@ -35,6 +35,7 @@ internal sealed class TileHolder
                 switch (TileStyles.Classify(cur))
                 {
                     case TreasureMaster.AddrState.Resting:
+                    case TreasureMaster.AddrState.Stale:
                         byte want = TileStyles.WantWrite(cur);
                         if (cur != want) { _mem.W8(live, want); written++; }
                         break;
@@ -50,8 +51,8 @@ internal sealed class TileHolder
     }
 
     /// <summary>
-    /// Reverts one tile's Held bytes to their captured resting value. The Writable guard comes
-    /// first, and Foreign and Resting bytes are never written. Returns how many addresses were
+    /// Reverts one tile's Held and Stale bytes to their captured resting value. The Writable
+    /// guard comes first, and Foreign and Resting bytes are never written. Returns how many were
     /// reverted. This is the module's only clear path, needed because the engine does not
     /// reliably re-clear the mark on static maps when claim detection removes a tile mid battle.
     /// </summary>
@@ -63,7 +64,7 @@ internal sealed class TileHolder
             long live = ImageBase.At(addr);   // tile addrs are dataset space; write the LIVE image
             if (!_mem.Writable(live, 1)) continue;
             byte cur = _mem.U8(live);
-            if (TileStyles.Classify(cur) == TreasureMaster.AddrState.Held)
+            if (TileStyles.Classify(cur) is TreasureMaster.AddrState.Held or TreasureMaster.AddrState.Stale)
             {
                 _mem.W8(live, off);
                 n++;

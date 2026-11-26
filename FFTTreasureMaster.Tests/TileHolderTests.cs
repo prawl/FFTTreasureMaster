@@ -283,4 +283,59 @@ public class TileHolderTests
         }
         finally { TileStyles.Publish(Tuning.TileStyleDefault); }
     }
+
+    // ── style swaps ──────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Hold_rewrites_a_stale_byte_to_the_new_mark()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            TileStyles.SwapTo(TileStyle.Green);
+            var (mem, map, addr) = MakeScene(currentByte: 0xCC);
+            var (written, foreign) = new TileHolder(mem).Hold(map);
+            Assert.Equal(1, written);
+            Assert.Equal(0, foreign);
+            Assert.Equal(0xD8, mem.U8s[addr]);
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Theory]
+    [InlineData(0x80)]
+    [InlineData(0x37)]
+    [InlineData(0xCD)]
+    public void Hold_never_writes_a_foreign_byte_after_swaps(int value)
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            TileStyles.SwapTo(TileStyle.Green);
+            TileStyles.SwapTo(TileStyle.Pink);
+            var (mem, map, addr) = MakeScene(currentByte: (byte)value);
+            var (written, foreign) = new TileHolder(mem).Hold(map);
+            Assert.Equal(0, written);
+            Assert.Equal(1, foreign);
+            Assert.Equal((byte)value, mem.U8s[addr]);
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
+
+    [Fact]
+    public void Unlight_under_a_swap_reverts_stale_and_held_but_not_foreign()
+    {
+        try
+        {
+            TileStyles.Publish(TileStyle.BlueAndYellow);
+            TileStyles.SwapTo(TileStyle.Green);
+            foreach (var (value, expected) in new (byte, byte)[] { (0xCC, 0x05), (0xD8, 0x05), (0x37, 0x37) })
+            {
+                var (mem, map, addr) = MakeScene(currentByte: value, restOff: 0x05);
+                new TileHolder(mem).Unlight(map.Tiles[0]);
+                Assert.Equal(expected, mem.U8s[addr]);
+            }
+        }
+        finally { TileStyles.Publish(Tuning.TileStyleDefault); }
+    }
 }

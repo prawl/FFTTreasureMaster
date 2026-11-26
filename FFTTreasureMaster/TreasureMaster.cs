@@ -462,8 +462,8 @@ internal sealed partial class TreasureMaster : ISignature
             }
         }
 
-        // The hold loop writes the mark on Resting bytes only. Foreign bytes, off screen tiles
-        // from a camera pan, are skipped by the Classify check inside TileHolder.Hold.
+        // The hold writes the current mark on Resting and Stale bytes. Foreign bytes, off screen
+        // tiles from a camera pan, are skipped by the Classify check inside TileHolder.Hold.
         var holdMap = _activeMap ?? map;
         var (_, foreign) = _holder.Hold(holdMap);
         if (foreign > 0 && !_foreignLoggedThisBattle)
