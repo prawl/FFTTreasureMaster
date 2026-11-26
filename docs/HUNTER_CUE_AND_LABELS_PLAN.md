@@ -65,6 +65,28 @@ first turn.
 Size: medium. The take back adds writes to enemy units, a new kind of write for this mod, so it
 goes through the full build pipeline with a review.
 
+### Probe runbook (ready offline 2026-11-26, about 10 minutes on the game)
+
+Duet note 673 chose A, probe A2 first and A1 as the fallback. The tool is
+`tools/probes/hunter_tag_probe.py` (read only unless `--write`, `--selftest` passes offline).
+It needs a game lock and Patrick at the PC; backups and put backs as in TM-36.
+
+1. Launch, Continue to the world map. `jobrow 76` reads the Knight row's four innate ids.
+2. `grant 76`, then `grant 76 --write`. Open a Knight's job screen. PASS for A2: the Treasure
+   Hunter tag shows (frame) and `jobrow 76` reads 509 back (memory read). FAIL: build A1, the
+   1.5.0 grant through the Mod Loader, proven 2026-07-21, its code in dae0b3b's parent.
+3. Still on the world map, grant the generic rows an encounter there fields (`units` in an
+   earlier battle shows the job ids), start a battle, and run `units` at formation, before any
+   enemy's first action. Record what an enemy of a granted job carries: the 509 innate slot and
+   the hunter bit. That is what the take back must clear.
+4. Close the game. The job table write lives in memory only, so it is gone; then the put backs.
+
+Clash with Patrick's Dark Knight and Onion Knight mod (seen offline, read only): it adds its two
+jobs through the Mod Loader's data files. Its jobs are not in the 1.5.0 grant list (Ramza 1 to 3,
+specials, generics 74 to 93), so they would get no tag, and an A2 write at startup could land
+before the loader's own job table merge. The probe should run once with that mod ticked, if
+Patrick wants it covered.
+
 ## 2. Setting names that say when they apply
 
 Only Tile highlight style changes while the game runs. The rest are read once at launch.

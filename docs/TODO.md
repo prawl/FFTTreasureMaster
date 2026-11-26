@@ -13,6 +13,19 @@ that checklist.
 
 ## Backlog
 
+- [TM-39] 2026-11-26: Bring the Treasure Hunter tag back to the job screen with All units on,
+  as up to 1.7.0, while enemies and guests who only got it from the mod lose it each battle.
+  Patrick asked for it ("Yes try to get it back"); Duet note 673 chose option A. The probe is
+  ready offline and needs Patrick at the PC with a game lock. (Tech: plan and runbook in
+  [HUNTER_CUE_AND_LABELS_PLAN.md](HUNTER_CUE_AND_LABELS_PLAN.md) section 1, tool
+  tools/probes/hunter_tag_probe.py; A2 direct job row write first, A1 the 1.5.0 loader grant
+  from dae0b3b's parent as the fallback.)
+
+- [TM-40] 2026-11-26: Check in a fresh battle that Rare treasure only gives Beddha Sandwaste's
+  rare item. A resumed battle begun before the setting took effect gave the common High Potion,
+  which the setting now says. If a fresh battle gives it too, it is a real bug. (Tech: a read
+  showed the main table patched and the resumed battle's copy unpatched; plan section 3.)
+
 - [TM-35] 2026-11-26: Make every setting take effect the moment Patrick clicks Save in the
   launcher while the game runs, as the speed up mod does, and where one truly cannot, mark its
   label in the launcher so it says a restart is needed. Patrick: "The speed up mod lets me change

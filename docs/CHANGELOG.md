@@ -8,6 +8,12 @@ with a date and no hash.
 
 ## 1.8.0 cycle
 
+- [TM-38] SHIPPED 957e0fa 2026-11-26: The launcher now says which settings need a game restart:
+  every setting but the tile look ends in *restart required. The style key is renamed Cycle
+  Treasure Tile Hotkey, its choices read as keyboard keys, and Rare treasure only says a battle
+  begun before it keeps its normal items. Saved settings carry over unchanged. Patrick asked for
+  it after playing 1.8.0; not yet deployed or seen in the launcher. (Tech: DisplayName marks, a
+  StyleCycleKeyNames type converter, the file keeps member names; Duet note 673.)
 - [TM-37] WONTFIX 2026-11-26: The leftover game checks of the tile look key are not needed: ability
   ranges, 4 on the world map and while renaming a unit, the launcher settings window steps and a
   claim after a look change. Patrick, 2026-11-26 06:00:09Z: "Hmm. I think we're fine. Have
