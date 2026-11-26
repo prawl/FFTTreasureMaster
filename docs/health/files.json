@@ -1,5 +1,5 @@
 {
- "sha": "dfa2d58",
+ "sha": "9799d8b",
  "date": "2026-11-25",
  "columns": [
   "comments",
@@ -22,8 +22,9 @@
   "ClaimAudit.cs": [19, 14, 32, 0, 0],
   "CollectAudit.cs": [15, 11, 22, 0, 0],
   "Configuration/Config.cs": [4, 4, 52, 0, 0],
-  "Configuration/Configurable.cs": [17, 7, 83, 1, 0],
-  "Configuration/Configurator.cs": [14, 6, 69, 1, 0],
+  "Configuration/ConfigFields.cs": [3, 3, 26, 0, 0],
+  "Configuration/Configurable.cs": [14, 6, 80, 0, 0],
+  "Configuration/Configurator.cs": [14, 6, 64, 1, 0],
   "Configuration/ConfiguratorMixinBase.cs": [6, 5, 13, 0, 0],
   "Configuration/ForgivingEnumConverter.cs": [4, 4, 29, 0, 0],
   "Engine.cs": [17, 6, 90, 2, 0],

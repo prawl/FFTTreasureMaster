@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Reloaded.Mod.Interfaces;
 
@@ -24,7 +25,7 @@ public class Configurable<TParentType> : IUpdatableConfigurable
     // ── IConfigurable / IUpdatableConfigurable ───────────────────────────────
 
     [Browsable(false)]
-    public event Action<IUpdatableConfigurable>? ConfigurationUpdated;
+    public event Action<IUpdatableConfigurable>? ConfigurationUpdated { add { } remove { } }
 
     [Browsable(false)]
     [JsonIgnore]
@@ -38,9 +39,7 @@ public class Configurable<TParentType> : IUpdatableConfigurable
     [JsonIgnore]
     public string? LoadError { get; private set; }
 
-    // Kept as a field so the GC does not collect the watcher while active. System.Text.Json
-    // ignores private fields, so no attribute is needed.
-    private FileSystemWatcher? _watcher;
+    private JsonObject? _opened;
 
     Action IConfigurable.Save => Save;
 
@@ -48,22 +47,21 @@ public class Configurable<TParentType> : IUpdatableConfigurable
 
     /// <summary>
     /// Load from <paramref name="filePath"/> if it exists, otherwise create a default
-    /// instance and write the defaults to disk.  Attaches a file-system watcher that
-    /// fires <see cref="ConfigurationUpdated"/> when the file changes externally (e.g.
-    /// the Reloaded launcher saves after the user edits the property grid).
+    /// instance and write the defaults to disk. Arms nothing, so a later change to the
+    /// file never reaches this object.
     /// </summary>
     public static TParentType FromFile(string filePath, string configName)
     {
-        var result = File.Exists(filePath) ? LoadFromFile(filePath) : new TParentType();
+        var result = File.Exists(filePath) ? Read(filePath) : new TParentType();
         result.FilePath = filePath;
         result.ConfigName = configName;
         if (!File.Exists(filePath))
             result.Save();
-        result.EnableWatcher();
+        result._opened = result.Snapshot();
         return result;
     }
 
-    private static TParentType LoadFromFile(string filePath)
+    internal static TParentType Read(string filePath)
     {
         try
         {
@@ -80,38 +78,33 @@ public class Configurable<TParentType> : IUpdatableConfigurable
 
     // ── instance methods ──────────────────────────────────────────────────────
 
+    private JsonObject Snapshot() =>
+        JsonSerializer.SerializeToNode((TParentType)this, SerializerOptions)!.AsObject();
+
+    // Closing the Configure window saves too, so only fields changed in it are written.
     public void Save()
     {
         if (string.IsNullOrEmpty(FilePath)) return;
+        var now = Snapshot();
+        if (!File.Exists(FilePath) || _opened == null)
+        {
+            WriteWhole(now);
+            return;
+        }
+        var changed = new JsonObject();
+        foreach (var prop in now)
+            if (!JsonNode.DeepEquals(prop.Value, _opened[prop.Key]))
+                changed[prop.Key] = prop.Value?.DeepClone();
+        if (changed.Count == 0) return;
+        if (ConfigFields.Replace(FilePath, changed) == FieldWrite.Written) _opened = now;
+        else WriteWhole(now);
+    }
+
+    private void WriteWhole(JsonObject now)
+    {
         var dir = Path.GetDirectoryName(FilePath);
         if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
-        var json = JsonSerializer.Serialize((TParentType)this, SerializerOptions);
-        File.WriteAllText(FilePath, json);
-    }
-
-    // ── file watcher ──────────────────────────────────────────────────────────
-
-    private void EnableWatcher()
-    {
-        if (string.IsNullOrEmpty(FilePath)) return;
-        var dir = Path.GetDirectoryName(FilePath);
-        var file = Path.GetFileName(FilePath);
-        if (string.IsNullOrEmpty(dir) || string.IsNullOrEmpty(file)) return;
-        _watcher?.Dispose();
-        _watcher = new FileSystemWatcher(dir, file);
-        _watcher.Changed += (_, _) => OnFileChanged();
-        _watcher.EnableRaisingEvents = true;
-    }
-
-    private void OnFileChanged()
-    {
-        try
-        {
-            var fresh = LoadFromFile(FilePath!);
-            fresh.FilePath = FilePath;
-            fresh.ConfigName = ConfigName;
-            ConfigurationUpdated?.Invoke(fresh);
-        }
-        catch { }
+        File.WriteAllText(FilePath!, now.ToJsonString(SerializerOptions));
+        _opened = now;
     }
 }

@@ -24,11 +24,6 @@ public class Configurator : IConfiguratorV3
     private IUpdatableConfigurable[] MakeConfigurations()
     {
         _configurations = _mixin.MakeConfigurations(ConfigFolder!);
-        for (int i = 0; i < _configurations.Length; i++)
-        {
-            var idx = i;
-            _configurations[i].ConfigurationUpdated += c => _configurations[idx] = c;
-        }
         return _configurations;
     }
 
