@@ -8,6 +8,17 @@ with a date and no hash.
 
 ## 1.7.0 cycle
 
+- [TM-36] SHIPPED cff5a52 2026-11-26: The tile look key and the look it keeps are now proven in
+  a real battle, not only in tests. On Zeklaus Desert key 4 stepped the lit treasure tiles
+  through all six looks, each press logged once and each tile changing in place with the camera
+  still; Move ranges drew normally under Yellow, under RedOutline and after both were passed;
+  Shift, Ctrl, Alt and another window in front did nothing; and a relaunch kept the last look.
+  Patrick pressed the key himself during the run and was happy with it. Closed as passed by
+  Duet (note 610); the steps this run did not reach moved to TM-37. (Tech: driven 2026-11-26 by
+  SendInput scan codes inside a 20 minute game box, 05:17Z to 05:31Z; R1 to R6 bytes read the
+  new mark within 1 s of every press and R0 only the mark or 0x80; every put back matched by
+  hash; evidence in F:\FFTRec\kept	m36_live_20261126; facts FFTGameFacts b876af9 stay
+  UNCERTAIN.)
 - [TM-33] SHIPPED a0caff3 2026-11-25: In battle, key 4 now steps the treasure tiles through the
   six looks and keeps the last pick for the next launch, and a look saved in the launcher shows
   in the running game within about a second, so nobody restarts the game to try a look. Lit

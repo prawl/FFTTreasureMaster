@@ -11,22 +11,16 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-- **[TM-36] Check the tile look key and live save in the game** (opened 2026-11-25) [AWAITING-LIVE]
-  - Done means: the owner has seen, in a real battle, that key 4 steps the treasure tiles
-    through all six looks, that a look saved in the launcher shows within about a second, and
-    that the Yellow look and the game's own range overlays still draw right, so the TM-32 and
-    TM-33 changes are proven in the game, not only in tests. The steps are the live check of
-    step 2 in [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: TM-32 and TM-33 shipped on
-    the owner's word before this check; the step 1 leftovers ride it.)
-  - Verify: owner only, on Zeklaus Desert with a dev deploy: key 4 cycles the six looks, each
-    logged once, the file following; Yellow and RedOutline with a Move range and an ability
-    range over a lit tile, also after both are retired; R0 bytes read after a swap; a claimed
-    tile stays dark; Shift, Ctrl, Alt, the background and the world map do nothing; a launcher
-    save shows within a second; a key press with Configure open, then Save or a close, keeps
-    the key's look and the edited setting; a relaunch keeps the last look. Back up and restore
-    the user Config.json.
-
 ## Backlog
+
+- [TM-37] 2026-11-26: Finish the game check of the tile look key with the parts TM-36's timed run
+  left out, so every promise of the key and the launcher save is seen in a real battle. Open an
+  ability range over a lit tile under Yellow and RedOutline and after both are passed; press 4
+  on the world map and while renaming a unit, which must do nothing; in the launcher's Configure
+  window, Save a new look while a battle shows, untick Hide tiles then press 4 then Save, press
+  4 then close with X, and run the repeated "Enabled" line check; and step a unit onto a lit
+  tile after a look change to see it go dark and stay dark. (Tech: runbook .claude/live-TM-33.md
+  K2 to K4 ability halves, K5, K6 world map and rename, K7 to K9, K11; Duet note 610.)
 
 - [TM-35] 2026-11-26: Make every setting take effect the moment Patrick clicks Save in the
   launcher while the game runs, as the speed up mod does, and where one truly cannot, mark its
