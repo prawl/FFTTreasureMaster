@@ -85,4 +85,21 @@ and push to github". The 1.7.0 text above is kept as shipped.
 - [x] Gates at the cut: dotnet test 758 green, gen_treasure_db.py self-test green, the
       manifest, format, health and temp leftover gates green in check mode.
 - [x] ModVersion bumped to 1.8.0.
-- [ ] Tag v1.8.0 cut at the release commit and pushed.
+- [x] Tag v1.8.0 cut at the release commit and pushed (the tag exists on the repo).
+
+## 1.8.1 cut (2026-11-26): Rare treasure in real battles
+
+Rare treasure only now gives the rare item in real battles, and the launcher says which settings
+need a game restart. Owner release order 2026-11-26: "Go ahead and cut the 1.8.1 release." The
+1.8.0 text above is kept as shipped.
+
+- [x] **Rare treasure only reaches real battles (TM-40)**: shipped 4099841 with 0854b3d and
+      978e10c; owner live pass 2026-11-26 on Beddha Sandwaste (item 124) and a fresh Dorvauldar
+      Marsh battle (the Elixir, 245). Help text kept to what was seen (89e3062).
+- [x] **Settings say when they need a restart (TM-38)**: shipped 957e0fa and 976e275.
+- [x] Reloaded.Hooks.Definitions.dll 1.11.0 ships beside the DLL, and reloaded.sharedlib.hooks
+      is an optional dependency.
+- [x] Gates at the cut: dotnet test 811 green, gen_treasure_db.py self-test green, the
+      manifest, format, health and temp leftover gates green in check mode.
+- [x] ModVersion bumped to 1.8.1.
+- [ ] Tag v1.8.1 cut at the release commit and pushed.

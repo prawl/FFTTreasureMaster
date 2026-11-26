@@ -9,7 +9,7 @@ file only through docs/CHANGELOG.md, moved there in the commit that ships or kil
 release ship gate lives in docs/RELEASE_SCOPE.md; Now is the in-flight subset, not a mirror of
 that checklist.
 
-## Now (release: 1.8.0)
+## Now (release: 1.8.1)
 
 ## Backlog
 

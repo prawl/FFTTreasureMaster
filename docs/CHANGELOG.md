@@ -6,7 +6,7 @@ Where docs/TODO.md items land when they ship, die, or retract; newest first with
 Entry first line: `- [TM-<n>] SHIPPED <hash> YYYY-MM-DD: <summary>`, or WONTFIX / RETRACTED
 with a date and no hash.
 
-## 1.8.0 cycle
+## 1.8.1 cycle
 
 - [TM-40] SHIPPED 4099841 2026-11-26: Rare treasure only now gives the rare item in real battles.
   A pickup reads the battle's own treasure copy, and the mod now puts the rare item in that copy
@@ -25,6 +25,8 @@ with a date and no hash.
   first cut in the launcher: long names were cut off and the key's friendly choices did not
   show, so a follow up shortened the names and kept the choices as Key4 to Key9. (Tech:
   DisplayName marks; the launcher's grid ignores an enum TypeConverter, so it was removed.)
+## 1.8.0 cycle
+
 - [TM-37] WONTFIX 2026-11-26: The leftover game checks of the tile look key are not needed: ability
   ranges, 4 on the world map and while renaming a unit, the launcher settings window steps and a
   claim after a look change. Patrick, 2026-11-26 06:00:09Z: "Hmm. I think we're fine. Have
