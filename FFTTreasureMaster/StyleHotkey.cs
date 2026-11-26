@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace FFTTreasureMaster;
@@ -6,6 +7,7 @@ namespace FFTTreasureMaster;
 /// <summary>
 /// The top row number key that steps the tile look. Saved by name, so the names never change.
 /// </summary>
+[TypeConverter(typeof(Configuration.StyleCycleKeyNames))]
 public enum StyleCycleKey { Off, Key4, Key5, Key6, Key7, Key8, Key9 }
 
 internal interface IKeySource

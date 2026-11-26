@@ -76,14 +76,14 @@ Only Tile highlight style changes while the game runs. The rest are read once at
 | All units gain Treasure Hunter | All units gain Treasure Hunter *restart required |
 | Rare treasure only | Rare treasure only *restart required |
 | Tile highlight style | Tile highlight style (unchanged, it applies live) |
-| Tile style key | Toggle Treasure Tile Hotkey *restart required |
+| Tile style key | Cycle Treasure Tile Hotkey *restart required |
 
 - The hotkey's choices read "Off", "4 - Keyboard" through "9 - Keyboard" instead of Key4 to Key9.
 - Only the names on screen change. The settings file keeps the same field names and values, so
   nobody's saved settings break.
 - If a setting later becomes live (TM-35), it drops its mark.
-- Nit: "Toggle" usually means on and off; the key steps through six looks. "Cycle Treasure Tile
-  Hotkey" would be more exact. Patrick's call.
+- Named "Cycle Treasure Tile Hotkey" (Duet note 673, the coordinator's call; Patrick can veto it
+  when he sees the launcher). Rare treasure only gains one sentence on resumed battles.
 
 ### Better still: make most of them live (TM-35)
 
@@ -93,7 +93,7 @@ The mod already re-reads the settings file once a second, so most settings can f
 
 | Setting | Live on Save? | What a live change does |
 |---|---|---|
-| Toggle Treasure Tile Hotkey | yes, easy | the new key works within a second |
+| Cycle Treasure Tile Hotkey | yes, easy | the new key works within a second |
 | Enable Treasure Master | yes | off unlights every tile and stops holding; on arms again |
 | Hide tiles after their treasure is claimed | yes | off relights claimed tiles, on hides them |
 | All units gain Treasure Hunter | yes | off takes the bonus back, on holds it again |
