@@ -38,8 +38,8 @@ internal sealed class RareTreasureGrant
         {
             _log("The 'Rare treasure only' setting is on and the FFT Ivalice Chronicles Mod " +
                  "Loader is not installed or not enabled, so the main treasure table is left as " +
-                 "it is. The battle treasure copy patch still gives the rare items while its hooks " +
-                 "run. (Tech: IFFTOMapTrapFormationDataManager controller not found.)");
+                 "it is. The battle copy hooks still apply. (Tech: " +
+                 "IFFTOMapTrapFormationDataManager controller not found.)");
             return default;
         }
 
@@ -50,7 +50,7 @@ internal sealed class RareTreasureGrant
             {
                 _log("The 'Rare treasure only' setting is on, but the mod loader's treasure " +
                      "table never became ready, so the main table is left as it is this session. " +
-                     "The battle treasure copy patch still gives the rare items while its hooks run. " +
+                     "The battle copy hooks still apply. " +
                      $"(Tech: readiness probe timed out after {_retryCapMs} ms.)");
                 return new RareTreasureSummary(0, 0, 0, 0, GaveUp: true);
             }

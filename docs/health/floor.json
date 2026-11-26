@@ -1,5 +1,5 @@
 {
- "sha": "cbae325",
+ "sha": "180b463",
  "date": "2026-11-26",
  "dirty": true,
  "snapshot": {
@@ -7,7 +7,7 @@
   "prod_lines": 5050,
   "code_lines": 3372,
   "test_files": 34,
-  "test_lines": 9556,
+  "test_lines": 9558,
   "test_ratio": 1.89,
   "comment_share": 0.203,
   "empty_catches": 11,

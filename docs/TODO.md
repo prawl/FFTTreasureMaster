@@ -13,6 +13,12 @@ that checklist.
 
 ## Backlog
 
+- [TM-43] 2026-11-26: Open question, no work planned: with Rare treasure only on and no Mod
+  Loader, the main treasure table stays unpatched while the battle copy hooks still apply. Nobody
+  has checked whether anything reads the main table that the two hooks miss. Patrick's one boot
+  without the Mod Loader gave a rare item on Dorvauldar Marsh, which is all that is known. (Tech:
+  the main table at 0x140783840; the hooks cover the map load copy and the saved battle restore.)
+
 - [TM-41] 2026-11-26: Let players change Treasure Master's settings inside the game's own Settings
   screen, the way Ivalice ReMixed adds a tab there, instead of only in the launcher. Patrick asked
   for "a proposal on what it would take for us to do something similar"; no build is approved.
