@@ -21,10 +21,15 @@ that checklist.
   tools/probes/hunter_tag_probe.py; A2 direct job row write first, A1 the 1.5.0 loader grant
   from dae0b3b's parent as the fallback.)
 
-- [TM-40] 2026-11-26: Check in a fresh battle that Rare treasure only gives Beddha Sandwaste's
-  rare item. A resumed battle begun before the setting took effect gave the common High Potion,
-  which the setting now says. If a fresh battle gives it too, it is a real bug. (Tech: a read
-  showed the main table patched and the resumed battle's copy unpatched; plan section 3.)
+- [TM-40] 2026-11-26: Rare treasure only does not reach battles: a fresh battle on Beddha
+  Sandwaste still gave the common High Potion, so players with the setting on mostly get common
+  items. Fix it so every battle hands out the rare item, and take back the setting's help
+  sentence "new battles give the rare ones" until then. Seen 2026-11-26 with Patrick at the PC:
+  he picked up a High Potion, and a memory read in the same battle showed the battle's own copy
+  unpatched. (Tech: the loader patch lands in the main table, 0x140783840 plus map times 24,
+  common 124, but the per battle copy at 0x140D8DC90 read common 241; fix candidate in
+  [HUNTER_CUE_AND_LABELS_PLAN.md](HUNTER_CUE_AND_LABELS_PLAN.md) section 3, which must now
+  cover every battle. 1.8.1 held for it.)
 
 - [TM-35] 2026-11-26: Make every setting take effect the moment Patrick clicks Save in the
   launcher while the game runs, as the speed up mod does, and where one truly cannot, mark its
