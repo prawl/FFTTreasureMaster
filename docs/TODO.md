@@ -13,6 +13,13 @@ that checklist.
 
 ## Backlog
 
+- [TM-41] 2026-11-26: Let players change Treasure Master's settings inside the game's own Settings
+  screen, the way Ivalice ReMixed adds a tab there, instead of only in the launcher. Patrick asked
+  for "a proposal on what it would take for us to do something similar"; no build is approved.
+  (Tech: proposal in [IN_GAME_OPTIONS_PROPOSAL.md](IN_GAME_OPTIONS_PROPOSAL.md), recommending
+  TM-35 first and a static read plus two 15 minute game checks before choosing a shape; TM's
+  first native hooks, and possibly one spare tab in the whole game.)
+
 - [TM-39] 2026-11-26: Bring the Treasure Hunter tag back to the job screen with All units on,
   as up to 1.7.0, while enemies and guests who only got it from the mod lose it each battle.
   Patrick asked for it ("Yes try to get it back"); Duet note 673 chose option A. The probe is
