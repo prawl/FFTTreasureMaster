@@ -191,28 +191,28 @@ Changes:
   reviews 3 and 4 (Reloaded.Mod.Launcher.Lib and Reloaded-II, not run): every Configure click
   builds a fresh `Configurator` through a new plugin loader, and `GetConfigurations` reads the
   file then through `FromFile`, so a window opened after a key press shows the key's style. The
-  window saves when Save is clicked AND when it closes (`ConfigureModDialog.Window_Closing`
-  calls the same `Save`), and that save writes every field the window holds. The window also
-  listens to ConfigurationUpdated, which the watcher `FromFile` arms raises with a fresh read on
-  every change of the file, a failed read included. The owner sees the window not change until
-  he clicks Save (2026-11-25), so the window may swap the object it saves without redrawing it.
-  Decided (notes 513 and 515, the owner's call): the last change wins, a Save in the window or a
-  key press. The key saves the style to the file, and the watcher stops raising updates, so the
-  window saves exactly what the player sees. That also ends the case where a save mid write
-  handed the window a default config. The event itself stays, since `IUpdatableConfigurable`
-  requires it, with empty add and remove bodies (an event that is never raised is warning
-  CS0067, an error under this repo's build rules), and `Configurator.cs:30`'s subscription goes.
-  A window open during a key press still holds the old style, and with Reloaded's own save,
-  closing it, with or without an edit, would write that style back. Decided (note 532, Duet under
-  the owner's delegation, after round 4): the window writes only what the player changed in it. `Configurable.Save` reads the
+  window saves when Save is clicked AND when it closes (`ConfigureModDialog.Window_Closing` calls
+  the same `Save`), and that save writes every field the window holds. The window also listens to
+  ConfigurationUpdated, which the watcher `FromFile` arms raises with a fresh read on every change
+  of the file, a failed read included. The owner sees the window not change until he clicks Save
+  (2026-11-25), so the window may swap the object it saves without redrawing it. Decided (notes
+  513 and 515, the owner's call): the last change wins, a Save in the window or a key press. The
+  key saves the style to the file, and the watcher stops raising updates, so the window saves
+  exactly what the player sees. That also ends the case where a save mid write handed the window a
+  default config. The event itself stays, since `IUpdatableConfigurable` requires it, with empty
+  add and remove bodies (an event that is never raised is warning CS0067, an error under this
+  repo's build rules), and `Configurator.cs:30`'s subscription goes. A window open during a key
+  press still holds the old style, and with Reloaded's own save, closing it, with or without an
+  edit, would write that style back. Decided (note 532, Duet under the owner's delegation, after
+  round 4): the window writes only what the player changed in it. `Configurable.Save` reads the
   file fresh as a node tree and replaces only the fields whose value differs from what the window
   opened with, so a close with no edit leaves the key's style alone, an edit to another setting
   keeps it too, and a style picked in the window still wins. A file that is missing or does not
   parse at save time is written whole, as today; a window opened on a broken file and closed with
-  no edit leaves the file as it was (step 1's L6 saw that visit replace it with defaults), and
-  the mod keeps warning at launch. A save with no changed field writes nothing at all, and after
-  each write the window's opening values become the values it just wrote, so a Save then a close
-  writes once.
+  no edit leaves the file as it was (step 1's L6 saw that visit replace it with defaults), and the
+  mod keeps warning at launch. A save with no changed field writes nothing at all, and after each
+  write the window's opening values become the values it just wrote, so a Save then a close writes
+  once.
 - Text: the TileStyle description's "Changes apply the next time the game is launched" becomes
   a line saying a saved change applies in the running game and the key steps through the looks
   in battle. Enabled and Hide tiles after their treasure is claimed say nothing about when a
@@ -270,23 +270,23 @@ Changes:
   retired value makes it current and never Stale; Unlight under a swap reverts a claimed tile
   holding the old value. For the window: the `Configurator`'s config object keeps the values it
   opened with after the file is rewritten and about half a second passes (on today's code the
-  watcher swaps in a fresh read, so this test is red before the change). For the window's save also: a
-  save with no edit leaves a key's style in the file; a save after editing another setting
+  watcher swaps in a fresh read, so this test is red before the change). For the window's save
+  also: a save with no edit leaves a key's style in the file; a save after editing another setting
   writes that setting and keeps the key's style; a style picked in the window is written; a
   missing or unparsable file is written whole.
-- Size: about 130 to 170 production lines (about 20 of them for the window's save), in `StyleHotkey.cs`,
-  `StyleLive.cs` and `TileStyles.cs`, plus small edits to `TileHolder`, `FastHold`, `Engine`,
-  `Mod`, `Configuration/Configurable.cs` (Read made internal; `FromFile` arms no watcher, so the
-  watcher field, `EnableWatcher`, `OnFileChanged` and its empty catch go; the event gets empty
-  add and remove bodies; `Save` writes only the changed fields), `Configuration/Configurator.cs` (the
-  dead subscription at :30 goes), `Configuration/Config.cs` (the key setting and the text) and
-  the `AddrState` line in `TreasureMaster.Policy.cs`. Engine and Mod are each at their two
-  allowed silent catches, so the new code adds none. `Configurable.cs` drops from one silent
-  catch to none, so `python gates/tools/health.py floor --write` runs in the same commit.
-  Comments that stop being true are rewritten within each file's frozen comment budget:
-  TileStyles.cs:12-13 ("chosen at launch"), FastHold.cs:11-12, TileHolder.cs:7-10 and :53-54
-  (Unlight reverts only Held bytes), TreasureMaster.Policy.cs:10-12 and :23-26,
-  TreasureMaster.cs:465, and Configurable.cs:41-42 and :49-54 (the watcher).
+- Size: about 130 to 170 production lines (about 20 of them for the window's save), in
+  `StyleHotkey.cs`, `StyleLive.cs` and `TileStyles.cs`, plus small edits to `TileHolder`,
+  `FastHold`, `Engine`, `Mod`, `Configuration/Configurable.cs` (Read made internal; `FromFile`
+  arms no watcher, so the watcher field, `EnableWatcher`, `OnFileChanged` and its empty catch go;
+  the event gets empty add and remove bodies; `Save` writes only the changed fields),
+  `Configuration/Configurator.cs` (the dead subscription at :30 goes), `Configuration/Config.cs`
+  (the key setting and the text) and the `AddrState` line in `TreasureMaster.Policy.cs`. Engine
+  and Mod are each at their two allowed silent catches, so the new code adds none.
+  `Configurable.cs` drops from one silent catch to none, so `python gates/tools/health.py floor
+  --write` runs in the same commit. Comments that stop being true are rewritten within each file's
+  frozen comment budget: TileStyles.cs:12-13 ("chosen at launch"), FastHold.cs:11-12,
+  TileHolder.cs:7-10 and :53-54 (Unlight reverts only Held bytes), TreasureMaster.Policy.cs:10-12
+  and :23-26, TreasureMaster.cs:465, and Configurable.cs:41-42 and :49-54 (the watcher).
 - A key read in a release build is by design, like Color Customizer's F1 window. Living Weapons
   bans
   release key reads for its dev tricks (LW-413); the shared rulebook has no such rule.
