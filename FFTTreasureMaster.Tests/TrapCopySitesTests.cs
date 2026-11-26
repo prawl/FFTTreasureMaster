@@ -14,12 +14,12 @@ public sealed class TrapCopySitesTests
 {
     private const long Text = 0x140001000L;
     private const long Copy = 0x140D8DC90L;
-    private const int CopyAt = 0x40, RestoreAt = 0x140, LookupAt = 0x280;
+    private const int CopyAt = 0x40, EntryAt = 0xE0, RestoreAt = 0x140, LookupAt = 0x280;
 
-    private readonly byte[] _code = new byte[0x400];
+    private readonly byte[] _code = new byte[0x1400];
     private readonly FakeSparseMemory _mem = new();
 
-    private static readonly List<(long, long)> Sections = new() { (Text, 0x400) };
+    private static readonly List<(long, long)> Sections = new() { (Text, 0x1400) };
 
     private void Put(int at, AnchorSig sig)
     {
@@ -37,12 +37,14 @@ public sealed class TrapCopySitesTests
     private void Rva(int at, int dispOff, long target)
         => System.BitConverter.GetBytes((uint)(target - ImageBase.Base)).CopyTo(_code, at + dispOff);
 
-    private void AllThree(long restoreNames = Copy, long lookupNames = Copy, long lookupBase = 0)
+    private void AllThree(long restoreNames = Copy, long lookupNames = Copy, long lookupBase = 0,
+        int entryAt = EntryAt, int restoreAt = RestoreAt)
     {
         Put(CopyAt, TrapCopySites.CopyStore);
         Disp(CopyAt, TrapCopySites.CopyStore.DispOff, Copy);
-        Put(RestoreAt, TrapCopySites.RestoreStore);
-        Disp(RestoreAt, TrapCopySites.RestoreStore.DispOff, restoreNames);
+        Put(entryAt, TrapCopySites.RestoreEntry);
+        Put(restoreAt, TrapCopySites.RestoreStore);
+        Disp(restoreAt, TrapCopySites.RestoreStore.DispOff, restoreNames);
         Put(LookupAt, TrapCopySites.LookupRead);
         Disp(LookupAt, TrapCopySites.LookupBaseDispOff, lookupBase == 0 ? ImageBase.Base : lookupBase);
         Rva(LookupAt, TrapCopySites.LookupRead.DispOff, lookupNames);
@@ -62,6 +64,71 @@ public sealed class TrapCopySitesTests
         var f = Find();
 
         Assert.Equal(Copy, f.Addr);
+    }
+
+    [Fact]
+    public void Agreeing_sites_also_give_both_routine_entries()
+    {
+        AllThree();
+
+        var f = Find();
+
+        Assert.Equal(Text + CopyAt, f.CopyFn);
+        Assert.Equal(Text + EntryAt, f.RestoreFn);
+    }
+
+    [Fact]
+    public void A_missing_restore_entry_gives_nothing_and_names_it()
+    {
+        AllThree();
+        for (int i = EntryAt; i < EntryAt + TrapCopySites.RestoreEntry.Pattern.Length; i++) _code[i] = 0xCC;
+
+        var f = Find();
+
+        Assert.Null(f.Addr);
+        Assert.Contains("TrapRestoreEntry matched 0 times", f.Why);
+    }
+
+    [Fact]
+    public void A_restore_entry_found_twice_gives_nothing()
+    {
+        AllThree();
+        Put(0x300, TrapCopySites.RestoreEntry);
+
+        var f = Find();
+
+        Assert.Null(f.Addr);
+        Assert.Contains("TrapRestoreEntry matched 2 times", f.Why);
+    }
+
+    [Fact]
+    public void A_restore_entry_after_its_store_gives_nothing()
+    {
+        AllThree(entryAt: 0x200);
+
+        var f = Find();
+
+        Assert.Null(f.Addr);
+        Assert.Contains("restore routine", f.Why);
+    }
+
+    [Fact]
+    public void A_restore_entry_too_far_before_its_store_gives_nothing()
+    {
+        AllThree(restoreAt: EntryAt + TrapCopySites.RestoreSpan + 1);
+
+        var f = Find();
+
+        Assert.Null(f.Addr);
+        Assert.Contains("restore routine", f.Why);
+    }
+
+    [Fact]
+    public void A_restore_store_at_the_far_edge_still_counts()
+    {
+        AllThree(restoreAt: EntryAt + TrapCopySites.RestoreSpan);
+
+        Assert.Equal(Copy, Find().Addr);
     }
 
     [Fact]
@@ -138,6 +205,8 @@ public sealed class TrapCopySitesTests
         Assert.Equal(new int?[] { 0x4C, 0x8D, 0x2D }, Slice(TrapCopySites.LookupRead, TrapCopySites.LookupBaseDispOff - 3, 3));
         Assert.Equal(TrapCopySites.CopyStore.DispOff + 4, TrapCopySites.CopyStore.Pattern.Length);
         Assert.Equal(TrapCopySites.RestoreStore.DispOff + 4, TrapCopySites.RestoreStore.Pattern.Length);
+        Assert.Equal(new int?[] { 0x48, 0x89, 0x5C, 0x24, 0x08 }, Slice(TrapCopySites.CopyStore, 0, 5));
+        Assert.Equal(new int?[] { 0x48, 0x89, 0x5C, 0x24, 0x08 }, Slice(TrapCopySites.RestoreEntry, 0, 5));
     }
 
     private static int?[] Slice(AnchorSig sig, int from, int len) => sig.Pattern[from..(from + len)];

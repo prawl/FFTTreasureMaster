@@ -16,6 +16,7 @@ $RequiredModFiles = @(
     "FFTTreasureMaster.dll",
     "FFTTreasureMaster.deps.json",
     "Newtonsoft.Json.dll",
+    "Reloaded.Hooks.Definitions.dll",
     "treasure.json"
 )
 

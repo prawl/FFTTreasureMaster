@@ -19,7 +19,8 @@
   "IsUniversalMod": false,
   "ModDependencies": [],
   "OptionalDependencies": [
-    "fftivc.utility.modloader"
+    "fftivc.utility.modloader",
+    "reloaded.sharedlib.hooks"
   ],
   "SupportedAppId": [
     "fft_enhanced.exe"

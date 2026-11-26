@@ -22,6 +22,7 @@ public class Mod : IMod
     private bool _allUnitsHunter;
     private bool _rareOnlyEnabled;
     private LoaderGrantHost? _loaderHost;
+    private RareCopyHooks? _copyHooks;
 
     public Mod() => StartEngine();
 
@@ -49,6 +50,20 @@ public class Mod : IMod
         _loaderHost ??= new LoaderGrantHost(jobs, Info, Warn, work =>
             new Thread(() => work()) { IsBackground = true, Name = "TreasureMaster.LoaderJobs" }.Start());
         _loaderHost.Arm(events);
+        ArmCopyHooks(loader);
+    }
+
+    private void ArmCopyHooks(IModLoaderV1 loader)
+    {
+        try
+        {
+            _copyHooks ??= new RareCopyHooks(new LiveMemory(), TrapCopySites.Find, CopyLog.Live);
+            _copyHooks.Arm(ReloadedHookSite.TryCreate(loader));
+        }
+        catch (Exception ex)
+        {
+            ModLogger.Warn(LogVerb.Treasure, $"Rare treasure only could not start its battle treasure copy hooks ({ex.Message}); some battles may still give common items.");
+        }
     }
 
     private static void Info(string msg) => ModLogger.Event(LogVerb.Config, msg);

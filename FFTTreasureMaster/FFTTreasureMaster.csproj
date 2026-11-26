@@ -24,6 +24,10 @@
          load context, and shipping a second copy could make GetController return null. Pinned
          low so we never ask for a newer version than the loader ships. -->
     <PackageReference Include="fftivc.utility.modloader.Interfaces" Version="1.6.0" ExcludeAssets="runtime" />
+    <!-- Interface only. The IReloadedHooks instance comes from the reloaded.sharedlib.hooks mod,
+         an optional dependency in ModConfig.json, the same package and version Living Weapons
+         ships beside its DLL. -->
+    <PackageReference Include="Reloaded.Hooks.Definitions" Version="1.11.0" />
   </ItemGroup>
 
   <ItemGroup>

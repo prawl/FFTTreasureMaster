@@ -6,9 +6,9 @@ namespace FFTTreasureMaster;
 /// Finds the battle's treasure copy from three code sites and trusts it only when all agree.
 /// The copy routine's store and the restore's store name it RIP relative. The pickup lookup adds
 /// an offset to the image base it loads into r13 just before, so that lea must land on the image
-/// base for its offset to count. Each pattern must match exactly once, or nothing comes back and
-/// Why names the reason. The patterns were cut from build 6A5E4A1B with every moving
-/// displacement wildcarded.
+/// base for its offset to count. The copy store opens its routine, and the restore entry must sit
+/// a little before the restore store. Each pattern must match once, or nothing comes back and Why
+/// says why. The patterns were cut from build 6A5E4A1B with every moving displacement wildcarded.
 /// </summary>
 internal static class TrapCopySites
 {
@@ -22,13 +22,18 @@ internal static class TrapCopySites
         "8A 05 ?? ?? ?? ?? 88 05 ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? 89 05 ?? ?? ?? ?? 8B 05 ?? ?? ?? ?? " +
         "0F 29 05 ?? ?? ?? ??", 94);
 
+    internal static readonly AnchorSig RestoreEntry = Sig("TrapRestoreEntry",
+        "48 89 5C 24 08 48 89 6C 24 10 48 89 74 24 18 57 48 81 EC 30 03 00 00 48 8B 05 ?? ?? ?? ?? " +
+        "48 33 C4 48 89 84 24 20 03 00 00 BE 01 00 00 00", 0);
+
     internal static readonly AnchorSig LookupRead = Sig("TrapLookupRead",
         "88 05 ?? ?? ?? ?? 88 1D ?? ?? ?? ?? 8B F7 4C 8D 2D ?? ?? ?? ?? 48 63 C6 48 8D 2C 40 " +
         "41 8A 8C 6D ?? ?? ?? ?? 8A C1 C0 E8 04 41 3A C4 75 18 80 E1 0F 41 3A CF", 32);
 
     internal const int LookupBaseDispOff = 17;
+    internal const int RestoreSpan = 0x1000;
 
-    private static readonly AnchorSig[] All = { CopyStore, RestoreStore, LookupRead };
+    private static readonly AnchorSig[] All = { CopyStore, RestoreStore, RestoreEntry, LookupRead };
 
     public static TrapCopyFind Find(IGameMemory mem)
     {
@@ -54,12 +59,16 @@ internal static class TrapCopySites
         if (copy is null || restore is null || read is null) return new(null, "a code site could not be read");
         if (copy != restore || copy != read)
             return new(null, $"the sites disagree, {copy:X} {restore:X} {read:X}");
-        return new(copy, "three code sites agree");
+
+        long entry = hits[RestoreEntry.Name][0], store = hits[RestoreStore.Name][0];
+        if (store <= entry || store - entry > RestoreSpan)
+            return new(null, $"the restore store at {store:X} is not inside the restore routine at {entry:X}");
+        return new(copy, "three code sites agree", hits[CopyStore.Name][0], entry);
     }
 
     private static AnchorSig Sig(string name, string pattern, int dispOff)
         => new(name, AnchorDb.ParsePattern(pattern)!, dispOff, 0, 0);
 }
 
-/// <summary>The copy's live address when the sites agree, and why not when they do not.</summary>
-internal readonly record struct TrapCopyFind(long? Addr, string Why);
+/// <summary>The copy and the two routines that fill it when all agree, else why not.</summary>
+internal readonly record struct TrapCopyFind(long? Addr, string Why, long CopyFn = 0, long RestoreFn = 0);
