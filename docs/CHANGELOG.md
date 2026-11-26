@@ -8,6 +8,22 @@ with a date and no hash.
 
 ## 1.7.0 cycle
 
+- [TM-33] SHIPPED a0caff3 2026-11-25: In battle, key 4 now steps the treasure tiles through the
+  six looks and keeps the last pick for the next launch, and a look saved in the launcher shows
+  in the running game within about a second, so nobody restarts the game to try a look. Lit
+  tiles change in place and a claimed tile still goes dark. Closing the launcher's settings
+  window no longer undoes a look picked with the key, because the window now writes only what
+  the player changed in it. The owner called it done on 2026-11-25 before the game check, which
+  moved to TM-36. (Tech: full /build; stages 2ea758a settings file, a5a5fd3 Stale swap, 9d0424a
+  key and StyleLive, fix a0caff3 after blind review 1 found a repeated field name could throw
+  out of the window's save; 758 tests.)
+- [TM-32] SHIPPED a9c7875 2026-11-25: A Tile highlight style setting offers six looks for the
+  lit treasure tiles, today's blue border with a yellow fill staying the default. Live pass
+  2026-11-25, Patrick at the PC: Green, Pink, RedOutline and the default seen, overlays under
+  Pink, a claimed tile going dark and the trap marker. Yellow and the overlays under Yellow and
+  RedOutline were not run; the owner called it done and they ride TM-36. (Tech: TileStyles holds
+  the table and the per byte rules; a forgiving converter maps an unknown name to the default;
+  commits adfac4d, 603d6fa, a9c7875.)
 - [TM-34] SHIPPED dfa2d58 2026-11-25: A player whose Config.json got broken no longer sees every
   setting reset without a word. The settings still fall back to their defaults and the mod
   leaves the broken file alone, but the log now names the file and the reason instead of

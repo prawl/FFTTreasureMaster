@@ -11,37 +11,20 @@ that checklist.
 
 ## Now (release: 1.7.0)
 
-- **[TM-33] Change the tile look live, by key 4 or the launcher** (opened 2026-11-25) [QUEUED]
-  - Done means: in battle, key 4 steps the treasure tiles through every look on the real map
-    and the last pick is kept for the next launch, and a look saved in the launcher shows in the
-    running game within about a second, so nobody restarts the game to try a look. Lit tiles
-    follow the change and a claimed tile still goes dark. The plan is step 2 of
-    [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: key 4 polled behind focus, modifier and
-    battle checks; a retired values set and a Stale state so lit tiles follow; a once a second
-    config write time check on the engine thread; the save rewrites only TileStyle.)
-  - Verify: suite green with the down edge and held key tests and the live apply tests; then
-    owner only, on Zeklaus Desert: key 4 steps through all six looks, Yellow included, with a
-    Move range and an ability range over a lit tile under Yellow and under RedOutline; a
-    launcher save shows within a second; a claimed tile still goes dark; a relaunch keeps the
-    last pick.
-
-- **[TM-32] Let players pick how the treasure tiles look** (opened 2026-11-25) [AWAITING-LIVE]
-  - Done means: a "Tile highlight style" setting offers six looks, today's blue border with a
-    yellow fill staying the default, and a battle shows the chosen look after a relaunch; a
-    claimed tile still goes dark; a config saved by a newer version never resets the other
-    settings. The plan is step 1 of [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: TileStyles
-    holds the table, the published style, Classify and WantWrite, moved out of
-    TreasureMaster.Policy.cs; a forgiving converter maps an unknown value to the default.
-    Built as a full high tier /build, since it changes the byte the mod writes into the running
-    game; the phases /build adds were done before the stage opened: the owner's live style
-    sweep (FFTGameFacts aa1629e, b25301f, 25e716a, 6781a48), the written plan cf0115b, two
-    blind review rounds folded in b8b9cda and fdecec3, and the coordinator's go 51aa99a.)
-  - Verify: suite green with a non default style test that fails on the old constant; then
-    owner only, in the game: Yellow, RedOutline and Green picked and each seen after a
-    relaunch on Zeklaus Desert (all seven memory regions); under each, a Move range and an
-    ability range opened over a lit tile draw normally and the style comes back after; under
-    Green a claimed tile goes dark and a Move range over it draws clean; the dropdown names
-    read well; a broken Config.json warns in the log and is left untouched.
+- **[TM-36] Check the tile look key and live save in the game** (opened 2026-11-25) [AWAITING-LIVE]
+  - Done means: the owner has seen, in a real battle, that key 4 steps the treasure tiles
+    through all six looks, that a look saved in the launcher shows within about a second, and
+    that the Yellow look and the game's own range overlays still draw right, so the TM-32 and
+    TM-33 changes are proven in the game, not only in tests. The steps are the live check of
+    step 2 in [TILE_STYLE_PLAN.md](TILE_STYLE_PLAN.md). (Tech: TM-32 and TM-33 shipped on
+    the owner's word before this check; the step 1 leftovers ride it.)
+  - Verify: owner only, on Zeklaus Desert with a dev deploy: key 4 cycles the six looks, each
+    logged once, the file following; Yellow and RedOutline with a Move range and an ability
+    range over a lit tile, also after both are retired; R0 bytes read after a swap; a claimed
+    tile stays dark; Shift, Ctrl, Alt, the background and the world map do nothing; a launcher
+    save shows within a second; a key press with Configure open, then Save or a close, keeps
+    the key's look and the edited setting; a relaunch keeps the last look. Back up and restore
+    the user Config.json.
 
 ## Backlog
 
