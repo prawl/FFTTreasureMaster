@@ -10,7 +10,8 @@ with a date and no hash.
 
 - [TM-37] WONTFIX 2026-11-26: The leftover game checks of the tile look key are not needed: ability
   ranges, 4 on the world map and while renaming a unit, the launcher settings window steps and a
-  claim after a look change. Patrick, 2026-11-26 06:00:09Z: "Hmm. I think we're fine. Have TM close out any live verification tasks". (Tech: Duet note 615 step 1.)
+  claim after a look change. Patrick, 2026-11-26 06:00:09Z: "Hmm. I think we're fine. Have
+  TM close out any live verification tasks". (Tech: Duet note 615 step 1.)
 - [TM-31] WONTFIX 2026-11-26: Watching an enemy walk onto a lit treasure tile with All units on,
   or an enemy Chemist pick one up unaided, is not needed, on Patrick's same word. (Tech: Duet
   note 615; the enemy Chemist part stays an open fact, chemists-take-hidden-items-unaided,
