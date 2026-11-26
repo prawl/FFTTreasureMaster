@@ -369,6 +369,8 @@ public sealed class RareCopyHooksTests : IDisposable
         Assert.Contains("reloaded.sharedlib.hooks", optional);
         Assert.Contains("fftivc.utility.modloader", optional);
         Assert.Equal(0, doc.RootElement.GetProperty("ModDependencies").GetArrayLength());
+        Assert.DoesNotContain("needs the FFT Ivalice Chronicles Mod Loader",
+            doc.RootElement.GetProperty("ModDescription").GetString());
     }
 
     [Fact]

@@ -72,6 +72,15 @@ public class SettingLabelsTests
     }
 
     [Fact]
+    public void Rare_treasure_help_does_not_say_it_needs_the_mod_loader()
+    {
+        string help = Help(nameof(Config.RareTreasureOnly));
+
+        Assert.DoesNotContain("quietly does nothing", help);
+        Assert.DoesNotContain("Requires the separately installed", help);
+    }
+
+    [Fact]
     public void The_style_help_names_the_hotkey_by_its_launcher_name()
     {
         Assert.Contains("Cycle Tile Hotkey", Help(nameof(Config.TileStyle)));

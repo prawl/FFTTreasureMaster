@@ -81,6 +81,8 @@ public class RareTreasureGrantTests
 
         Assert.Single(log);
         Assert.Contains("not installed or not enabled", log[0]);
+        Assert.DoesNotContain("normal items", log[0]);
+        Assert.Contains("copy patch still gives the rare items", log[0]);
         Assert.Equal(0, s.Applied);
         Assert.False(s.GaveUp);
     }
@@ -111,6 +113,8 @@ public class RareTreasureGrantTests
         Assert.True(s.GaveUp);
         Assert.Single(log);
         Assert.Contains("never became ready", log[0]);
+        Assert.DoesNotContain("normal items", log[0]);
+        Assert.Contains("copy patch still gives the rare items", log[0]);
         Assert.Empty(t.ApplyCalls);
     }
 

@@ -36,10 +36,10 @@ internal sealed class RareTreasureGrant
     {
         if (_table == null)
         {
-            _log("The 'Rare treasure only' setting is on, but the FFT Ivalice Chronicles Mod " +
-                 "Loader is not installed or not enabled, so treasure tiles give their normal " +
-                 "items. Tile highlighting still works normally. (Tech: " +
-                 "IFFTOMapTrapFormationDataManager controller not found.)");
+            _log("The 'Rare treasure only' setting is on and the FFT Ivalice Chronicles Mod " +
+                 "Loader is not installed or not enabled, so the main treasure table is left as " +
+                 "it is. The battle treasure copy patch still gives the rare items while its hooks " +
+                 "run. (Tech: IFFTOMapTrapFormationDataManager controller not found.)");
             return default;
         }
 
@@ -49,8 +49,9 @@ internal sealed class RareTreasureGrant
             if (!ReadinessWait.Until(_table.IsReady, _sleep, _retryIntervalMs, _retryCapMs))
             {
                 _log("The 'Rare treasure only' setting is on, but the mod loader's treasure " +
-                     "table never became ready, so treasure tiles give their normal items " +
-                     $"this session. (Tech: readiness probe timed out after {_retryCapMs} ms.)");
+                     "table never became ready, so the main table is left as it is this session. " +
+                     "The battle treasure copy patch still gives the rare items while its hooks run. " +
+                     $"(Tech: readiness probe timed out after {_retryCapMs} ms.)");
                 return new RareTreasureSummary(0, 0, 0, 0, GaveUp: true);
             }
 
