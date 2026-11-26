@@ -111,8 +111,9 @@ public class StyleHotkeyTests
         foreach (var key in System.Enum.GetValues<StyleCycleKey>())
         {
             var (hk, keys) = Make(key);
-            for (int i = 0; i < 3; i++) hk.Poll(true);
-            Assert.DoesNotContain(keys.Reads, r => r >= 0x60 && r <= 0x69);
+            if (key != StyleCycleKey.Off) keys.Down.Add(StyleHotkey.VirtualKey(key));
+            Assert.Equal(key != StyleCycleKey.Off, hk.Poll(true));
+            Assert.DoesNotContain(keys.Reads, r => r >= 0x64 && r <= 0x69);
         }
     }
 }

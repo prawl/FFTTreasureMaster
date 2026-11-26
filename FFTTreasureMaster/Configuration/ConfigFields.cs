@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -18,8 +19,9 @@ internal static class ConfigFields
         try
         {
             parsed = JsonNode.Parse(File.ReadAllText(path));
+            _ = (parsed as JsonObject)?.Count;
         }
-        catch (JsonException)
+        catch (Exception ex) when (ex is JsonException or ArgumentException)
         {
             return FieldWrite.Unparsable;
         }

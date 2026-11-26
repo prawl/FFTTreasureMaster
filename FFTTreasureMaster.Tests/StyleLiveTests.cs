@@ -288,4 +288,40 @@ public class StyleLiveTests : IDisposable
         Ticks(live, 30);
         Assert.Equal(TileStyle.RedOutline, TileStyles.Current);
     }
+
+    [Fact]
+    public void A_press_keeps_every_setting_changed_since_launch()
+    {
+        Write(_path, T0, n =>
+        {
+            n["Enabled"] = false;
+            n["HideClaimedTiles"] = false;
+            n["AllUnitsTreasureHunter"] = true;
+            n["RareTreasureOnly"] = true;
+            n["StyleCycleKey"] = "Key7";
+        });
+        _keys.Down.Add(0x34);
+        var live = Make();
+        live.Tick(BattleEdge.None, true);
+        var root = JsonNode.Parse(File.ReadAllText(_path))!.AsObject();
+        Assert.Equal("BlueAndPink", root["TileStyle"]!.GetValue<string>());
+        Assert.False(root["Enabled"]!.GetValue<bool>());
+        Assert.False(root["HideClaimedTiles"]!.GetValue<bool>());
+        Assert.True(root["AllUnitsTreasureHunter"]!.GetValue<bool>());
+        Assert.True(root["RareTreasureOnly"]!.GetValue<bool>());
+        Assert.Equal("Key7", root["StyleCycleKey"]!.GetValue<string>());
+        Assert.Equal(7, root["Extra"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void A_file_that_repeats_a_field_is_not_written_and_warns_once()
+    {
+        const string text = "{ \"Enabled\": true, \"Enabled\": false }";
+        File.WriteAllText(_path, text);
+        var live = Make();
+        Press(live);
+        Press(live);
+        Assert.Equal(text, File.ReadAllText(_path));
+        Assert.Contains("Unparsable", Assert.Single(_warn));
+    }
 }

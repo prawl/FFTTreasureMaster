@@ -102,7 +102,7 @@ public class Mod : IMod
             catch (Exception cfgEx)
             {
                 ModLogger.Warn(LogVerb.Config,
-                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_allUnitsHunter} RareTreasureOnly={_rareOnlyEnabled} TileStyle={tileStyle}: {cfgEx.Message}");
+                    $"The configuration could not be read; using defaults Enabled={enabled} HideClaimedTiles={claimDetection} AllUnitsTreasureHunter={_allUnitsHunter} RareTreasureOnly={_rareOnlyEnabled} TileStyle={tileStyle} StyleCycleKey={launchCfg.StyleCycleKey}: {cfgEx.Message}");
             }
 
             TileStyles.Publish(tileStyle);

@@ -22,7 +22,7 @@ internal sealed partial class TreasureMaster
 
     /// <summary>
     /// The runtime-visible states of a tile's render-flag byte.
-    /// Resting and Stale bytes get the mark, a Stale one holding a look retired this run.
+    /// Resting and Stale bytes get the mark, and Stale holds a look retired since the battle began.
     /// A <see cref="Held"/> byte is already marked; a <see cref="Foreign"/> byte is never written.
     /// </summary>
     internal enum AddrState { Resting, Held, Foreign, Stale }

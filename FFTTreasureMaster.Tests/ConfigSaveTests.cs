@@ -247,4 +247,31 @@ public class ConfigSaveTests : IDisposable
         Assert.Equal(Tuning.StyleCycleKeyDefault, new Config().StyleCycleKey);
         Assert.EndsWith("StyleCycleKey=Key4.", Mod.DescribeConfig(new Config(), "src.json").Line);
     }
+
+    private const string Twice = "{ \"Enabled\": true, \"Enabled\": false, \"Extra\": 7 }";
+
+    [Fact]
+    public void RepeatedField_ReplaceReturnsUnparsableAndLeavesTheBytes()
+    {
+        var path = Path.Combine(TempDir(), "Config.json");
+        File.WriteAllText(path, Twice);
+        var before = File.ReadAllBytes(path);
+        Assert.Equal(FieldWrite.Unparsable,
+            ConfigFields.Replace(path, new JsonObject { ["TileStyle"] = "Green" }));
+        Assert.Equal(before, File.ReadAllBytes(path));
+    }
+
+    [Fact]
+    public void RepeatedField_WindowSaveDoesNotThrowAndWritesTheWholeFile()
+    {
+        var dir = TempDir();
+        var path = Path.Combine(dir, "Config.json");
+        File.WriteAllText(path, Twice);
+        var c = Open(dir);
+        c.RareTreasureOnly = true;
+        Assert.Null(Record.Exception(() => c.Save()));
+        var read = Configurable<Config>.Read(path);
+        Assert.Null(read.LoadError);
+        Assert.True(read.RareTreasureOnly);
+    }
 }
