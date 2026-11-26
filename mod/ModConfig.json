@@ -2,7 +2,7 @@
   "ModId": "prawl.fft.treasuremaster",
   "ModName": "FFT Treasure Master",
   "ModAuthor": "prawl",
-  "ModVersion": "1.7.0",
+  "ModVersion": "1.8.0",
   "ModDescription": "Lights up the battlefield tiles that hide Move-Find treasure so you never walk past a hidden item, and hides each tile once its treasure is taken, both within the battle and permanently on later visits once you have collected it and won the fight. Two optional extras, both off by default: give the Treasure Hunter ability in battle to the units you deploy, so anyone can pick treasures up (Chemists already find treasure by the game's own rule; guests, enemies and any unit whose movement abilities look changed by another mod get nothing from it), and Rare treasure only, which needs the FFT Ivalice Chronicles Mod Loader and makes every treasure tile give its rare item instead of the common one. In-process runtime; all four behaviors toggle in the mod config, and a Tile highlight style setting picks one of six looks for the lit tiles; a number key (4 by default) steps through them in battle, and a look saved in the launcher shows in the running game.",
   "ModDll": "FFTTreasureMaster.dll",
   "ModIcon": "preview.png",

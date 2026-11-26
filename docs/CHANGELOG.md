@@ -6,7 +6,7 @@ Where docs/TODO.md items land when they ship, die, or retract; newest first with
 Entry first line: `- [TM-<n>] SHIPPED <hash> YYYY-MM-DD: <summary>`, or WONTFIX / RETRACTED
 with a date and no hash.
 
-## 1.7.0 cycle
+## 1.8.0 cycle
 
 - [TM-37] WONTFIX 2026-11-26: The leftover game checks of the tile look key are not needed: ability
   ranges, 4 on the world map and while renaming a unit, the launcher settings window steps and a
@@ -97,6 +97,8 @@ with a date and no hash.
   v0.1.0, which is 3da7098; rules.json; the shared logger and contract tests as linked source;
   the shared build targets and style files; docs/health floor.json, files.json and style.json;
   follow-ups 204b6b7 and 72b4791; CI run 41582500395 green.)
+## 1.7.0 cycle
+
 - [TM-10] SHIPPED 6cd5e6f 2026-10-26: A new setting, "Rare treasure only" (off by default), makes
   every Move-Find treasure tile hand out its rare item instead of the common one, the same effect
   as the community mod Rare Treasure Only by Avarath, without installing anything beyond the FFT

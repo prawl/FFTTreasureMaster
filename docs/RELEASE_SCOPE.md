@@ -65,4 +65,24 @@ code, and the finished work by the same outside reviewer and two adversarial ver
 - [x] Gates at the cut: dotnet test 420 green, gen_treasure_db.py self-test green, Release build
       clean.
 - [x] ModVersion bumped to 1.7.0; ModDescription now names all four toggles.
-- [ ] Tag v1.7.0 cut at the release commit and pushed (rides the owner's push word).
+- [x] Tag v1.7.0 cut at the release commit and pushed (the tag exists on the repo).
+
+## 1.8.0 cut (2026-11-26): Tile looks, the look key and the All units hold
+
+Six looks for the lit treasure tiles, a key that steps through them in battle, a launcher save
+that shows in the running game, and an All units Treasure Hunter that holds per battle on the
+deployed party only. Owner release order 2026-11-26 through Duet note 615: "cut a new release
+and push to github". The 1.7.0 text above is kept as shipped.
+
+- [x] **Tile highlight style (TM-32)** and **the look key with a live launcher save (TM-33)**:
+      shipped a9c7875 and a0caff3; game check TM-36 passed 2026-11-26 on Zeklaus Desert, key 4
+      pressed by script and by the owner.
+- [x] **A broken settings file reports itself (TM-34)**: shipped dfa2d58.
+- [x] **All units hold per battle (TM-25)**, with TM-19, TM-21, TM-28 and TM-18: shipped
+      cdd40f0, c265b84, d69f209, 15b2d2a and b8287c9; owner live passes of TM-25 and
+      TM-21 on 2026-11-25.
+- [x] Remaining live checks closed as not needed on the owner's word (TM-37, TM-31, TM-2).
+- [x] Gates at the cut: dotnet test 758 green, gen_treasure_db.py self-test green, the
+      manifest, format, health and temp leftover gates green in check mode.
+- [x] ModVersion bumped to 1.8.0.
+- [ ] Tag v1.8.0 cut at the release commit and pushed.
