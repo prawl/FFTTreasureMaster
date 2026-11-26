@@ -13,8 +13,8 @@ with a date and no hash.
   leaves the broken file alone, but the log now names the file and the reason instead of
   claiming the settings loaded, and the launcher's Configure window still opens on it to repair
   it. Live pass 2026-11-25 on Zeklaus Desert, Patrick at the PC: the warning named the file and
-  the JSON reason, the tiles showed the default look, and Configure opened; closing Configure
-  saves clean defaults over the broken file, since Reloaded saves on close. (Tech:
+  the JSON reason, the tiles showed the default look, and Configure opened; after that visit to
+  Configure the file held clean defaults. (Tech:
   Configurable.LoadError carries the failure, hidden from the launcher grid and never saved;
   Mod.DescribeConfig picks the warn or loaded line; the launcher path test followed in adfac4d;
   the old swallow put back turns 7 of 40 config tests red.)

@@ -45,6 +45,15 @@ that checklist.
 
 ## Backlog
 
+- [TM-35] 2026-11-26: Make every setting take effect the moment Patrick clicks Save in the
+  launcher while the game runs, as the speed up mod does, and where one truly cannot, mark its
+  label in the launcher so it says a restart is needed. Patrick: "The speed up mod lets me change
+  values and click save while the game is running and changes take live" and "If not possible,
+  find a way to mark the config label to denote a restart is required". Its own plan and review,
+  after TM-33. (Tech: TM-33 brings the once a second config check and the live style swap; this
+  extends it to Enabled, Hide tiles, All units and the key, while Rare treasure only patches the
+  loader's table at startup and may have to stay a restart, labelled so.)
+
 - [TM-31] 2026-11-25: Nobody has yet watched an enemy walk onto a lit treasure tile with All
   units on and leave the treasure there, or an enemy Chemist pick one up unaided. Catch either
   in any battle with the setting on and note it here. (Tech: the one part of TM-25's live list
