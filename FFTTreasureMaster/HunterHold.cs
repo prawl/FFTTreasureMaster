@@ -79,7 +79,7 @@ internal sealed class HunterHold
         if (!trusted)
         {
             if (!_untrustedLogged)
-                ModLogger.Event(LogVerb.Treasure, "The All units gain Treasure Hunter setting is on, but this game build's unit addresses are not confirmed, so no unit gets it this battle.");
+                ModLogger.Event(LogVerb.Treasure, "The All units Treasure Hunter setting is on, but this game build's unit addresses are not confirmed, so no unit gets it this battle.");
             _untrustedLogged = true;
             return;
         }

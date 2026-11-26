@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
+using System.Text.Json;
 using FFTTreasureMaster.Configuration;
 using Xunit;
 
@@ -8,7 +9,8 @@ namespace FFTTreasureMaster.Tests;
 
 public class SettingLabelsTests
 {
-    private const string Mark = " *restart required";
+    private const string Mark = " *restart";
+    private const string Opener = "Needs a game restart. ";
 
     private static PropertyInfo[] Settings() => typeof(Config)
         .GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -36,17 +38,28 @@ public class SettingLabelsTests
     {
         Assert.Equal("Tile highlight style", Label(nameof(Config.TileStyle)));
         Assert.DoesNotContain("restart", Label(nameof(Config.TileStyle)));
+        Assert.DoesNotContain("restart", Help(nameof(Config.TileStyle)));
     }
 
     [Theory]
     [InlineData(nameof(Config.Enabled), "Enable Treasure Master")]
-    [InlineData(nameof(Config.HideClaimedTiles), "Hide tiles after their treasure is claimed")]
-    [InlineData(nameof(Config.AllUnitsTreasureHunter), "All units gain Treasure Hunter")]
+    [InlineData(nameof(Config.HideClaimedTiles), "Hide claimed tiles")]
+    [InlineData(nameof(Config.AllUnitsTreasureHunter), "All units Treasure Hunter")]
     [InlineData(nameof(Config.RareTreasureOnly), "Rare treasure only")]
-    [InlineData(nameof(Config.StyleCycleKey), "Cycle Treasure Tile Hotkey")]
-    public void Each_marked_label_keeps_its_plain_name_before_the_mark(string property, string name)
+    [InlineData(nameof(Config.StyleCycleKey), "Cycle Tile Hotkey")]
+    public void Each_marked_setting_has_a_short_name_and_says_restart_first(string property, string name)
     {
         Assert.Equal(name + Mark, Label(property));
+        Assert.StartsWith(Opener, Help(property));
+        Assert.DoesNotContain("Changes apply the next time the game is launched", Help(property));
+    }
+
+    // The launcher's name column showed about 33 characters before it cut a name short.
+    [Fact]
+    public void Every_name_fits_the_launcher_column()
+    {
+        foreach (var p in Settings())
+            Assert.True(Label(p.Name).Length <= 34, Label(p.Name));
     }
 
     [Fact]
@@ -59,7 +72,17 @@ public class SettingLabelsTests
     [Fact]
     public void The_style_help_names_the_hotkey_by_its_launcher_name()
     {
-        Assert.Contains("Cycle Treasure Tile Hotkey", Help(nameof(Config.TileStyle)));
-        Assert.DoesNotContain("Tile style key", Help(nameof(Config.TileStyle)));
+        Assert.Contains("Cycle Tile Hotkey", Help(nameof(Config.TileStyle)));
+        Assert.DoesNotContain("Cycle Treasure Tile Hotkey", Help(nameof(Config.TileStyle)));
+    }
+
+    [Fact]
+    public void The_hotkey_choices_are_the_plain_key_names()
+    {
+        Assert.EndsWith("Default: Key4.", Help(nameof(Config.StyleCycleKey)));
+        Assert.Equal("Key5", TypeDescriptor.GetConverter(typeof(StyleCycleKey)).ConvertToString(StyleCycleKey.Key5));
+        var json = JsonSerializer.Serialize(new Config { StyleCycleKey = StyleCycleKey.Key5 },
+            Configurable<Config>.SerializerOptions);
+        Assert.Contains("\"StyleCycleKey\": \"Key5\"", json);
     }
 }

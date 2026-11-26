@@ -116,10 +116,10 @@ public sealed class HunterHoldTests : IDisposable
         _hold.Tick(true, false);
         _hold.Tick(true, false);
         Assert.Equal(0, _mem.Reads + _mem.U8Reads + _mem.Writes);
-        Assert.Equal(1, _log.Count("info", "The All units gain"));
+        Assert.Equal(1, _log.Count("info", "The All units Treasure Hunter setting"));
         _hold.ResetBattle(entered: true);
         _hold.Tick(true, false);
-        Assert.Equal(2, _log.Count("info", "The All units gain"));
+        Assert.Equal(2, _log.Count("info", "The All units Treasure Hunter setting"));
     }
 
     [Fact]
