@@ -11,6 +11,20 @@ that checklist.
 
 ## Now (release: 1.8.0)
 
+- **[TM-40] Make Rare treasure only give the rare item in every battle** (opened 2026-11-26) [BUILDING]
+  - Done means: with the setting on, Beddha Sandwaste reached the way Patrick did on
+    2026-11-26 at 07:15, and one fresh battle from the world map, both hand out the rare item
+    where the common High Potion came before, and 1.8.1 ships only after that. Seen first on
+    2026-11-26: he picked up a High Potion while the battle's own treasure copy read unpatched.
+    (Tech: the pickup reads only the battle copy at 0x140D8DC90. TM patches it once right after
+    each of the two routines that make it, the map load copy 0x140251584 and the restore from
+    saved battle data 0x1402CE7A8, with the copy's address found by signature and checked against
+    two other code sites. Steps: the patch itself (RareCopyPatch), the address, the hooks, the
+    wiring. Plan approved through Duet 2026-11-26 13:05Z, offline only, one step at a time.)
+  - Verify: the full suite passes with each step's new tests, then Patrick's live check: the
+    battle copy reads the rare item before anyone moves, TM's log names the routine that made
+    the copy, and a pickup gives the rare item.
+
 ## Backlog
 
 - [TM-41] 2026-11-26: Let players change Treasure Master's settings inside the game's own Settings
@@ -27,16 +41,6 @@ that checklist.
   [HUNTER_CUE_AND_LABELS_PLAN.md](HUNTER_CUE_AND_LABELS_PLAN.md) section 1, tool
   tools/probes/hunter_tag_probe.py; A2 direct job row write first, A1 the 1.5.0 loader grant
   from dae0b3b's parent as the fallback.)
-
-- [TM-40] 2026-11-26: Rare treasure only does not reach battles: a fresh battle on Beddha
-  Sandwaste still gave the common High Potion, so players with the setting on mostly get common
-  items. Fix it so every battle hands out the rare item, and take back the setting's help
-  sentence "new battles give the rare ones" until then. Seen 2026-11-26 with Patrick at the PC:
-  he picked up a High Potion, and a memory read in the same battle showed the battle's own copy
-  unpatched. (Tech: the loader patch lands in the main table, 0x140783840 plus map times 24,
-  common 124, but the per battle copy at 0x140D8DC90 read common 241; fix candidate in
-  [HUNTER_CUE_AND_LABELS_PLAN.md](HUNTER_CUE_AND_LABELS_PLAN.md) section 3, which must now
-  cover every battle. 1.8.1 held for it.)
 
 - [TM-35] 2026-11-26: Make every setting take effect the moment Patrick clicks Save in the
   launcher while the game runs, as the speed up mod does, and where one truly cannot, mark its

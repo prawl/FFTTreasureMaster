@@ -1,5 +1,5 @@
 {
- "sha": "ab5e77f",
+ "sha": "68c537e",
  "date": "2026-11-26",
  "columns": [
   "comments",
@@ -44,6 +44,7 @@
   "Mem.cs": [23, 10, 100, 0, 0],
   "Mod.cs": [23, 6, 116, 2, 0],
   "Offsets.cs": [43, 13, 16, 0, 0],
+  "RareCopyPatch.cs": [7, 6, 26, 0, 0],
   "RareTreasureGrant.cs": [8, 6, 75, 0, 0],
   "ReadinessWait.cs": [3, 2, 16, 0, 0],
   "StyleHotkey.cs": [4, 3, 46, 0, 0],
