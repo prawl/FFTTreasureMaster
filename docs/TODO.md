@@ -13,15 +13,6 @@ that checklist.
 
 ## Backlog
 
-- [TM-37] 2026-11-26: Finish the game check of the tile look key with the parts TM-36's timed run
-  left out, so every promise of the key and the launcher save is seen in a real battle. Open an
-  ability range over a lit tile under Yellow and RedOutline and after both are passed; press 4
-  on the world map and while renaming a unit, which must do nothing; in the launcher's Configure
-  window, Save a new look while a battle shows, untick Hide tiles then press 4 then Save, press
-  4 then close with X, and run the repeated "Enabled" line check; and step a unit onto a lit
-  tile after a look change to see it go dark and stay dark. (Tech: runbook .claude/live-TM-33.md
-  K2 to K4 ability halves, K5, K6 world map and rename, K7 to K9, K11; Duet note 610.)
-
 - [TM-35] 2026-11-26: Make every setting take effect the moment Patrick clicks Save in the
   launcher while the game runs, as the speed up mod does, and where one truly cannot, mark its
   label in the launcher so it says a restart is needed. Patrick: "The speed up mod lets me change
@@ -30,11 +21,6 @@ that checklist.
   after TM-33. (Tech: TM-33 brings the once a second config check and the live style swap; this
   extends it to Enabled, Hide tiles, All units and the key, while Rare treasure only patches the
   loader's table at startup and may have to stay a restart, labelled so.)
-
-- [TM-31] 2026-11-25: Nobody has yet watched an enemy walk onto a lit treasure tile with All
-  units on and leave the treasure there, or an enemy Chemist pick one up unaided. Catch either
-  in any battle with the setting on and note it here. (Tech: the one part of TM-25's live list
-  still unseen, plus GF-19 claim 7, which rests on review alone.)
 
 - [TM-30] 2026-11-25: The test proving the Treasure Hunter summary costs nothing on a quiet tick
   only tries units that hold the bonus and Chemists, so a guest or an odd looking unit in a party
@@ -116,15 +102,6 @@ that checklist.
     checks when the battle starts and ends and which tiles light up.
   - Verify: the replay test goes red when the battle exit debounce or the enter signal is broken on
     purpose, and green again on revert; suite green.
-- [TM-2] 2026-07-21: Confirm live that a battle reset re-lights the refunded treasure tile. Parked 2026-11-02 by the owner's quality pause; it was AWAITING-LIVE in Now.
-  - Done means: the owner has seen it happen on screen: claim a treasure, reset the battle so
-    the item is taken back, and the tile's glow returns. The code path is built and unit-tested
-    but has never been watched working live. (Tech: the refund re-light in
-    TreasureMaster claim detection, behind Config.HideClaimedTiles; 5 refund tests proven
-    non-vacuous per handoff.md.)
-  - Verify: owner-only flip after seeing the re-light in a live session; note the map and item
-    used.
-
 - [TM-9] 2026-10-19: Make the release zip unpack into a real mod folder on Linux. Parked 2026-11-02 by the owner's quality pause; it was BUILDING in Now.
   - Done means: a player on Linux who unzips the Nexus download gets a prawl.fft.treasuremaster
     folder with the mod inside, the same as a Windows player, and the packager refuses to
